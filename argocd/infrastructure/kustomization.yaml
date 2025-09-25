@@ -1,0 +1,17 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+metadata:
+  name: encabulator-infrastructure
+  annotations:
+    description: "Infrastructure components managed by ArgoCD"
+
+resources:
+  - ack-controllers.yaml
+  - aws-resources.yaml
+  - resource-orchestration.yaml
+
+commonLabels:
+  app.kubernetes.io/name: cloud-native-encabulator
+  app.kubernetes.io/component: infrastructure
+  app.kubernetes.io/managed-by: argocd

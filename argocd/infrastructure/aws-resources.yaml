@@ -1,0 +1,55 @@
+# AWS Resources managed via ACK Custom Resources
+# This file will contain AWS resource definitions
+
+# Placeholder for AWS Resources via ACK
+# Will be populated in Task 2.4: Create Infrastructure as Code with ACK
+#
+# Example resources to be defined:
+#
+# RDS PostgreSQL Instance:
+# apiVersion: rds.services.k8s.aws/v1alpha1
+# kind: DBInstance
+# metadata:
+#   name: encabulator-postgres
+#   namespace: encabulator-data
+# spec:
+#   dbInstanceIdentifier: encabulator-postgres
+#   dbInstanceClass: db.t3.micro
+#   engine: postgres
+#   engineVersion: "14.9"
+#   masterUsername: encabulator_user
+#   allocatedStorage: 20
+#
+# ElastiCache Redis Cluster:
+# apiVersion: elasticache.services.k8s.aws/v1alpha1
+# kind: CacheCluster
+# metadata:
+#   name: encabulator-redis
+#   namespace: encabulator-data
+# spec:
+#   cacheClusterId: cloud-native-encabulator-redis
+#   cacheNodeType: cache.t3.micro
+#   engine: redis
+#   numCacheNodes: 1
+#
+# IAM Role for Service Account:
+# apiVersion: iam.services.k8s.aws/v1alpha1
+# kind: Role
+# metadata:
+#   name: encabulator-service-role
+#   namespace: ack-system
+# spec:
+#   roleName: EncabulatorServiceRole
+#   assumeRolePolicyDocument: |
+#     {
+#       "Version": "2012-10-17",
+#       "Statement": [
+#         {
+#           "Effect": "Allow",
+#           "Principal": {
+#             "Federated": "arn:aws:iam::ACCOUNT:oidc-provider/OIDC_PROVIDER"
+#           },
+#           "Action": "sts:AssumeRoleWithWebIdentity"
+#         }
+#       ]
+#     }

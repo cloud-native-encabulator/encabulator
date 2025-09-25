@@ -1,0 +1,51 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: encabulator-system
+  labels:
+    app.kubernetes.io/name: cloud-native-encabulator
+    app.kubernetes.io/component: system
+    app.kubernetes.io/part-of: cloud-native-encabulator-microservices
+    app.kubernetes.io/managed-by: argocd
+    cloud-native-encabulator.io/plane: system
+  annotations:
+    description: "Core system components for Cloud Native Encabulator Microservices Demo"
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: encabulator-data
+  labels:
+    app.kubernetes.io/name: cloud-native-encabulator
+    app.kubernetes.io/component: data
+    app.kubernetes.io/part-of: cloud-native-encabulator-microservices
+    app.kubernetes.io/managed-by: argocd
+    cloud-native-encabulator.io/plane: data
+  annotations:
+    description: "Data plane components for Cloud Native Encabulator Microservices Demo"
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: encabulator-monitoring
+  labels:
+    app.kubernetes.io/name: cloud-native-encabulator
+    app.kubernetes.io/component: monitoring
+    app.kubernetes.io/part-of: cloud-native-encabulator-microservices
+    app.kubernetes.io/managed-by: argocd
+    cloud-native-encabulator.io/plane: observability
+  annotations:
+    description: "Monitoring and observability components for Cloud Native Encabulator Microservices Demo"
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: encabulator-control
+  labels:
+    app.kubernetes.io/name: cloud-native-encabulator
+    app.kubernetes.io/component: control
+    app.kubernetes.io/part-of: cloud-native-encabulator-microservices
+    app.kubernetes.io/managed-by: argocd
+    cloud-native-encabulator.io/plane: control
+  annotations:
+    description: "Control plane components for interactive system management and demonstration"

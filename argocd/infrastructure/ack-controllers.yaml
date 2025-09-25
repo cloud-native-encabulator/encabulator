@@ -1,0 +1,24 @@
+# AWS Controllers for Kubernetes (ACK) Installation
+# This file will contain ACK controller installations
+
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: ack-system
+  labels:
+    app.kubernetes.io/name: ack-controllers
+    app.kubernetes.io/component: infrastructure
+    app.kubernetes.io/managed-by: argocd
+
+---
+# Placeholder for ACK Controllers
+# Will be populated in Task 2.1: Set up AWS Controllers for Kubernetes (ACK)
+#
+# Example controllers to be installed:
+# - RDS Controller (for PostgreSQL instances)
+# - ElastiCache Controller (for Redis clusters)  
+# - IAM Controller (for roles and policies)
+# - VPC Controller (for networking resources)
+#
+# Each controller will be installed via Helm charts or direct manifests
+# and configured to manage AWS resources through Kubernetes Custom Resources

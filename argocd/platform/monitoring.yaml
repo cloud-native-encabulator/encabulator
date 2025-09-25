@@ -1,0 +1,21 @@
+# Monitoring Stack for Cloud Native Encabulator
+# This will include Prometheus, Grafana, and Jaeger
+
+# Placeholder for Monitoring Stack
+# Will be populated in Task 6: Implement observability infrastructure
+#
+# This will include:
+# - Prometheus for metrics collection
+# - Grafana for dashboards and visualization
+# - Jaeger for distributed tracing
+# - AlertManager for alerting
+#
+# The monitoring stack will be deployed using the existing manifests from:
+# infrastructure/kubernetes/base/monitoring-services.yaml
+# infrastructure/kubernetes/base/config-secrets.yaml
+#
+# These will be migrated to ArgoCD management and enhanced with:
+# - Service monitors for automatic service discovery
+# - Custom dashboards for Cloud Native Encabulator services
+# - Alerting rules for critical service health
+# - Integration with KRO for resource optimization metrics

@@ -1,0 +1,136 @@
+# Kube Resource Orchestrator (KRO) for Custom Resource Composition
+# KRO creates custom APIs for complex multi-resource deployments
+# EKS Auto Mode handles node management automatically
+
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: kro-system
+  labels:
+    app.kubernetes.io/name: kube-resource-orchestrator
+    app.kubernetes.io/component: infrastructure
+    app.kubernetes.io/managed-by: argocd
+
+---
+# Kube Resource Orchestrator (KRO) Installation
+# Will be populated in Task 2.2: Implement Kube Resource Orchestrator (KRO)
+#
+# KRO creates custom APIs for complex multi-resource deployments:
+# - Define ResourceGroups that create custom Kubernetes APIs
+# - Orchestrate multiple ACK resources as single composite units
+# - Handle resource dependencies and creation ordering automatically
+# - Generate CRDs and controllers dynamically from ResourceGroup definitions
+#
+# Example KRO ResourceGroup for EncabulatorDatabase:
+# apiVersion: kro.run/v1alpha1
+# kind: ResourceGroup
+# metadata:
+#   name: encabulator-database-rg
+#   namespace: kro-system
+# spec:
+#   schema:
+#     apiVersion: v1alpha1
+#     kind: EncabulatorDatabase
+#     spec:
+#       name: string
+#       engine: string | default="postgres"
+#       instanceClass: string | default="db.t3.micro"
+#   resources:
+#     - id: rds-instance
+#       template:
+#         apiVersion: rds.services.k8s.aws/v1alpha1
+#         kind: DBInstance
+#         # ... RDS configuration
+#     - id: security-group
+#       template:
+#         apiVersion: ec2.services.k8s.aws/v1alpha1
+#         kind: SecurityGroup
+#         # ... Security group configuration
+
+---
+# Vertical Pod Autoscaler (VPA) for right-sizing
+# Complements KRO with automatic resource request/limit adjustments
+# Example VPA configuration:
+# apiVersion: autoscaling.k8s.io/v1
+# kind: VerticalPodAutoscaler
+# metadata:
+#   name: encabulator-data-vpa
+#   namespace: encabulator-data
+# spec:
+#   targetRef:
+#     apiVersion: apps/v1
+#     kind: StatefulSet
+#     name: postgres
+#   updatePolicy:
+#     updateMode: "Auto"
+#   resourcePolicy:
+#     containerPolicies:
+#     - containerName: postgres
+#       maxAllowed:
+#         cpu: 2
+#         memory: 4Gi
+#       minAllowed:
+#         cpu: 100m
+#         memory: 128Mi
+
+---
+# Horizontal Pod Autoscaler (HPA) for scaling
+# Works with KRO for intelligent horizontal scaling decisions
+# Example HPA configuration:
+# apiVersion: autoscaling/v2
+# kind: HorizontalPodAutoscaler
+# metadata:
+#   name: cloud-native-processing-hpa
+#   namespace: encabulator-system
+# spec:
+#   scaleTargetRef:
+#     apiVersion: apps/v1
+#     kind: Deployment
+#     name: panametric-fam-processor
+#   minReplicas: 1
+#   maxReplicas: 10
+#   metrics:
+#   - type: Resource
+#     resource:
+#       name: cpu
+#       target:
+#         type: Utilization
+#         averageUtilization: 70
+#   - type: Resource
+#     resource:
+#       name: memory
+#       target:
+#         type: Utilization
+#         averageUtilization: 80
+
+---
+# KEDA for event-driven autoscaling
+# Integrates with KRO for intelligent event-driven scaling
+# Example KEDA ScaledObject:
+# apiVersion: keda.sh/v1alpha1
+# kind: ScaledObject
+# metadata:
+#   name: encabulator-message-scaler
+#   namespace: encabulator-system
+# spec:
+#   scaleTargetRef:
+#     name: logarithmic-casing-service
+#   minReplicaCount: 1
+#   maxReplicaCount: 20
+#   triggers:
+#   - type: prometheus
+#     metadata:
+#       serverAddress: http://prometheus.encabulator-monitoring:9090
+#       metricName: nats_pending_messages
+#       threshold: '10'
+#       query: sum(nats_stream_pending_messages{stream="encabulator-events"})
+
+---
+# Note: EKS Auto Mode handles node management automatically
+# No need for Karpenter or manual node group configuration
+# EKS Auto Mode provides:
+# - Automatic node provisioning and scaling
+# - Optimal instance type selection
+# - Spot instance integration
+# - Cost optimization
+# - Zero-touch node management

@@ -1,0 +1,17 @@
+# Control Plane Applications
+# This includes interactive system control, chaos engineering, and demo orchestration
+
+# Placeholder for Control Plane Services
+# Will be populated in Task 6: Implement Control Plane components
+#
+# Services to be included:
+# - Encabulation Control Console (React web application)
+# - Malaise Injection Engine (Chaos engineering operator)
+# - Demo Scenario Orchestrator (Demo and traffic generation)
+#
+# These services will:
+# - Provide interactive visual control of the entire system
+# - Enable chaos engineering and resilience testing
+# - Support demonstration scenarios and educational workflows
+# - Integrate with ArgoCD for GitOps visualization and control
+# - Provide real-time system monitoring and manipulation capabilities
