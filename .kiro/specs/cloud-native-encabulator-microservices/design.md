@@ -15,7 +15,7 @@ The Cloud Native Encabulator Microservices Demo follows a modern microservices a
 1. **Data Plane**: Responsible for data storage, persistence, and caching
 2. **Processing Plane**: Handles core business logic, message routing, and API gateway functionality
 3. **Support Plane**: Provides cross-cutting concerns like authentication, configuration, and resource management
-4. **Control Plane**: Provides interactive system control, demonstration capabilities, and chaos engineering
+4. **Control Plane**: Provides interactive system control, demonstration capabilities, chaos engineering, and advanced traffic simulation
 
 ```mermaid
 graph TD
@@ -66,11 +66,15 @@ graph TD
     ControlConsole --> Config
     ControlConsole --> Processor
     ControlConsole --> Gateway
+    ControlConsole --> TrafficEngine
     ChaosEngine --> Processor
     ChaosEngine --> PrimaryDB
     ChaosEngine --> Cache
+    TrafficEngine --> Gateway
+    TrafficEngine --> Processor
     DemoOrchestrator --> ControlConsole
     DemoOrchestrator --> ChaosEngine
+    DemoOrchestrator --> TrafficEngine
 ```
 
 ### Deployment Architecture
@@ -122,6 +126,7 @@ graph TD
             ControlConsole[Encabulation Control Console]
             ChaosEngine[Malaise Injection Engine]
             DemoOrchestrator[Demo Scenario Orchestrator]
+            TrafficEngine[Unilateral Phase Detractor Engine]
         end
     end
 
@@ -311,7 +316,7 @@ graph TD
 **Implementation**:
 
 - Scenario definition and execution engine
-- Traffic generation and load simulation
+- Coordination with Unilateral Phase Detractor Engine for traffic simulation
 - Automated demonstration workflows
 - Integration with monitoring for visual feedback
 
@@ -319,13 +324,57 @@ graph TD
 
 - REST API for scenario management
 - Integration with Control Console for scenario execution
-- Traffic generation APIs for load simulation
+- Coordination APIs with traffic simulation engine
 
 **Technology Stack**:
 
 - Go-based orchestration service
-- Integration with load testing tools (k6, Artillery)
+- Integration with Unilateral Phase Detractor Engine
 - Scenario definitions as Kubernetes ConfigMaps
+
+#### 4. Unilateral Phase Detractor Engine
+
+**Purpose**: Advanced traffic simulation and load generation with configurable parameters for realistic system testing and educational demonstrations.
+
+**Implementation**:
+
+- Sophisticated traffic pattern generation engine
+- Configurable parameters using Cloud Native Encabulator terminology
+- Real-time traffic pattern adjustment and monitoring
+- Integration with observability stack for impact visualization
+
+**Interfaces**:
+
+- REST API for traffic pattern configuration and control
+- WebSocket API for real-time traffic pattern updates
+- Integration with Control Console for visual traffic control
+- Metrics API for traffic simulation telemetry
+
+**Technology Stack**:
+
+- Go-based traffic generation engine with high-performance HTTP client pools
+- Custom traffic pattern algorithms with configurable parameters
+- Integration with Prometheus for traffic metrics
+- Kubernetes Deployment with HPA for scalable load generation
+
+**Traffic Parameters (Encabulator Terminology)**:
+
+- **Magneto Reluctance**: Controls request frequency, distribution patterns, and temporal characteristics
+
+  - Low reluctance: High frequency, steady traffic patterns
+  - High reluctance: Bursty, irregular traffic patterns
+  - Variable reluctance: Dynamic traffic patterns that change over time
+
+- **Capacitive Diractants**: Simulates different client behavior patterns and request complexity
+
+  - Low diractance: Simple requests, minimal payload, fast processing
+  - High diractance: Complex requests, large payloads, resource-intensive operations
+  - Reactive diractance: Adaptive request patterns based on system response
+
+- **Modial Interaction Coefficient**: Overall system load and interaction complexity
+  - Measures the combined effect of traffic patterns on system behavior
+  - Provides feedback for automatic traffic pattern optimization
+  - Enables educational visualization of load impact on system performance
 
 ### Data Plane Components
 
@@ -720,8 +769,6 @@ The system implements continuous testing with the following characteristics:
    - Synthetic data generation for testing
    - Data anonymization for production-like testing
    - Test data versioning and management
-
-
 
 ## Open Source Compliance
 
