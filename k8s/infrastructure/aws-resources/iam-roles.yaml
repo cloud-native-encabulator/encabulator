@@ -1,0 +1,87 @@
+# IAM Roles and Policies for Cloud Native Encabulator Services
+apiVersion: iam.services.k8s.aws/v1alpha1
+kind: Role
+metadata:
+  name: encabulator-data-plane-role
+  namespace: ack-system
+  labels:
+    app.kubernetes.io/name: encabulator-data-plane-role
+    app.kubernetes.io/component: infrastructure
+spec:
+  roleName: CloudNativeEncabulatorDataPlaneRole
+  description: "IAM role for Cloud Native Encabulator Data Plane services"
+  assumeRolePolicyDocument: |
+    {
+      "Version": "2012-10-17",
+      "Statement": [
+        {
+          "Effect": "Allow",
+          "Principal": {
+            "Federated": "arn:aws:iam::ACCOUNT_ID:oidc-provider/OIDC_PROVIDER_URL"
+          },
+          "Action": "sts:AssumeRoleWithWebIdentity",
+          "Condition": {
+            "StringEquals": {
+              "OIDC_PROVIDER_URL:sub": "system:serviceaccount:encabulator-data:hydrocoptic-datastore",
+              "OIDC_PROVIDER_URL:aud": "sts.amazonaws.com"
+            }
+          }
+        }
+      ]
+    }
+  tags:
+    - key: Environment
+      value: development
+    - key: Project
+      value: cloud-native-encabulator
+    - key: Component
+      value: data-plane
+    - key: ManagedBy
+      value: ack
+
+---
+# Note: IAM Policies and RolePolicyAttachments will be managed separately
+# or through AWS CLI/Console for now, as the ACK IAM controller CRDs
+# for these resources may not be available in all versions
+
+---
+# Processing Plane IAM Role
+apiVersion: iam.services.k8s.aws/v1alpha1
+kind: Role
+metadata:
+  name: encabulator-processing-plane-role
+  namespace: ack-system
+  labels:
+    app.kubernetes.io/name: encabulator-processing-plane-role
+    app.kubernetes.io/component: infrastructure
+spec:
+  roleName: CloudNativeEncabulatorProcessingPlaneRole
+  description: "IAM role for Cloud Native Encabulator Processing Plane services"
+  assumeRolePolicyDocument: |
+    {
+      "Version": "2012-10-17",
+      "Statement": [
+        {
+          "Effect": "Allow",
+          "Principal": {
+            "Federated": "arn:aws:iam::ACCOUNT_ID:oidc-provider/OIDC_PROVIDER_URL"
+          },
+          "Action": "sts:AssumeRoleWithWebIdentity",
+          "Condition": {
+            "StringEquals": {
+              "OIDC_PROVIDER_URL:sub": "system:serviceaccount:encabulator-system:panametric-fam-processor",
+              "OIDC_PROVIDER_URL:aud": "sts.amazonaws.com"
+            }
+          }
+        }
+      ]
+    }
+  tags:
+    - key: Environment
+      value: development
+    - key: Project
+      value: cloud-native-encabulator
+    - key: Component
+      value: processing-plane
+    - key: ManagedBy
+      value: ack

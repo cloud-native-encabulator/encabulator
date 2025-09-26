@@ -1,0 +1,58 @@
+# ACK ElastiCache Controller Installation via OCI Helm Chart
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: ack-elasticache-controller
+  namespace: argocd
+  labels:
+    app.kubernetes.io/name: ack-elasticache-controller
+    app.kubernetes.io/component: infrastructure
+spec:
+  project: default
+  source:
+    repoURL: oci://public.ecr.aws/aws-controllers-k8s
+    chart: elasticache-chart
+    targetRevision: "1.0.14"
+    helm:
+      releaseName: ack-elasticache-controller
+      values: |
+        aws:
+          region: us-east-2
+        serviceAccount:
+          annotations:
+            eks.amazonaws.com/role-arn: arn:aws:iam::ACCOUNT_ID:role/ack-elasticache-controller
+        resources:
+          limits:
+            cpu: 100m
+            memory: 300Mi
+          requests:
+            cpu: 50m
+            memory: 200Mi
+        nodeSelector:
+          kubernetes.io/os: linux
+        tolerations: []
+        affinity: {}
+        deployment:
+          annotations: {}
+          labels: {}
+        log:
+          level: info
+        resourceTags:
+          - ManagedBy=ACK
+          - Project=cloud-native-encabulator
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: ack-system
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+      - ServerSideApply=true
+    retry:
+      limit: 5
+      backoff:
+        duration: 5s
+        factor: 2
+        maxDuration: 3m

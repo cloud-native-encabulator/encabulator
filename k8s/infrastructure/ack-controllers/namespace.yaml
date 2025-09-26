@@ -1,0 +1,9 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: ack-system
+  labels:
+    app.kubernetes.io/name: ack-controllers
+    app.kubernetes.io/component: infrastructure
+    app.kubernetes.io/managed-by: argocd
+    control-plane: ack-system

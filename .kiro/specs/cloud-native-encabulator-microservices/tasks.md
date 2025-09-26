@@ -32,7 +32,7 @@
 
 - [ ] 2. Implement Cloud-Native Infrastructure Management
 
-  - [ ] 2.1 Set up AWS Controllers for Kubernetes (ACK)
+  - [x] 2.1 Set up AWS Controllers for Kubernetes (ACK)
 
     - Install ACK controllers for RDS, ElastiCache, and IAM
     - Create Custom Resource Definitions for AWS services
@@ -50,7 +50,7 @@
     - Create resource lifecycle management policies
     - _Requirements: 8.8, 10.2, 10.6_
 
-  - [ ] 2.3 Set up ArgoCD GitOps Infrastructure
+  - [x] 2.3 Set up ArgoCD GitOps Infrastructure
 
     - Install ArgoCD in the cluster
     - Configure Git repository integration

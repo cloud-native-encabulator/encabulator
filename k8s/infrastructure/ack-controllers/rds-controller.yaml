@@ -1,0 +1,152 @@
+# ACK RDS Controller Installation
+# Direct Kubernetes manifests for RDS controller
+# For ArgoCD deployment, see argocd/infrastructure/ack-controllers-apps/
+
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: ack-rds-controller
+  namespace: ack-system
+  annotations:
+    eks.amazonaws.com/role-arn: arn:aws:iam::ACCOUNT_ID:role/ack-rds-controller
+  labels:
+    app.kubernetes.io/name: ack-rds-controller
+    app.kubernetes.io/component: infrastructure
+
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: ack-rds-controller
+  labels:
+    app.kubernetes.io/name: ack-rds-controller
+    app.kubernetes.io/component: infrastructure
+rules:
+- apiGroups:
+  - ""
+  resources:
+  - configmaps
+  - secrets
+  verbs:
+  - get
+  - list
+  - patch
+  - watch
+- apiGroups:
+  - ""
+  resources:
+  - namespaces
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - ""
+  resources:
+  - events
+  verbs:
+  - create
+  - patch
+- apiGroups:
+  - rds.services.k8s.aws
+  resources:
+  - "*"
+  verbs:
+  - "*"
+- apiGroups:
+  - services.k8s.aws
+  resources:
+  - adoptedresources
+  - fieldexports
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: ack-rds-controller
+  labels:
+    app.kubernetes.io/name: ack-rds-controller
+    app.kubernetes.io/component: infrastructure
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: ack-rds-controller
+subjects:
+- kind: ServiceAccount
+  name: ack-rds-controller
+  namespace: ack-system
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ack-rds-controller
+  namespace: ack-system
+  labels:
+    app.kubernetes.io/name: ack-rds-controller
+    app.kubernetes.io/component: infrastructure
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: ack-rds-controller
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: ack-rds-controller
+    spec:
+      serviceAccountName: ack-rds-controller
+      containers:
+      - name: controller
+        image: public.ecr.aws/aws-controllers-k8s/rds-controller:1.2.11
+        args:
+        - --aws-region=us-east-2
+        - --log-level=info
+        - --resource-tags=ManagedBy=ACK,Project=cloud-native-encabulator
+        env:
+        - name: AWS_REGION
+          value: us-east-2
+        - name: ACK_SYSTEM_NAMESPACE
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.namespace
+        - name: ACK_WATCH_NAMESPACE
+          value: ""
+        resources:
+          limits:
+            cpu: 100m
+            memory: 300Mi
+          requests:
+            cpu: 50m
+            memory: 200Mi
+        securityContext:
+          allowPrivilegeEscalation: false
+          readOnlyRootFilesystem: true
+          runAsNonRoot: true
+        ports:
+        - containerPort: 8080
+          name: http
+          protocol: TCP
+        - containerPort: 8443
+          name: webhook-server
+          protocol: TCP
+        livenessProbe:
+          httpGet:
+            path: /healthz
+            port: 8080
+          initialDelaySeconds: 15
+          periodSeconds: 20
+        readinessProbe:
+          httpGet:
+            path: /readyz
+            port: 8080
+          initialDelaySeconds: 5
+          periodSeconds: 10

@@ -1,0 +1,138 @@
+# ArgoCD Projects for Cloud Native Encabulator
+# Projects provide logical grouping and RBAC for applications
+
+apiVersion: argoproj.io/v1alpha1
+kind: AppProject
+metadata:
+  name: cloud-native-encabulator
+  namespace: argocd
+  labels:
+    app.kubernetes.io/name: cloud-native-encabulator-project
+    app.kubernetes.io/component: platform
+spec:
+  description: "Cloud Native Encabulator Microservices Demo Project"
+  
+  # Source repositories
+  sourceRepos:
+  - 'https://github.com/your-org/cloud-native-encabulator-microservices.git'
+  - 'oci://public.ecr.aws/aws-controllers-k8s/*'
+  - 'https://charts.jetstack.io'  # For cert-manager if needed
+  - 'https://prometheus-community.github.io/helm-charts'  # For monitoring
+  
+  # Destination clusters and namespaces
+  destinations:
+  - namespace: '*'
+    server: https://kubernetes.default.svc
+  
+  # Cluster resource whitelist
+  clusterResourceWhitelist:
+  - group: ''
+    kind: Namespace
+  - group: rbac.authorization.k8s.io
+    kind: ClusterRole
+  - group: rbac.authorization.k8s.io
+    kind: ClusterRoleBinding
+  - group: apiextensions.k8s.io
+    kind: CustomResourceDefinition
+  - group: admissionregistration.k8s.io
+    kind: MutatingWebhookConfiguration
+  - group: admissionregistration.k8s.io
+    kind: ValidatingWebhookConfiguration
+  - group: rds.services.k8s.aws
+    kind: '*'
+  - group: elasticache.services.k8s.aws
+    kind: '*'
+  - group: iam.services.k8s.aws
+    kind: '*'
+  - group: services.k8s.aws
+    kind: '*'
+  
+  # Namespace resource whitelist
+  namespaceResourceWhitelist:
+  - group: ''
+    kind: '*'
+  - group: apps
+    kind: '*'
+  - group: batch
+    kind: '*'
+  - group: extensions
+    kind: '*'
+  - group: networking.k8s.io
+    kind: '*'
+  - group: policy
+    kind: '*'
+  - group: autoscaling
+    kind: '*'
+  - group: monitoring.coreos.com
+    kind: '*'
+  - group: rds.services.k8s.aws
+    kind: '*'
+  - group: elasticache.services.k8s.aws
+    kind: '*'
+  - group: iam.services.k8s.aws
+    kind: '*'
+  - group: services.k8s.aws
+    kind: '*'
+  
+  # Roles for RBAC
+  roles:
+  - name: admin
+    description: "Full access to Cloud Native Encabulator applications"
+    policies:
+    - p, proj:cloud-native-encabulator:admin, applications, *, cloud-native-encabulator/*, allow
+    - p, proj:cloud-native-encabulator:admin, repositories, *, *, allow
+    - p, proj:cloud-native-encabulator:admin, clusters, *, *, allow
+    groups:
+    - argocd-admins
+  
+  - name: developer
+    description: "Developer access to Cloud Native Encabulator applications"
+    policies:
+    - p, proj:cloud-native-encabulator:developer, applications, get, cloud-native-encabulator/*, allow
+    - p, proj:cloud-native-encabulator:developer, applications, sync, cloud-native-encabulator/*, allow
+    - p, proj:cloud-native-encabulator:developer, repositories, get, *, allow
+    groups:
+    - argocd-developers
+
+---
+# Infrastructure Project for platform components
+apiVersion: argoproj.io/v1alpha1
+kind: AppProject
+metadata:
+  name: infrastructure
+  namespace: argocd
+  labels:
+    app.kubernetes.io/name: infrastructure-project
+    app.kubernetes.io/component: platform
+spec:
+  description: "Infrastructure and platform components"
+  
+  sourceRepos:
+  - 'https://github.com/your-org/cloud-native-encabulator-microservices.git'
+  - 'oci://public.ecr.aws/aws-controllers-k8s/*'
+  - 'https://charts.jetstack.io'
+  - 'https://prometheus-community.github.io/helm-charts'
+  - 'https://grafana.github.io/helm-charts'
+  - 'https://jaegertracing.github.io/helm-charts'
+  
+  destinations:
+  - namespace: '*'
+    server: https://kubernetes.default.svc
+  
+  clusterResourceWhitelist:
+  - group: '*'
+    kind: '*'
+  
+  namespaceResourceWhitelist:
+  - group: '*'
+    kind: '*'
+  
+  roles:
+  - name: admin
+    description: "Full access to infrastructure applications"
+    policies:
+    - p, proj:infrastructure:admin, applications, *, infrastructure/*, allow
+    - p, proj:infrastructure:admin, repositories, *, *, allow
+    - p, proj:infrastructure:admin, clusters, *, *, allow
+    groups:
+    - argocd-admins

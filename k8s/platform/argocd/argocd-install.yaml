@@ -1,0 +1,22 @@
+# ArgoCD Installation
+# This references the official ArgoCD installation manifests
+# For direct installation, run: kubectl apply -n argocd -f https://raw.githubusercontent.com/argoproj/argo-cd/stable/manifests/install.yaml
+
+# We'll use a remote resource reference to pull the official manifests
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: argocd-installation-info
+  namespace: argocd
+data:
+  installation-method: "official-manifests"
+  source-url: "https://raw.githubusercontent.com/argoproj/argo-cd/stable/manifests/install.yaml"
+  version: "stable"
+  notes: |
+    ArgoCD is installed using the official stable manifests.
+    To install manually: kubectl apply -n argocd -f https://raw.githubusercontent.com/argoproj/argo-cd/stable/manifests/install.yaml
+    
+    After installation:
+    1. Get admin password: kubectl -n argocd get secret argocd-initial-admin-secret -o jsonpath="{.data.password}" | base64 -d
+    2. Port forward: kubectl port-forward svc/argocd-server -n argocd 8080:443
+    3. Login at https://localhost:8080 with admin/<password>

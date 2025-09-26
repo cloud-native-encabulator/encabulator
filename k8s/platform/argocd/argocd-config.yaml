@@ -1,0 +1,97 @@
+# ArgoCD Configuration for Cloud Native Encabulator
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: argocd-cm
+  namespace: argocd
+  labels:
+    app.kubernetes.io/name: argocd-cm
+    app.kubernetes.io/part-of: argocd
+data:
+  # Application instance label key
+  application.instanceLabelKey: argocd.argoproj.io/instance
+  
+  # Server configuration
+  server.insecure: "true"  # For development - set to false for production
+  
+  # Repository configuration
+  repositories: |
+    - type: git
+      url: https://github.com/REPLACE_WITH_YOUR_ORG/cloud-native-encabulator-microservices.git
+      name: cloud-native-encabulator
+    - type: helm
+      url: oci://public.ecr.aws/aws-controllers-k8s
+      name: aws-controllers-k8s
+      enableOCI: "true"
+  
+  # Resource customizations
+  resource.customizations: |
+    argoproj.io/Application:
+      health.lua: |
+        hs = {}
+        hs.status = "Progressing"
+        hs.message = ""
+        if obj.status ~= nil then
+          if obj.status.health ~= nil then
+            hs.status = obj.status.health.status
+            if obj.status.health.message ~= nil then
+              hs.message = obj.status.health.message
+            end
+          end
+        end
+        return hs
+  
+  # URL configuration (update for your environment)
+  url: https://argocd.encabulator.local
+  
+  # OIDC configuration (optional)
+  # oidc.config: |
+  #   name: OIDC
+  #   issuer: https://your-oidc-provider
+  #   clientId: argocd
+  #   clientSecret: $oidc.clientSecret
+  #   requestedScopes: ["openid", "profile", "email", "groups"]
+
+---
+# ArgoCD Server Configuration
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: argocd-server-config
+  namespace: argocd
+  labels:
+    app.kubernetes.io/name: argocd-server-config
+    app.kubernetes.io/part-of: argocd
+data:
+  # Server configuration
+  insecure: "true"  # For development
+  
+  # Resource inclusions/exclusions
+  resource.inclusions: |
+    - apiGroups:
+      - "*"
+      kinds:
+      - "*"
+      clusters:
+      - "*"
+  
+  # Application configuration
+  application.instanceLabelKey: argocd.argoproj.io/instance
+
+---
+# ArgoCD Repository Server Configuration
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: argocd-repo-server-config
+  namespace: argocd
+  labels:
+    app.kubernetes.io/name: argocd-repo-server-config
+    app.kubernetes.io/part-of: argocd
+data:
+  # Helm configuration
+  helm.repositories: |
+    - name: aws-controllers-k8s
+      url: oci://public.ecr.aws/aws-controllers-k8s
+      type: oci
+      enableOCI: true

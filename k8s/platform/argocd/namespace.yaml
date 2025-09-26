@@ -1,0 +1,10 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: argocd
+  labels:
+    app.kubernetes.io/name: argocd
+    app.kubernetes.io/component: platform
+    encabulator.io/platform: gitops
+    # Enable ArgoCD to manage resources in this namespace
+    argocd.argoproj.io/managed-by: argocd
