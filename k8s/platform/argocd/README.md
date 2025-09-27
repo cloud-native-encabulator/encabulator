@@ -36,6 +36,7 @@ This directory contains the ArgoCD installation and configuration for the Cloud 
 ### Projects
 
 1. **infrastructure** - Platform and infrastructure components
+
    - ACK Controllers
    - AWS Resources
    - KRO (Kube Resource Orchestrator)
@@ -78,11 +79,13 @@ kubectl port-forward svc/argocd-server -n argocd 8080:443
 ### Access ArgoCD
 
 1. **Get admin password**:
+
    ```bash
    kubectl -n argocd get secret argocd-initial-admin-secret -o jsonpath="{.data.password}" | base64 -d
    ```
 
 2. **Port forward**:
+
    ```bash
    kubectl port-forward svc/argocd-server -n argocd 8080:443
    ```
@@ -96,18 +99,17 @@ kubectl port-forward svc/argocd-server -n argocd 8080:443
 
 ### Repository Configuration
 
-Update the repository URL in `argocd-config.yaml`:
+**Important**: Before deploying, configure your repository URL:
 
-```yaml
-repositories: |
-  - type: git
-    url: https://github.com/your-org/cloud-native-encabulator-microservices.git
-    name: cloud-native-encabulator
+```bash
+./scripts/setup/configure-repository.sh
 ```
+
+This updates all ArgoCD configurations with your actual repository URL, replacing `REPLACE_WITH_YOUR_ORG` placeholders.
 
 ### OCI Registry Support
 
-ArgoCD is configured to support OCI Helm charts from AWS ECR Public:
+ArgoCD is pre-configured to support OCI Helm charts from AWS ECR Public for ACK controllers:
 
 ```yaml
 repositories: |
@@ -116,6 +118,8 @@ repositories: |
     name: aws-controllers-k8s
     enableOCI: "true"
 ```
+
+This enables direct deployment of ACK controllers using official OCI Helm charts.
 
 ### RBAC Configuration
 
@@ -170,11 +174,13 @@ argocd app list  # (requires argocd CLI)
 ### Common Issues
 
 1. **Application not syncing**:
+
    ```bash
    kubectl logs -n argocd deployment/argocd-application-controller
    ```
 
 2. **Repository access issues**:
+
    ```bash
    kubectl logs -n argocd deployment/argocd-repo-server
    ```
@@ -199,10 +205,12 @@ kubectl get applications -n argocd -o wide
 ### Development vs Production
 
 Current configuration is set for development:
+
 - `server.insecure: "true"` - Disables TLS
 - Self-signed certificates accepted
 
 For production:
+
 1. Enable TLS with proper certificates
 2. Configure OIDC/SSO integration
 3. Implement proper RBAC policies
@@ -212,6 +220,7 @@ For production:
 ### RBAC
 
 Projects provide isolation and access control:
+
 - Infrastructure project for platform components
 - Application project for business applications
 - Role-based access for different user types
@@ -249,6 +258,7 @@ ArgoCD manages the entire Cloud Native Encabulator system:
 5. **Continuous Deployment**: Automatic updates from Git changes
 
 This GitOps approach ensures:
+
 - Declarative infrastructure and application management
 - Version-controlled system state
 - Automated deployment and rollback capabilities
