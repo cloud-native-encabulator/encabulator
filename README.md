@@ -33,72 +33,97 @@ The system is organized into three main planes:
 
 ## Quick Start
 
-### Prerequisites
+### 🧪 Testing First (Recommended)
 
-- EKS cluster (or any Kubernetes cluster)
-- kubectl configured with cluster access
-- AWS CLI configured
-- Helm (recommended)
-
-### GitOps Development Setup
+Start with local testing to validate the platform before deploying to AWS:
 
 ```bash
 # Clone the repository
 git clone <repository-url>
 cd cloud-native-encabulator-microservices
 
+# Run local tests (requires Docker + kind/minikube/k3d)
+./scripts/test/local-test.sh
+
+# Access local services
+kubectl port-forward -n encabulator-monitoring svc/encabulator-observability-grafana 3000:3000
+```
+
+See [TESTING.md](TESTING.md) for comprehensive testing guide.
+
+### ☁️ Development Cluster Deployment
+
+For full AWS integration testing:
+
+#### Prerequisites
+- EKS cluster (or any Kubernetes cluster)
+- kubectl configured with cluster access
+- AWS CLI configured
+- Helm
+
+#### Setup and Deploy
+```bash
 # Ensure your EKS cluster context is active
 aws eks update-kubeconfig --region <region> --name <cluster-name>
 
 # Verify setup and configure environment
 ./scripts/setup/eks-setup.sh
 
-# Bootstrap ArgoCD for GitOps deployment
-./scripts/deploy/bootstrap-argocd.sh
+# Deploy complete platform with KRO and observability
+./scripts/deploy/deploy-dev.sh
+
+# Check deployment status
+./scripts/deploy/status.sh
 ```
 
-### Access the Demo
+### 🌐 Access the Platform
 
-Once ArgoCD is bootstrapped, access the GitOps dashboard:
+After deployment, access the services:
 
 ```bash
-# ArgoCD UI
+# ArgoCD UI (GitOps dashboard)
 kubectl port-forward -n argocd svc/argocd-server 8080:443
-# Visit: https://localhost:8080 (admin/<generated-password>)
+# Visit: https://localhost:8080 (admin/<get-password-below>)
 
 # Get ArgoCD admin password
 kubectl -n argocd get secret argocd-initial-admin-secret -o jsonpath="{.data.password}" | base64 -d
+
+# Observability Stack
+kubectl port-forward -n encabulator-monitoring svc/encabulator-observability-grafana 3000:3000          # Grafana (admin/encabulator-dev-2024)
+kubectl port-forward -n encabulator-monitoring svc/encabulator-observability-metrics-prometheus 9090:9090  # Prometheus
+kubectl port-forward -n encabulator-tracing svc/encabulator-observability-tracing-jaeger 16686:16686        # Jaeger
 ```
 
-After services are deployed via ArgoCD, access them via port forwarding:
+### 🏗️ Platform Architecture
 
-```bash
-# Grafana Dashboard (when deployed)
-kubectl port-forward -n encabulator-monitoring svc/grafana 3000:3000
+This project uses a **KRO-based platform engineering approach**:
 
-# Prometheus Metrics (when deployed)
-kubectl port-forward -n encabulator-monitoring svc/prometheus 9090:9090
+- **KRO (Kube Resource Orchestrator)**: Creates custom APIs for complex resource compositions
+- **ArgoCD**: GitOps deployment and management
+- **ACK (AWS Controllers for Kubernetes)**: Native AWS resource management
+- **Custom ResourceGroups**: Simplified deployment of complex stacks
 
-# Jaeger Tracing (when deployed)
-kubectl port-forward -n encabulator-monitoring svc/jaeger 16686:16686
-```
+Instead of managing individual YAML files, deploy complete stacks with simple custom resources:
 
-### Alternative Local Setup
-
-For local development without EKS, you can manually create a Kubernetes cluster (kind, k3d, minikube) and then:
-
-```bash
-# Deploy to any Kubernetes cluster
-./scripts/deploy/deploy-eks.sh
+```yaml
+apiVersion: observability.encabulator.io/v1alpha1
+kind: ObservabilityStack
+metadata:
+  name: my-monitoring
+spec:
+  environment: development
+  # Automatically deploys Prometheus, Grafana, Jaeger, Loki
 ```
 
 ## Documentation
 
-- [Architecture Documentation](docs/architecture/)
-- [Deployment Guides](docs/deployment/)
-- [API Specifications](docs/api/)
-- [Troubleshooting Guide](docs/troubleshooting/)
-- [Cloud Native Encabulator Glossary](docs/glossary.md)
+- **[Testing Guide](TESTING.md)** - Local and development cluster testing
+- **[Setup Guide](SETUP.md)** - Environment setup and prerequisites  
+- **[Observability Platform](k8s/platform/observability/README.md)** - KRO-based monitoring stack
+- **[Infrastructure Management](k8s/infrastructure/README.md)** - ACK and KRO resource orchestration
+- [Architecture Documentation](docs/architecture/) *(coming soon)*
+- [API Specifications](docs/api/) *(coming soon)*
+- [Cloud Native Encabulator Glossary](docs/glossary.md) *(coming soon)*
 
 ## Technology Exploration Branches
 

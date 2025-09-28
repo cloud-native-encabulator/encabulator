@@ -1,0 +1,587 @@
+# ObservabilityStack ResourceGroup
+# Creates a composite custom API that orchestrates metrics, tracing, and logging
+apiVersion: kro.run/v1alpha1
+kind: ResourceGroup
+metadata:
+  name: observability-stack
+  namespace: kro-system
+  labels:
+    app.kubernetes.io/name: observability-stack
+    app.kubernetes.io/component: observability
+spec:
+  # Define the custom API schema
+  schema:
+    apiVersion: observability.encabulator.io/v1alpha1
+    kind: ObservabilityStack
+    spec:
+      type: object
+      properties:
+        environment:
+          type: string
+          enum: ["development", "staging", "production"]
+          default: "development"
+        metrics:
+          type: object
+          properties:
+            enabled:
+              type: boolean
+              default: true
+            retention:
+              type: string
+              default: "15d"
+            storage:
+              type: string
+              default: "10Gi"
+            alerting:
+              type: boolean
+              default: true
+            scrapeInterval:
+              type: string
+              default: "30s"
+            resources:
+              type: object
+              properties:
+                requests:
+                  type: object
+                  properties:
+                    cpu:
+                      type: string
+                      default: "200m"
+                    memory:
+                      type: string
+                      default: "512Mi"
+                limits:
+                  type: object
+                  properties:
+                    cpu:
+                      type: string
+                      default: "500m"
+                    memory:
+                      type: string
+                      default: "1Gi"
+        tracing:
+          type: object
+          properties:
+            enabled:
+              type: boolean
+              default: true
+            storage:
+              type: object
+              properties:
+                type:
+                  type: string
+                  enum: ["memory", "elasticsearch", "cassandra"]
+                  default: "memory"
+                retention:
+                  type: string
+                  default: "24h"
+                size:
+                  type: string
+                  default: "5Gi"
+            sampling:
+              type: object
+              properties:
+                strategy:
+                  type: string
+                  enum: ["const", "probabilistic", "rateLimiting", "adaptive"]
+                  default: "probabilistic"
+                param:
+                  type: number
+                  default: 0.1
+            resources:
+              type: object
+              properties:
+                requests:
+                  type: object
+                  properties:
+                    cpu:
+                      type: string
+                      default: "100m"
+                    memory:
+                      type: string
+                      default: "256Mi"
+                limits:
+                  type: object
+                  properties:
+                    cpu:
+                      type: string
+                      default: "300m"
+                    memory:
+                      type: string
+                      default: "512Mi"
+        logging:
+          type: object
+          properties:
+            enabled:
+              type: boolean
+              default: true
+            retention:
+              type: string
+              default: "7d"
+            storage:
+              type: string
+              default: "10Gi"
+            logLevel:
+              type: string
+              enum: ["debug", "info", "warn", "error"]
+              default: "info"
+            compaction:
+              type: boolean
+              default: true
+            resources:
+              type: object
+              properties:
+                loki:
+                  type: object
+                  properties:
+                    requests:
+                      type: object
+                      properties:
+                        cpu:
+                          type: string
+                          default: "200m"
+                        memory:
+                          type: string
+                          default: "512Mi"
+                    limits:
+                      type: object
+                      properties:
+                        cpu:
+                          type: string
+                          default: "500m"
+                        memory:
+                          type: string
+                          default: "1Gi"
+                promtail:
+                  type: object
+                  properties:
+                    requests:
+                      type: object
+                      properties:
+                        cpu:
+                          type: string
+                          default: "100m"
+                        memory:
+                          type: string
+                          default: "128Mi"
+                    limits:
+                      type: object
+                      properties:
+                        cpu:
+                          type: string
+                          default: "200m"
+                        memory:
+                          type: string
+                          default: "256Mi"
+        grafana:
+          type: object
+          properties:
+            enabled:
+              type: boolean
+              default: true
+            adminPassword:
+              type: string
+              default: "encabulator-admin"
+            resources:
+              type: object
+              properties:
+                requests:
+                  type: object
+                  properties:
+                    cpu:
+                      type: string
+                      default: "100m"
+                    memory:
+                      type: string
+                      default: "256Mi"
+                limits:
+                  type: object
+                  properties:
+                    cpu:
+                      type: string
+                      default: "300m"
+                    memory:
+                      type: string
+                      default: "512Mi"
+      required:
+        - environment
+
+  # Define the resources that will be created
+  resources:
+  - id: observability-metrics
+    template: |
+      {{- if .spec.metrics.enabled }}
+      apiVersion: observability.encabulator.io/v1alpha1
+      kind: ObservabilityMetrics
+      metadata:
+        name: "{{ .metadata.name }}-metrics"
+        namespace: encabulator-monitoring
+        labels:
+          app.kubernetes.io/name: "{{ .metadata.name }}"
+          app.kubernetes.io/component: metrics
+          encabulator.io/observability-stack: "{{ .metadata.name }}"
+      spec:
+        environment: {{ .spec.environment }}
+        retention: {{ .spec.metrics.retention | default "15d" }}
+        storage: {{ .spec.metrics.storage | default "10Gi" }}
+        alerting: {{ .spec.metrics.alerting | default true }}
+        scrapeInterval: {{ .spec.metrics.scrapeInterval | default "30s" }}
+        resources:
+          requests:
+            cpu: {{ .spec.metrics.resources.requests.cpu | default "200m" }}
+            memory: {{ .spec.metrics.resources.requests.memory | default "512Mi" }}
+          limits:
+            cpu: {{ .spec.metrics.resources.limits.cpu | default "500m" }}
+            memory: {{ .spec.metrics.resources.limits.memory | default "1Gi" }}
+      {{- end }}
+
+  - id: observability-tracing
+    template: |
+      {{- if .spec.tracing.enabled }}
+      apiVersion: observability.encabulator.io/v1alpha1
+      kind: ObservabilityTracing
+      metadata:
+        name: "{{ .metadata.name }}-tracing"
+        namespace: encabulator-tracing
+        labels:
+          app.kubernetes.io/name: "{{ .metadata.name }}"
+          app.kubernetes.io/component: tracing
+          encabulator.io/observability-stack: "{{ .metadata.name }}"
+      spec:
+        environment: {{ .spec.environment }}
+        storage:
+          type: {{ .spec.tracing.storage.type | default "memory" }}
+          retention: {{ .spec.tracing.storage.retention | default "24h" }}
+          size: {{ .spec.tracing.storage.size | default "5Gi" }}
+        sampling:
+          strategy: {{ .spec.tracing.sampling.strategy | default "probabilistic" }}
+          param: {{ .spec.tracing.sampling.param | default 0.1 }}
+        resources:
+          requests:
+            cpu: {{ .spec.tracing.resources.requests.cpu | default "100m" }}
+            memory: {{ .spec.tracing.resources.requests.memory | default "256Mi" }}
+          limits:
+            cpu: {{ .spec.tracing.resources.limits.cpu | default "300m" }}
+            memory: {{ .spec.tracing.resources.limits.memory | default "512Mi" }}
+      {{- end }}
+
+  - id: observability-logs
+    template: |
+      {{- if .spec.logging.enabled }}
+      apiVersion: observability.encabulator.io/v1alpha1
+      kind: ObservabilityLogs
+      metadata:
+        name: "{{ .metadata.name }}-logs"
+        namespace: encabulator-logging
+        labels:
+          app.kubernetes.io/name: "{{ .metadata.name }}"
+          app.kubernetes.io/component: logging
+          encabulator.io/observability-stack: "{{ .metadata.name }}"
+      spec:
+        environment: {{ .spec.environment }}
+        retention: {{ .spec.logging.retention | default "7d" }}
+        storage: {{ .spec.logging.storage | default "10Gi" }}
+        logLevel: {{ .spec.logging.logLevel | default "info" }}
+        compaction: {{ .spec.logging.compaction | default true }}
+        resources:
+          loki:
+            requests:
+              cpu: {{ .spec.logging.resources.loki.requests.cpu | default "200m" }}
+              memory: {{ .spec.logging.resources.loki.requests.memory | default "512Mi" }}
+            limits:
+              cpu: {{ .spec.logging.resources.loki.limits.cpu | default "500m" }}
+              memory: {{ .spec.logging.resources.loki.limits.memory | default "1Gi" }}
+          promtail:
+            requests:
+              cpu: {{ .spec.logging.resources.promtail.requests.cpu | default "100m" }}
+              memory: {{ .spec.logging.resources.promtail.requests.memory | default "128Mi" }}
+            limits:
+              cpu: {{ .spec.logging.resources.promtail.limits.cpu | default "200m" }}
+              memory: {{ .spec.logging.resources.promtail.limits.memory | default "256Mi" }}
+      {{- end }}
+
+  - id: grafana-config
+    template: |
+      {{- if .spec.grafana.enabled }}
+      apiVersion: v1
+      kind: ConfigMap
+      metadata:
+        name: "{{ .metadata.name }}-grafana-config"
+        namespace: encabulator-monitoring
+        labels:
+          app.kubernetes.io/name: "{{ .metadata.name }}"
+          app.kubernetes.io/component: grafana
+      data:
+        grafana.ini: |
+          [analytics]
+          check_for_updates = true
+          
+          [grafana_net]
+          url = https://grafana.net
+          
+          [log]
+          mode = console
+          
+          [paths]
+          data = /var/lib/grafana/
+          logs = /var/log/grafana
+          plugins = /var/lib/grafana/plugins
+          provisioning = /etc/grafana/provisioning
+          
+          [server]
+          root_url = http://localhost:3000/grafana/
+          serve_from_sub_path = true
+          
+          [security]
+          admin_user = admin
+          admin_password = {{ .spec.grafana.adminPassword | default "encabulator-admin" }}
+          
+          [users]
+          allow_sign_up = false
+          
+          [auth.anonymous]
+          enabled = true
+          org_role = Viewer
+        
+        datasources.yaml: |
+          apiVersion: 1
+          datasources:
+          {{- if .spec.metrics.enabled }}
+          - name: Prometheus
+            type: prometheus
+            access: proxy
+            url: http://{{ .metadata.name }}-metrics-prometheus.encabulator-monitoring:9090
+            isDefault: true
+            editable: true
+          {{- end }}
+          {{- if .spec.tracing.enabled }}
+          - name: Jaeger
+            type: jaeger
+            access: proxy
+            url: http://{{ .metadata.name }}-tracing-jaeger.encabulator-tracing:16686
+            editable: true
+          {{- end }}
+          {{- if .spec.logging.enabled }}
+          - name: Loki
+            type: loki
+            access: proxy
+            url: http://{{ .metadata.name }}-logs-loki.encabulator-logging:3100
+            editable: true
+          {{- end }}
+        
+        dashboards.yaml: |
+          apiVersion: 1
+          providers:
+          - name: 'default'
+            orgId: 1
+            folder: ''
+            type: file
+            disableDeletion: false
+            editable: true
+            options:
+              path: /var/lib/grafana/dashboards
+        
+        encabulator-overview.json: |
+          {
+            "dashboard": {
+              "id": null,
+              "title": "Cloud Native Encabulator - Overview",
+              "tags": ["encabulator", "overview"],
+              "style": "dark",
+              "timezone": "browser",
+              "panels": [
+                {
+                  "id": 1,
+                  "title": "System Health",
+                  "type": "stat",
+                  "targets": [
+                    {
+                      "expr": "up{job=~\".*encabulator.*\"}",
+                      "legendFormat": "{{instance}}"
+                    }
+                  ],
+                  "fieldConfig": {
+                    "defaults": {
+                      "color": {
+                        "mode": "thresholds"
+                      },
+                      "thresholds": {
+                        "steps": [
+                          {"color": "red", "value": 0},
+                          {"color": "green", "value": 1}
+                        ]
+                      }
+                    }
+                  },
+                  "gridPos": {"h": 8, "w": 12, "x": 0, "y": 0}
+                },
+                {
+                  "id": 2,
+                  "title": "Request Rate",
+                  "type": "graph",
+                  "targets": [
+                    {
+                      "expr": "rate(http_requests_total{job=~\".*encabulator.*\"}[5m])",
+                      "legendFormat": "{{service}}"
+                    }
+                  ],
+                  "gridPos": {"h": 8, "w": 12, "x": 12, "y": 0}
+                }
+              ],
+              "time": {
+                "from": "now-1h",
+                "to": "now"
+              },
+              "refresh": "30s"
+            }
+          }
+      {{- end }}
+
+  - id: grafana-deployment
+    template: |
+      {{- if .spec.grafana.enabled }}
+      apiVersion: apps/v1
+      kind: Deployment
+      metadata:
+        name: "{{ .metadata.name }}-grafana"
+        namespace: encabulator-monitoring
+        labels:
+          app.kubernetes.io/name: "{{ .metadata.name }}"
+          app.kubernetes.io/component: grafana
+      spec:
+        replicas: 1
+        selector:
+          matchLabels:
+            app.kubernetes.io/name: "{{ .metadata.name }}"
+            app.kubernetes.io/component: grafana
+        template:
+          metadata:
+            labels:
+              app.kubernetes.io/name: "{{ .metadata.name }}"
+              app.kubernetes.io/component: grafana
+          spec:
+            containers:
+            - name: grafana
+              image: grafana/grafana:10.1.0
+              ports:
+              - containerPort: 3000
+                name: http
+                protocol: TCP
+              resources:
+                requests:
+                  cpu: {{ .spec.grafana.resources.requests.cpu | default "100m" }}
+                  memory: {{ .spec.grafana.resources.requests.memory | default "256Mi" }}
+                limits:
+                  cpu: {{ .spec.grafana.resources.limits.cpu | default "300m" }}
+                  memory: {{ .spec.grafana.resources.limits.memory | default "512Mi" }}
+              volumeMounts:
+              - name: grafana-config
+                mountPath: /etc/grafana/grafana.ini
+                subPath: grafana.ini
+              - name: grafana-config
+                mountPath: /etc/grafana/provisioning/datasources/datasources.yaml
+                subPath: datasources.yaml
+              - name: grafana-config
+                mountPath: /etc/grafana/provisioning/dashboards/dashboards.yaml
+                subPath: dashboards.yaml
+              - name: grafana-config
+                mountPath: /var/lib/grafana/dashboards/encabulator-overview.json
+                subPath: encabulator-overview.json
+              - name: grafana-storage
+                mountPath: /var/lib/grafana
+              livenessProbe:
+                httpGet:
+                  path: /api/health
+                  port: 3000
+                initialDelaySeconds: 30
+                timeoutSeconds: 10
+              readinessProbe:
+                httpGet:
+                  path: /api/health
+                  port: 3000
+                initialDelaySeconds: 10
+                timeoutSeconds: 10
+            volumes:
+            - name: grafana-config
+              configMap:
+                name: "{{ .metadata.name }}-grafana-config"
+            - name: grafana-storage
+              emptyDir: {}
+      {{- end }}
+
+  - id: grafana-service
+    template: |
+      {{- if .spec.grafana.enabled }}
+      apiVersion: v1
+      kind: Service
+      metadata:
+        name: "{{ .metadata.name }}-grafana"
+        namespace: encabulator-monitoring
+        labels:
+          app.kubernetes.io/name: "{{ .metadata.name }}"
+          app.kubernetes.io/component: grafana
+      spec:
+        selector:
+          app.kubernetes.io/name: "{{ .metadata.name }}"
+          app.kubernetes.io/component: grafana
+        ports:
+        - name: http
+          port: 3000
+          targetPort: 3000
+          protocol: TCP
+        type: ClusterIP
+      {{- end }}
+
+  # Define the status that will be reported back
+  status:
+    type: object
+    properties:
+      phase:
+        type: string
+        enum: ["Pending", "Deploying", "Ready", "Failed"]
+      components:
+        type: object
+        properties:
+          metrics:
+            type: object
+            properties:
+              enabled:
+                type: boolean
+              endpoint:
+                type: string
+          tracing:
+            type: object
+            properties:
+              enabled:
+                type: boolean
+              jaegerEndpoint:
+                type: string
+              collectorEndpoint:
+                type: string
+          logging:
+            type: object
+            properties:
+              enabled:
+                type: boolean
+              lokiEndpoint:
+                type: string
+          grafana:
+            type: object
+            properties:
+              enabled:
+                type: boolean
+              endpoint:
+                type: string
+      conditions:
+        type: array
+        items:
+          type: object
+          properties:
+            type:
+              type: string
+            status:
+              type: string
+            reason:
+              type: string
+            message:
+              type: string

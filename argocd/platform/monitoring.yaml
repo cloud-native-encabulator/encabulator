@@ -1,21 +1,75 @@
-# Monitoring Stack for Cloud Native Encabulator
-# This will include Prometheus, Grafana, and Jaeger
+# Observability ResourceGroups - KRO Custom API Definitions
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: observability-resource-groups
+  namespace: argocd
+  labels:
+    app.kubernetes.io/name: observability-resource-groups
+    app.kubernetes.io/component: platform
+    app.kubernetes.io/managed-by: argocd
+spec:
+  project: infrastructure
+  source:
+    repoURL: https://github.com/REPLACE_WITH_YOUR_ORG/cloud-native-encabulator-microservices.git
+    targetRevision: HEAD
+    path: k8s/platform/observability/resource-groups
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: kro-system
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - ServerSideApply=true
+    retry:
+      limit: 5
+      backoff:
+        duration: 5s
+        factor: 2
+        maxDuration: 3m
+  info:
+    - name: Description
+      value: "KRO ResourceGroup definitions for observability stack"
+    - name: APIs
+      value: "ObservabilityMetrics, ObservabilityTracing, ObservabilityLogs, ObservabilityStack"
 
-# Placeholder for Monitoring Stack
-# Will be populated in Task 6: Implement observability infrastructure
-#
-# This will include:
-# - Prometheus for metrics collection
-# - Grafana for dashboards and visualization
-# - Jaeger for distributed tracing
-# - AlertManager for alerting
-#
-# The monitoring stack will be deployed using the existing manifests from:
-# infrastructure/kubernetes/base/monitoring-services.yaml
-# infrastructure/kubernetes/base/config-secrets.yaml
-#
-# These will be migrated to ArgoCD management and enhanced with:
-# - Service monitors for automatic service discovery
-# - Custom dashboards for Cloud Native Encabulator services
-# - Alerting rules for critical service health
-# - Integration with KRO for resource optimization metrics
+---
+# Observability Stack Instance - Deploy the actual monitoring
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: observability-stack
+  namespace: argocd
+  labels:
+    app.kubernetes.io/name: observability-stack
+    app.kubernetes.io/component: platform
+    app.kubernetes.io/managed-by: argocd
+spec:
+  project: infrastructure
+  source:
+    repoURL: https://github.com/REPLACE_WITH_YOUR_ORG/cloud-native-encabulator-microservices.git
+    targetRevision: HEAD
+    path: k8s/platform/observability/instances
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: encabulator-monitoring
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+      - ServerSideApply=true
+    retry:
+      limit: 5
+      backoff:
+        duration: 5s
+        factor: 2
+        maxDuration: 3m
+  info:
+    - name: Description
+      value: "Cloud Native Encabulator observability stack deployment"
+    - name: Components
+      value: "Prometheus, Grafana, Jaeger, Loki via KRO custom resources"

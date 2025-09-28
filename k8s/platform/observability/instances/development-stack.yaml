@@ -1,0 +1,80 @@
+# Development ObservabilityStack Instance
+# This creates a complete observability stack (metrics, tracing, logs, grafana) for development
+apiVersion: observability.encabulator.io/v1alpha1
+kind: ObservabilityStack
+metadata:
+  name: encabulator-observability
+  namespace: encabulator-monitoring
+  labels:
+    app.kubernetes.io/name: encabulator-observability
+    app.kubernetes.io/component: observability
+    encabulator.io/environment: development
+spec:
+  environment: development
+  
+  # Prometheus metrics configuration
+  metrics:
+    enabled: true
+    retention: 7d
+    storage: 5Gi
+    alerting: true
+    scrapeInterval: 30s
+    resources:
+      requests:
+        cpu: 100m
+        memory: 256Mi
+      limits:
+        cpu: 300m
+        memory: 512Mi
+  
+  # Jaeger tracing configuration
+  tracing:
+    enabled: true
+    storage:
+      type: memory
+      retention: 24h
+    sampling:
+      strategy: probabilistic
+      param: 0.1
+    resources:
+      requests:
+        cpu: 50m
+        memory: 128Mi
+      limits:
+        cpu: 200m
+        memory: 256Mi
+  
+  # Loki logging configuration
+  logging:
+    enabled: true
+    retention: 3d
+    storage: 3Gi
+    logLevel: info
+    compaction: true
+    resources:
+      loki:
+        requests:
+          cpu: 100m
+          memory: 256Mi
+        limits:
+          cpu: 300m
+          memory: 512Mi
+      promtail:
+        requests:
+          cpu: 50m
+          memory: 64Mi
+        limits:
+          cpu: 100m
+          memory: 128Mi
+  
+  # Grafana dashboard configuration
+  grafana:
+    enabled: true
+    adminPassword: encabulator-dev-2024
+    resources:
+      requests:
+        cpu: 50m
+        memory: 128Mi
+      limits:
+        cpu: 200m
+        memory: 256Mi
