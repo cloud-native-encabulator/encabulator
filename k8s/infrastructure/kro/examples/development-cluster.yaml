@@ -1,0 +1,26 @@
+# Development Environment Example
+# Simple EncabulatorCluster for development use
+apiVersion: encabulator.io/v1alpha1
+kind: EncabulatorCluster
+metadata:
+  name: dev-cluster
+  namespace: encabulator-data
+  labels:
+    app.kubernetes.io/name: dev-cluster
+    app.kubernetes.io/component: cluster
+    encabulator.io/environment: development
+spec:
+  environment: development
+  database:
+    instanceClass: db.t3.micro
+    storage: 20
+    multiAZ: false
+    backupRetention: 1
+  cache:
+    nodeType: cache.t3.micro
+    replicas: 1
+    multiAZ: false
+  monitoring: true
+  networking:
+    ingressEnabled: true
+    tlsEnabled: false

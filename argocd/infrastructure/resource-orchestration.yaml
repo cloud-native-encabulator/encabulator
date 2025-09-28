@@ -1,23 +1,78 @@
-# Kube Resource Orchestrator (KRO) for Custom Resource Composition
-# KRO creates custom APIs for complex multi-resource deployments
-# EKS Auto Mode handles node management automatically
-
-apiVersion: v1
-kind: Namespace
+# Kube Resource Orchestrator (KRO) Installation
+apiVersion: argoproj.io/v1alpha1
+kind: Application
 metadata:
-  name: kro-system
+  name: kro-installation
+  namespace: argocd
   labels:
-    app.kubernetes.io/name: kube-resource-orchestrator
+    app.kubernetes.io/name: kro-installation
     app.kubernetes.io/component: infrastructure
     app.kubernetes.io/managed-by: argocd
+spec:
+  project: infrastructure
+  source:
+    repoURL: https://github.com/REPLACE_WITH_YOUR_ORG/cloud-native-encabulator-microservices.git
+    targetRevision: HEAD
+    path: k8s/infrastructure/kro/kro-installation
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: kro-system
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+      - ServerSideApply=true
+    retry:
+      limit: 5
+      backoff:
+        duration: 5s
+        factor: 2
+        maxDuration: 3m
+  info:
+    - name: Description
+      value: "Kube Resource Orchestrator (KRO) controller installation"
+    - name: Purpose
+      value: "Creates custom APIs for complex multi-resource deployments"
 
 ---
-# Kube Resource Orchestrator (KRO) Installation
-# Will be populated in Task 2.2: Implement Kube Resource Orchestrator (KRO)
-#
-# KRO creates custom APIs for complex multi-resource deployments:
-# - Define ResourceGroups that create custom Kubernetes APIs
-# - Orchestrate multiple ACK resources as single composite units
+# KRO ResourceGroups - Custom API Definitions
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: kro-resource-groups
+  namespace: argocd
+  labels:
+    app.kubernetes.io/name: kro-resource-groups
+    app.kubernetes.io/component: infrastructure
+    app.kubernetes.io/managed-by: argocd
+spec:
+  project: infrastructure
+  source:
+    repoURL: https://github.com/REPLACE_WITH_YOUR_ORG/cloud-native-encabulator-microservices.git
+    targetRevision: HEAD
+    path: k8s/infrastructure/kro/resource-groups
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: kro-system
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - ServerSideApply=true
+    retry:
+      limit: 5
+      backoff:
+        duration: 5s
+        factor: 2
+        maxDuration: 3m
+  info:
+    - name: Description
+      value: "KRO ResourceGroup definitions for Cloud Native Encabulator"
+    - name: APIs
+      value: "EncabulatorDatabase, EncabulatorCache, EncabulatorCluster"
 # - Handle resource dependencies and creation ordering automatically
 # - Generate CRDs and controllers dynamically from ResourceGroup definitions
 #

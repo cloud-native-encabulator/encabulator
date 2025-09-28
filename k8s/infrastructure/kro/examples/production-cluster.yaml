@@ -1,0 +1,26 @@
+# Production Environment Example
+# High-availability EncabulatorCluster for production use
+apiVersion: encabulator.io/v1alpha1
+kind: EncabulatorCluster
+metadata:
+  name: prod-cluster
+  namespace: encabulator-data
+  labels:
+    app.kubernetes.io/name: prod-cluster
+    app.kubernetes.io/component: cluster
+    encabulator.io/environment: production
+spec:
+  environment: production
+  database:
+    instanceClass: db.r5.large
+    storage: 100
+    multiAZ: true
+    backupRetention: 30
+  cache:
+    nodeType: cache.r5.large
+    replicas: 3
+    multiAZ: true
+  monitoring: true
+  networking:
+    ingressEnabled: true
+    tlsEnabled: true

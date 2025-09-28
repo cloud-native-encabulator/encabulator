@@ -1,0 +1,156 @@
+# EncabulatorDatabase ResourceGroup
+# Creates a custom API for managing complete database stacks
+apiVersion: kro.run/v1alpha1
+kind: ResourceGroup
+metadata:
+  name: encabulator-database
+  namespace: kro-system
+  labels:
+    app.kubernetes.io/name: encabulator-database
+    app.kubernetes.io/component: infrastructure
+spec:
+  # Define the custom API schema
+  schema:
+    apiVersion: encabulator.io/v1alpha1
+    kind: EncabulatorDatabase
+    spec:
+      type: object
+      properties:
+        environment:
+          type: string
+          enum: ["development", "staging", "production"]
+          default: "development"
+        instanceClass:
+          type: string
+          default: "db.t3.micro"
+        storage:
+          type: integer
+          minimum: 20
+          maximum: 1000
+          default: 20
+        multiAZ:
+          type: boolean
+          default: false
+        backupRetention:
+          type: integer
+          minimum: 0
+          maximum: 35
+          default: 7
+        encryption:
+          type: boolean
+          default: true
+        monitoring:
+          type: boolean
+          default: true
+      required:
+        - environment
+
+  # Define the resources that will be created
+  resources:
+  - id: database-secret
+    template: |
+      apiVersion: v1
+      kind: Secret
+      metadata:
+        name: "{{ .metadata.name }}-credentials"
+        namespace: "{{ .metadata.namespace | default "encabulator-data" }}"
+        labels:
+          app.kubernetes.io/name: "{{ .metadata.name }}"
+          app.kubernetes.io/component: database
+          encabulator.io/service: hydrocoptic-datastore
+      type: Opaque
+      data:
+        # Base64 encoded credentials
+        password: ZW5jYWJ1bGF0b3JfZGV2X3Bhc3N3b3JkXzEyMw==
+        username: ZW5jYWJ1bGF0b3JfYWRtaW4=
+
+  - id: database-instance
+    template: |
+      apiVersion: rds.services.k8s.aws/v1alpha1
+      kind: DBInstance
+      metadata:
+        name: "{{ .metadata.name }}"
+        namespace: "{{ .metadata.namespace | default "encabulator-data" }}"
+        labels:
+          app.kubernetes.io/name: "{{ .metadata.name }}"
+          app.kubernetes.io/component: database
+          encabulator.io/service: hydrocoptic-datastore
+      spec:
+        dbInstanceIdentifier: "{{ .metadata.name }}-postgres"
+        dbInstanceClass: "{{ .spec.instanceClass }}"
+        engine: postgres
+        engineVersion: "15.4"
+        masterUsername: encabulator_admin
+        masterUserPassword:
+          name: "{{ .metadata.name }}-credentials"
+          key: password
+        allocatedStorage: {{ .spec.storage }}
+        storageType: gp2
+        storageEncrypted: {{ .spec.encryption }}
+        backupRetentionPeriod: {{ .spec.backupRetention }}
+        deletionProtection: {{ if eq .spec.environment "production" }}true{{ else }}false{{ end }}
+        multiAZ: {{ .spec.multiAZ }}
+        publiclyAccessible: false
+        # Note: Security groups and subnet groups would be configured here
+        # For demo purposes, using placeholders
+        vpcSecurityGroupIDs:
+          - sg-placeholder
+        dbSubnetGroupName: encabulator-db-subnet-group
+        tags:
+          - key: Environment
+            value: "{{ .spec.environment }}"
+          - key: Project
+            value: cloud-native-encabulator
+          - key: Component
+            value: data-plane
+          - key: Service
+            value: hydrocoptic-datastore
+          - key: ManagedBy
+            value: kro
+
+  - id: database-service-monitor
+    template: |
+      {{ if .spec.monitoring }}
+      apiVersion: monitoring.coreos.com/v1
+      kind: ServiceMonitor
+      metadata:
+        name: "{{ .metadata.name }}-monitor"
+        namespace: "{{ .metadata.namespace | default "encabulator-data" }}"
+        labels:
+          app.kubernetes.io/name: "{{ .metadata.name }}"
+          app.kubernetes.io/component: database
+          encabulator.io/service: hydrocoptic-datastore
+      spec:
+        selector:
+          matchLabels:
+            app.kubernetes.io/name: "{{ .metadata.name }}"
+        endpoints:
+        - port: metrics
+          path: /metrics
+          interval: 30s
+      {{ end }}
+
+  # Define the status that will be reported back
+  status:
+    type: object
+    properties:
+      phase:
+        type: string
+        enum: ["Pending", "Creating", "Available", "Failed"]
+      endpoint:
+        type: string
+      port:
+        type: integer
+      conditions:
+        type: array
+        items:
+          type: object
+          properties:
+            type:
+              type: string
+            status:
+              type: string
+            reason:
+              type: string
+            message:
+              type: string

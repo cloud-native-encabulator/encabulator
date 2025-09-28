@@ -41,7 +41,7 @@
     - Configure IAM roles and policies through ACK
     - _Requirements: 8.3, 8.7, 10.1, 10.5_
 
-  - [ ] 2.2 Implement Kube Resource Orchestrator (KRO)
+  - [x] 2.2 Implement Kube Resource Orchestrator (KRO)
 
     - Install and configure KRO in the cluster
     - Create composite resource definitions (e.g., EncabulatorDatabase, EncabulatorCluster)

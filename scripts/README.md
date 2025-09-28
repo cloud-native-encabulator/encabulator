@@ -220,6 +220,34 @@ scripts/
 
 ---
 
+#### `validate-kro-specs.sh` - **KRO SPECIFICATION VALIDATION**
+**Purpose**: Validate KRO ResourceGroups and custom API definitions  
+**Use Case**: Development, KRO specification testing  
+**What it does**:
+- Validates KRO installation manifests
+- Tests ResourceGroup YAML syntax and structure
+- Checks custom API schema definitions
+- Validates example usage files
+- Tests ArgoCD integration for KRO
+- Verifies directory structure and required files
+
+**Usage**:
+```bash
+./scripts/infrastructure/validate-kro-specs.sh
+```
+
+**Prerequisites**: 
+- kubectl installed
+- No cluster access required (offline validation)
+
+**Output**: 
+- KRO specification validation report
+- ResourceGroup schema verification
+- Example usage validation
+- Next steps for deployment
+
+---
+
 ### Setup Scripts (`setup/`)
 
 #### `configure-repository.sh` - **GITOPS CONFIGURATION**

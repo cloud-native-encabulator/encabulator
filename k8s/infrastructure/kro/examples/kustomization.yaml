@@ -1,0 +1,18 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+metadata:
+  name: kro-examples
+  annotations:
+    description: "Example usage of KRO compositions for Cloud Native Encabulator"
+
+resources:
+  - development-cluster.yaml
+  # Uncomment for other environments
+  # - staging-cluster.yaml
+  # - production-cluster.yaml
+  # - individual-components.yaml
+
+commonLabels:
+  app.kubernetes.io/managed-by: kustomize
+  encabulator.io/managed-by: kro

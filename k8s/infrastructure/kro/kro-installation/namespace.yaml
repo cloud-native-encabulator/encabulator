@@ -1,0 +1,9 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: kro-system
+  labels:
+    app.kubernetes.io/name: kube-resource-orchestrator
+    app.kubernetes.io/component: infrastructure
+    app.kubernetes.io/managed-by: kustomize
+    control-plane: kro-system
