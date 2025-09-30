@@ -35,21 +35,25 @@ The system is organized into three main planes:
 
 ### 🧪 Testing First (Recommended)
 
-Start with local testing to validate the platform before deploying to AWS:
+Start with comprehensive testing to validate the entire platform:
 
 ```bash
 # Clone the repository
 git clone <repository-url>
 cd cloud-native-encabulator-microservices
 
-# Run local tests (requires Docker + kind/minikube/k3d)
-./scripts/test/local-test.sh
+# Run comprehensive tests (requires Docker/Finch + kind/minikube/k3d)
+./scripts/test/comprehensive-test.sh
 
-# Access local services
+# Or test specific components
+./scripts/test/infrastructure-test.sh    # ACK controllers and AWS resources
+./scripts/test/local-test.sh            # Observability stack only
+
+# Access services
 kubectl port-forward -n encabulator-monitoring svc/encabulator-observability-grafana 3000:3000
 ```
 
-See [TESTING.md](TESTING.md) for comprehensive testing guide.
+See [TESTING.md](TESTING.md) for detailed testing guide.
 
 ### ☁️ Development Cluster Deployment
 
@@ -69,7 +73,7 @@ aws eks update-kubeconfig --region <region> --name <cluster-name>
 # Verify setup and configure environment
 ./scripts/setup/eks-setup.sh
 
-# Deploy complete platform with KRO and observability
+# Deploy complete platform with ACK and observability
 ./scripts/deploy/deploy-dev.sh
 
 # Check deployment status
@@ -96,31 +100,33 @@ kubectl port-forward -n encabulator-tracing svc/encabulator-observability-tracin
 
 ### 🏗️ Platform Architecture
 
-This project uses a **KRO-based platform engineering approach**:
+This project uses a **cloud-native platform engineering approach**:
 
-- **KRO (Kube Resource Orchestrator)**: Creates custom APIs for complex resource compositions
 - **ArgoCD**: GitOps deployment and management
 - **ACK (AWS Controllers for Kubernetes)**: Native AWS resource management
-- **Custom ResourceGroups**: Simplified deployment of complex stacks
+- **Prometheus**: Kubernetes-native monitoring and observability
+- **Standard Kubernetes manifests**: Clear, maintainable infrastructure definitions
 
-Instead of managing individual YAML files, deploy complete stacks with simple custom resources:
+Deploy infrastructure using standard Kubernetes resources managed by ArgoCD:
 
 ```yaml
-apiVersion: observability.encabulator.io/v1alpha1
-kind: ObservabilityStack
+# AWS RDS Database via ACK
+apiVersion: rds.services.k8s.aws/v1alpha1
+kind: DBInstance
 metadata:
-  name: my-monitoring
+  name: hydrocoptic-datastore
 spec:
-  environment: development
-  # Automatically deploys Prometheus, Grafana, Jaeger, Loki
+  dbInstanceClass: db.t3.micro
+  engine: postgres
+  # Managed by ACK controllers
 ```
 
 ## Documentation
 
 - **[Testing Guide](TESTING.md)** - Local and development cluster testing
 - **[Setup Guide](SETUP.md)** - Environment setup and prerequisites  
-- **[Observability Platform](k8s/platform/observability/README.md)** - KRO-based monitoring stack
-- **[Infrastructure Management](k8s/infrastructure/README.md)** - ACK and KRO resource orchestration
+- **[Observability Platform](k8s/platform/observability/README.md)** - Prometheus monitoring with Kubernetes service discovery
+- **[Infrastructure Management](k8s/infrastructure/README.md)** - ACK-based AWS resource management with Helm
 - [Architecture Documentation](docs/architecture/) *(coming soon)*
 - [API Specifications](docs/api/) *(coming soon)*
 - [Cloud Native Encabulator Glossary](docs/glossary.md) *(coming soon)*

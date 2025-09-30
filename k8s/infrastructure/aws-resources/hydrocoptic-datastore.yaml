@@ -22,11 +22,11 @@ spec:
   storageType: gp2
   storageEncrypted: true
   backupRetentionPeriod: 7
-  deletionProtection: false  # Set to true for production
-  multiAZ: false  # Set to true for production
+  deletionProtection: false # Set to true for production
+  multiAZ: false # Set to true for production
   publiclyAccessible: false
   vpcSecurityGroupIDs:
-    - sg-placeholder  # Will be replaced with actual security group
+    - sg-placeholder # Will be replaced with actual security group
   dbSubnetGroupName: encabulator-db-subnet-group
   tags:
     - key: Environment

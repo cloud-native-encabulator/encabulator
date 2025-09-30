@@ -6,13 +6,28 @@ This directory contains all automation scripts for deploying and managing the Cl
 
 ```
 scripts/
-├── platform/           # ArgoCD and GitOps platform scripts
-├── infrastructure/     # ACK controllers and AWS infrastructure scripts
+├── test/              # Testing and validation scripts
+├── deploy/            # Deployment and status scripts  
+├── platform/          # ArgoCD and GitOps platform scripts
+├── infrastructure/    # ACK controllers and AWS infrastructure scripts
 ├── setup/             # Initial configuration and setup scripts
 └── README.md          # This documentation
 ```
 
 ## 🚀 Quick Start
+
+### For Testing (Recommended First Step):
+```bash
+# 1. Test complete platform locally
+./scripts/test/comprehensive-test.sh
+
+# 2. Test specific components
+./scripts/test/infrastructure-test.sh    # Infrastructure only
+./scripts/test/local-test.sh            # Observability only
+
+# 3. Clean up when done
+./scripts/test/local-test.sh --cleanup
+```
 
 ### For Production/GitOps Deployment:
 ```bash
@@ -23,19 +38,19 @@ scripts/
 ./scripts/platform/bootstrap-gitops.sh
 
 # 3. Validate deployment
-./scripts/infrastructure/validate-ack-setup.sh
+./scripts/deploy/status.sh
 ```
 
-### For Development/Testing:
+### For Development Cluster Deployment:
 ```bash
-# 1. Install ACK directly
-./scripts/infrastructure/install-ack-complete.sh
+# 1. Set up EKS environment
+./scripts/setup/eks-setup.sh
 
-# 2. Test manifests
-./scripts/infrastructure/test-manifests.sh
+# 2. Deploy complete platform
+./scripts/deploy/deploy-dev.sh
 
-# 3. Validate setup
-./scripts/infrastructure/validate-ack-setup.sh
+# 3. Check deployment status
+./scripts/deploy/status.sh
 ```
 
 ## 📋 Script Reference
@@ -220,33 +235,7 @@ scripts/
 
 ---
 
-#### `validate-kro-specs.sh` - **KRO SPECIFICATION VALIDATION**
-**Purpose**: Validate KRO ResourceGroups and custom API definitions  
-**Use Case**: Development, KRO specification testing  
-**What it does**:
-- Validates KRO installation manifests
-- Tests ResourceGroup YAML syntax and structure
-- Checks custom API schema definitions
-- Validates example usage files
-- Tests ArgoCD integration for KRO
-- Verifies directory structure and required files
 
-**Usage**:
-```bash
-./scripts/infrastructure/validate-kro-specs.sh
-```
-
-**Prerequisites**: 
-- kubectl installed
-- No cluster access required (offline validation)
-
-**Output**: 
-- KRO specification validation report
-- ResourceGroup schema verification
-- Example usage validation
-- Next steps for deployment
-
----
 
 ### Setup Scripts (`setup/`)
 

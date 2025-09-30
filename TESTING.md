@@ -4,44 +4,116 @@ This guide provides comprehensive testing strategies for the Cloud Native Encabu
 
 ## 🧪 Testing Approaches
 
-### 1. Local Testing (Recommended First Step)
-Test the KRO ResourceGroups and observability stack on your local machine using kind, minikube, or k3d.
+### 1. Comprehensive Testing (Recommended)
+Test all platform components together - infrastructure, observability, and integration.
 
-### 2. Development Cluster Testing
+### 2. Infrastructure Testing
+Test ACK controllers, AWS resources, and infrastructure orchestration.
+
+### 3. Observability Testing
+Test the Prometheus-based observability stack on your local machine using kind, minikube, or k3d.
+
+### 4. Development Cluster Testing
 Deploy to a real EKS cluster for full integration testing with AWS services.
 
-## 🏠 Local Testing
+## 🎯 Comprehensive Testing (Recommended)
 
 ### Prerequisites
-- Docker
+- Docker or Finch
+- kubectl
+- One of: kind, minikube, k3d, or EKS cluster
+
+### Quick Start
+```bash
+# Run complete platform test suite
+./scripts/test/comprehensive-test.sh
+
+# Run quick test (infrastructure + observability)
+./scripts/test/comprehensive-test.sh --quick
+
+# Clean up when done (if using local cluster)
+./scripts/test/local-test.sh --cleanup
+```
+
+### What Comprehensive Testing Covers
+- ✅ **Phase 1**: Infrastructure foundation (ACK controllers, AWS resources)
+- ✅ **Phase 2**: Resource orchestration (ACK custom resources, dependencies)
+- ✅ **Phase 3**: Observability platform (Prometheus, metrics, dashboards)
+- ✅ **Phase 4**: Service connectivity and health checks
+- ✅ **Phase 5**: End-to-end integration validation
+
+## 🏗️ Infrastructure Testing
+
+### Prerequisites
+- kubectl
+- Kubernetes cluster access
+
+### Quick Start
+```bash
+# Test infrastructure components only
+./scripts/test/infrastructure-test.sh
+
+# Test specific components
+./scripts/test/infrastructure-test.sh --ack-only
+./scripts/test/infrastructure-test.sh --ack-only
+./scripts/test/infrastructure-test.sh --instances-only
+```
+
+### What Infrastructure Testing Covers
+- ✅ ACK controllers installation and functionality
+- ✅ ACK controller installation and AWS resource creation
+- ✅ Infrastructure custom resources (RDS Database, ElastiCache)
+- ✅ Resource management and dependency handling
+- ✅ ArgoCD integration for GitOps deployment
+
+## 🏠 Observability Testing
+
+### Prerequisites
+- Docker or Finch
 - kubectl
 - One of: kind, minikube, or k3d
 
 ### Quick Start
 ```bash
-# Run complete local test suite
+# Run observability-focused test suite
 ./scripts/test/local-test.sh
 
 # Clean up when done
 ./scripts/test/local-test.sh --cleanup
 ```
 
-### What Local Testing Covers
-- ✅ KRO controller installation and functionality
-- ✅ Custom Resource Definition creation
-- ✅ ObservabilityStack ResourceGroup deployment
-- ✅ Prometheus, Jaeger, Loki, Grafana deployment via KRO
+### What Observability Testing Covers
+- ✅ Prometheus installation and functionality
+- ✅ Observability components (Prometheus, metrics collection)
+- ✅ Monitoring stack deployment
+- ✅ Prometheus deployment with Kubernetes service discovery
 - ✅ Service connectivity and health checks
 - ✅ Basic functionality validation
 
-### Local Test Results
-After successful local testing, you'll have:
-- A local Kubernetes cluster with KRO installed
-- All observability ResourceGroups deployed
-- A complete observability stack running
-- Access to Prometheus, Grafana, and Jaeger UIs
+### Comprehensive Test Results
+After successful comprehensive testing, you'll have:
+- **Infrastructure Layer**: ACK controllers, AWS resources, infrastructure management
+- **AWS Resources**: RDS databases, ElastiCache clusters via ACK
+- **Resource Instances**: Development cluster with database and cache components
+- **Observability Stack**: Complete monitoring, tracing, and logging via KRO
+- **Integration**: All components working together with proper monitoring
 
-### Access Local Services
+### Infrastructure Test Results
+After successful infrastructure testing, you'll have:
+- ACK controllers for AWS resource management
+- AWS resources deployed via ACK custom resources
+- Infrastructure components with proper dependencies
+- Example infrastructure instances (development cluster)
+- ArgoCD applications for GitOps management
+
+### Observability Test Results
+After successful observability testing, you'll have:
+- A local Kubernetes cluster with Prometheus installed
+- Observability components deployed
+- A complete monitoring stack running
+- Access to Prometheus UI
+
+### Access Services
 ```bash
 # Prometheus (metrics)
 kubectl port-forward -n encabulator-monitoring svc/encabulator-observability-metrics-prometheus 9090:9090
@@ -51,6 +123,9 @@ kubectl port-forward -n encabulator-monitoring svc/encabulator-observability-gra
 
 # Jaeger (tracing)
 kubectl port-forward -n encabulator-tracing svc/encabulator-observability-tracing-jaeger 16686:16686
+
+# Loki (logs)
+kubectl port-forward -n encabulator-logging svc/encabulator-observability-logs-loki 3100:3100
 ```
 
 ## ☁️ Development Cluster Testing
@@ -82,9 +157,9 @@ aws eks update-kubeconfig --region us-west-2 --name your-cluster-name
 ### What Development Testing Covers
 - ✅ ArgoCD GitOps deployment
 - ✅ AWS Controllers for Kubernetes (ACK)
-- ✅ KRO with full AWS integration
+- ✅ ACK with full AWS integration
 - ✅ Complete observability platform
-- ✅ Infrastructure ResourceGroups (Database, Cache, Cluster)
+- ✅ Infrastructure resources (Database, Cache)
 - ✅ Multi-namespace deployment
 - ✅ Service mesh readiness
 
@@ -92,9 +167,9 @@ aws eks update-kubeconfig --region us-west-2 --name your-cluster-name
 After successful deployment, you'll have:
 - ArgoCD managing all deployments
 - ACK controllers for AWS resource management
-- KRO orchestrating complex resource compositions
+- ACK managing AWS resource lifecycle
 - Complete observability stack with persistent storage
-- Infrastructure ResourceGroups ready for service deployment
+- Infrastructure resources ready for service deployment
 
 ### Access Development Services
 ```bash
@@ -114,9 +189,25 @@ kubectl port-forward -n encabulator-tracing svc/encabulator-observability-tracin
 
 ## 🔍 Validation Checklist
 
-### Local Testing Validation
+### Comprehensive Testing Validation
+- [ ] **Infrastructure Foundation**: ACK and KRO controllers running
+- [ ] **Custom Resources**: All infrastructure and observability CRDs created
+- [ ] **Resource Orchestration**: Composite resources creating dependencies
+- [ ] **Observability Platform**: Complete monitoring stack deployed
+- [ ] **Service Connectivity**: All services healthy and accessible
+- [ ] **Integration**: Infrastructure and observability working together
+
+### Infrastructure Testing Validation
+- [ ] ACK controllers are running (RDS, ElastiCache)
+- [ ] ACK controllers are managing AWS resources
+- [ ] Infrastructure CRDs are available (DBInstance, ReplicationGroup)
+- [ ] Resource creation is working (Database + Cache)
+- [ ] ArgoCD applications are managing infrastructure
+- [ ] Example instances are deployed and healthy
+
+### Observability Testing Validation
 - [ ] KRO controller is running
-- [ ] Custom Resource Definitions are created
+- [ ] Observability CRDs are created (Metrics, Tracing, Logs, Stack)
 - [ ] ObservabilityStack resource is deployed
 - [ ] Prometheus is collecting metrics
 - [ ] Grafana shows connected datasources
@@ -126,9 +217,9 @@ kubectl port-forward -n encabulator-tracing svc/encabulator-observability-tracin
 ### Development Cluster Validation
 - [ ] ArgoCD applications are synced and healthy
 - [ ] ACK controllers are running
-- [ ] KRO controller is managing resources
+- [ ] Prometheus is collecting metrics
 - [ ] All observability components are running
-- [ ] Infrastructure ResourceGroups are available
+- [ ] Infrastructure resources are available
 - [ ] AWS resources can be created via ACK
 - [ ] GitOps workflow is functional
 
@@ -144,8 +235,9 @@ kubectl describe deployment kro-controller -n kro-system
 
 **Custom Resources Not Available**
 ```bash
-kubectl get crd | grep encabulator
-kubectl describe resourcegroup observability-stack -n kro-system
+kubectl get crd | grep aws
+kubectl get dbinstance -n encabulator-data
+kubectl get replicationgroup -n encabulator-data
 ```
 
 **Services Not Accessible**

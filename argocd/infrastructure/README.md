@@ -27,15 +27,15 @@ This directory contains ArgoCD Applications that manage the infrastructure layer
 **Target Namespace**: `encabulator-data`
 
 ### `resource-orchestration.yaml`
-**Purpose**: Kube Resource Orchestrator (KRO) for composite resources  
+**Purpose**: AWS resource management via ACK controllers  
 **What it manages**:
-- KRO installation and configuration
-- Custom resource composition definitions
-- Complex multi-resource deployments
+- AWS resources via ACK custom resources
+- RDS databases and ElastiCache clusters
+- Resource dependencies and lifecycle management
 
-**Status**: Placeholder (to be implemented in Task 2.2)
+**Status**: Active
 
-**Target Namespace**: `kro-system`
+**Target Namespace**: `encabulator-data`
 
 ## Dependencies
 

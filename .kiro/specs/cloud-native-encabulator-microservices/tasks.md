@@ -30,160 +30,177 @@
     - Configure resource quotas and limits
     - _Requirements: 1.2, 1.5, 10.3_
 
-- [x] 2. Implement Cloud-Native Infrastructure Management
+- [x] 2. Implement cloud-native infrastructure management
 
-  - [x] 2.1 Set up AWS Controllers for Kubernetes (ACK)
+  - [x] 2.1 Install and configure AWS Controllers for Kubernetes (ACK)
 
-    - Install ACK controllers for RDS, ElastiCache, and IAM
-    - Create Custom Resource Definitions for AWS services
-    - Implement ACK-based RDS PostgreSQL instance
-    - Implement ACK-based ElastiCache Redis cluster
-    - Configure IAM roles and policies through ACK
-    - _Requirements: 8.3, 8.7, 10.1, 10.5_
+    - Install ACK controllers for RDS, ElastiCache, and other AWS services via Helm
+    - Configure IRSA (IAM Roles for Service Accounts) for secure AWS API access
+    - Create AWS resource definitions using ACK custom resources
+    - _Requirements: 10.1, 10.2, 10.3, 10.4, 10.5, 10.6_
 
-  - [x] 2.2 Implement Kube Resource Orchestrator (KRO)
+  - [x] 2.2 Implement GitOps with ArgoCD
 
-    - Install and configure KRO in the cluster
-    - Create composite resource definitions (e.g., EncabulatorDatabase, EncabulatorCluster)
-    - Define resource composition templates that combine multiple ACK resources
-    - Implement dependency management between composed resources
-    - Create resource lifecycle management policies
-    - _Requirements: 8.8, 10.2, 10.6_
+    - Deploy ArgoCD for GitOps workflow management via Helm
+    - Create ArgoCD applications for infrastructure components
+    - Implement automated deployment pipelines
+    - Configure multi-environment promotion workflows
+    - _Requirements: 9.1, 9.2, 9.3, 9.4_
 
-  - [x] 2.3 Set up ArgoCD GitOps Infrastructure
+  - [x] 2.3 Create AWS infrastructure resources
 
-    - Install ArgoCD in the cluster
-    - Configure Git repository integration
-    - Create ArgoCD Application projects for each service plane
-    - Implement multi-environment promotion workflows
-    - Set up automated synchronization policies
-    - Configure drift detection and remediation
-    - _Requirements: 10.3, 10.7_
+    - RDS PostgreSQL database for Hydrocoptic Data Store
+    - ElastiCache Redis cluster for Prefabulated Cache
+    - Proper security groups and networking configuration
+    - _Requirements: 1.4, 4.1, 10.1, 10.5_
 
-  - [x] 2.4 Create Infrastructure as Code with ACK and KRO
-    - Define individual AWS resources using ACK Custom Resources (RDS, ElastiCache, IAM)
-    - Create KRO composite resources that orchestrate multiple ACK resources
-    - Implement EncabulatorDatabase composite (RDS + subnets + security groups + IAM)
-    - Implement EncabulatorCache composite (ElastiCache + subnets + security groups + IAM)
-    - Set up resource dependency management and lifecycle policies
-    - _Requirements: 8.3, 8.7, 10.5_
+- [x] 3. Implement observability infrastructure
 
-- [x] 3. Implement KRO-based observability platform
+  - [x] 3.1 Set up Prometheus monitoring
 
-  - [x] 3.1 Create observability ResourceGroups
+    - Deploy Prometheus with Kubernetes service discovery
+    - Create ServiceMonitor resources for ACK controllers
+    - Implement alerting rules for infrastructure health
+    - Configure monitoring for AWS resources via ACK
+    - _Requirements: 2.1, 2.4_
 
-    - Create ObservabilityMetrics ResourceGroup (Prometheus + ServiceMonitors + AlertRules)
-    - Create ObservabilityTracing ResourceGroup (Jaeger + OpenTelemetry Collector)
-    - Create ObservabilityLogs ResourceGroup (Loki + Promtail + structured parsing)
-    - Create ObservabilityStack composite ResourceGroup (orchestrates all components + Grafana)
-    - Deploy via ArgoCD applications for GitOps management
-    - _Requirements: 2.1, 2.2, 2.3, 2.4, 2.5_
+- [ ] 4. Implement service plane infrastructure
 
-- [ ] 4. Create service plane ResourceGroups
+  - [ ] 4.1 Create Data Plane services
 
-  - [ ] 4.1 Create Data Plane ResourceGroups
-
-    - Create DataPlaneService ResourceGroup (common patterns for data services)
-    - Create HydrocopticDataStore ResourceGroup (PostgreSQL + service wrapper)
-    - Create SinusoidalDatabase ResourceGroup (time-series DB + Prometheus API)
-    - Create PrefabulatedCache ResourceGroup (Redis + cache management service)
+    - Implement HydrocopticDataStore service (PostgreSQL wrapper with health checks)
+    - Implement SinusoidalDatabase service (time-series DB with Prometheus API)
+    - Implement PrefabulatedCache service (Redis wrapper with cache management)
+    - Deploy services using standard Kubernetes manifests via ArgoCD
     - _Requirements: 1.1, 1.4, 2.1, 4.1, 10.1, 10.5_
 
-  - [ ] 4.2 Create Processing Plane ResourceGroups
+  - [ ] 4.2 Create Processing Plane services
 
-    - Create ProcessingPlaneService ResourceGroup (common patterns for processing services)
-    - Create PanametricFamProcessor ResourceGroup (Node.js service + message handling)
-    - Create LogarithmicCasingService ResourceGroup (message broker + routing)
-    - Create DingleArmAPIGateway ResourceGroup (API gateway + rate limiting)
+    - Implement PanametricFamProcessor service (Node.js service with message handling)
+    - Implement LogarithmicCasingService (message broker with routing)
+    - Implement DingleArmAPIGateway (API gateway with rate limiting)
+    - Deploy services using standard Kubernetes manifests via ArgoCD
     - _Requirements: 1.1, 1.3, 2.1, 4.1, 4.2, 4.3, 5.1, 8.1, 10.2_
 
-  - [ ] 4.3 Create Support Plane ResourceGroups
+  - [ ] 4.3 Create Support Plane services
 
-    - Create SupportPlaneService ResourceGroup (common patterns for support services)
-    - Create CardinalGrammeter ResourceGroup (authentication service + RBAC)
-    - Create DifferentialGirdle ResourceGroup (configuration service + feature flags)
-    - Create SideFumblingCollector ResourceGroup (resource optimization operator)
+    - Implement CardinalGrammeter service (authentication service with RBAC)
+    - Implement DifferentialGirdle service (configuration service with feature flags)
+    - Implement SideFumblingCollector service (resource optimization operator)
+    - Deploy services using standard Kubernetes manifests via ArgoCD
     - _Requirements: 1.1, 2.1, 3.1, 3.2, 3.3, 3.4, 4.1, 8.1, 10.2, 10.6_
 
-  - [ ] 4.4 Create Control Plane ResourceGroups
+  - [ ] 4.4 Create Control Plane services
 
-    - Create ControlPlaneService ResourceGroup (common patterns for control services)
-    - Create EncabulationControlConsole ResourceGroup (React app + real-time visualization)
-    - Create MalaiseInjectionEngine ResourceGroup (chaos engineering operator)
-    - Create UnilateralPhaseDetractorEngine ResourceGroup (traffic generation + load testing)
-    - Create DemoScenarioOrchestrator ResourceGroup (scenario management + automation)
+    - Implement EncabulationControlConsole (React app with real-time visualization)
+    - Implement MalaiseInjectionEngine (chaos engineering operator)
+    - Implement UnilateralPhaseDetractorEngine (traffic generation and load testing)
+    - Implement DemoScenarioOrchestrator (scenario management and automation)
+    - Deploy services using standard Kubernetes manifests via ArgoCD
     - _Requirements: 11.1, 11.2, 11.3, 12.1, 12.2, 12.3, 12.4, 12.5, 12.6, 4.2, 4.3, 4.4_
 
-- [ ] 5. Implement service plane instances
+- [ ] 5. Deploy and validate service planes
 
   - [ ] 5.1 Deploy Data Plane services
 
-    - Create development instances of HydrocopticDataStore, SinusoidalDatabase, PrefabulatedCache
-    - Deploy via ArgoCD applications using KRO ResourceGroups
+    - Deploy development instances of HydrocopticDataStore, SinusoidalDatabase, PrefabulatedCache
     - Validate service connectivity and health endpoints
     - Test integration with ACK-managed AWS resources
+    - Configure monitoring and alerting for data services
     - _Requirements: 1.1, 1.4, 2.1, 4.1, 10.1, 10.5_
 
   - [ ] 5.2 Deploy Processing Plane services
 
-    - Create development instances of PanametricFamProcessor, LogarithmicCasingService, DingleArmAPIGateway
-    - Deploy via ArgoCD applications using KRO ResourceGroups
+    - Deploy development instances of PanametricFamProcessor, LogarithmicCasingService, DingleArmAPIGateway
     - Validate service-to-service communication and message routing
     - Test API gateway routing and rate limiting
+    - Configure monitoring and alerting for processing services
     - _Requirements: 1.1, 1.3, 2.1, 4.1, 4.2, 4.3, 5.1, 8.1, 10.2_
 
   - [ ] 5.3 Deploy Support Plane services
 
-    - Create development instances of CardinalGrammeter, DifferentialGirdle, SideFumblingCollector
-    - Deploy via ArgoCD applications using KRO ResourceGroups
+    - Deploy development instances of CardinalGrammeter, DifferentialGirdle, SideFumblingCollector
     - Validate authentication and configuration management
     - Test resource optimization and cleanup operations
+    - Configure monitoring and alerting for support services
     - _Requirements: 1.1, 2.1, 3.1, 3.2, 3.3, 3.4, 4.1, 8.1, 10.2, 10.6_
 
   - [ ] 5.4 Deploy Control Plane services
 
-    - Create development instances of EncabulationControlConsole, MalaiseInjectionEngine, UnilateralPhaseDetractorEngine, DemoScenarioOrchestrator
-    - Deploy via ArgoCD applications using KRO ResourceGroups
+    - Deploy development instances of EncabulationControlConsole, MalaiseInjectionEngine, UnilateralPhaseDetractorEngine, DemoScenarioOrchestrator
     - Validate real-time visualization and control interfaces
     - Test chaos engineering and traffic generation capabilities
+    - Configure monitoring and alerting for control services
     - _Requirements: 11.1, 11.2, 11.3, 12.1, 12.2, 12.3, 12.4, 12.5, 12.6, 4.2, 4.3, 4.4_
 
-- [ ] 6. Implement platform resilience and scaling
+- [ ] 6. Adopt KRO for advanced resource composition (Future Enhancement)
 
-  - [ ] 6.1 Create resilience ResourceGroups
+  - [ ] 6.1 Deploy Kube Resource Orchestrator (KRO)
 
-    - Create ResiliencePatterns ResourceGroup (probes, circuit breakers, retries, graceful degradation)
-    - Integrate resilience patterns into service plane ResourceGroups
+    - Install KRO controller for advanced resource composition
+    - Create ResourceGraphDefinitions for complex multi-resource deployments
+    - Implement custom APIs for Cloud Native Encabulator services
+    - _Requirements: 9.1, 9.2, 9.3, 9.4_
+
+  - [ ] 6.2 Create infrastructure ResourceGraphDefinitions
+
+    - EncabulatorDatabase ResourceGraphDefinition (RDS + security + monitoring)
+    - EncabulatorCache ResourceGraphDefinition (ElastiCache + configuration)
+    - EncabulatorCluster ResourceGraphDefinition (complete environment setup)
+    - _Requirements: 1.4, 4.1, 10.1, 10.5_
+
+  - [ ] 6.3 Create observability ResourceGraphDefinitions
+
+    - ObservabilityMetrics ResourceGraphDefinition (Prometheus + ServiceMonitors)
+    - ObservabilityTracing ResourceGraphDefinition (Jaeger + OpenTelemetry)
+    - ObservabilityLogs ResourceGraphDefinition (Loki + Promtail)
+    - ObservabilityStack composite ResourceGraphDefinition
+    - _Requirements: 2.1, 2.2, 2.3, 2.4, 2.5_
+
+  - [ ] 6.4 Migrate services to KRO ResourceGraphDefinitions
+
+    - Convert existing service deployments to use KRO ResourceGraphDefinitions
+    - Create service plane ResourceGraphDefinitions for each service type
+    - Implement dependency management between composed resources
+    - Test migration and rollback procedures
+    - _Requirements: 8.8, 10.2, 10.6_
+
+- [ ] 7. Implement platform resilience and scaling
+
+  - [ ] 7.1 Implement resilience patterns
+
+    - Create resilience patterns (probes, circuit breakers, retries, graceful degradation)
+    - Integrate resilience patterns into all service deployments
     - Configure failure thresholds and recovery behavior across all services
     - Test resilience behavior under various failure conditions
     - _Requirements: 4.1, 4.2, 4.3, 4.4_
 
-  - [ ] 6.2 Create scaling ResourceGroups
+  - [ ] 7.2 Implement auto-scaling
 
-    - Create AutoScaling ResourceGroup (HPA + VPA + custom metrics)
-    - Create DataRebalancing ResourceGroup (stateful service scaling patterns)
-    - Integrate scaling capabilities into service plane ResourceGroups
+    - Create HPA and VPA configurations for all services
+    - Implement custom metrics for scaling decisions
     - Configure scaling metrics, thresholds, and rebalancing triggers
+    - Test scaling behavior under load
     - _Requirements: 5.1, 5.2, 5.3_
 
-  - [ ] 6.3 Implement platform-wide configuration management
+  - [ ] 7.3 Implement platform-wide configuration management
 
-    - Enhance DifferentialGirdle ResourceGroup for dynamic configuration updates
+    - Enhance DifferentialGirdle service for dynamic configuration updates
     - Implement configuration propagation during scaling events
     - Create configuration validation and rollback mechanisms
     - Test configuration updates across scaled service instances
     - _Requirements: 5.3, 3.5_
 
-  - [ ] 6.4 Create scaling and resilience visualizations
+  - [ ] 7.4 Create scaling and resilience visualizations
     - Enhance EncabulationControlConsole with scaling and resilience dashboards
     - Implement real-time visualization of scaling events and failure recovery
     - Create interactive controls for testing resilience patterns
     - Add metrics and alerts for platform health and performance
     - _Requirements: 5.4, 7.4_
 
-- [ ] 7. Create comprehensive demo scenarios
+- [ ] 8. Create comprehensive demo scenarios
 
-  - [ ] 7.1 Implement platform demonstration scenarios
+  - [ ] 8.1 Implement platform demonstration scenarios
 
     - Create DemoScenarioOrchestrator instances for basic operations, failure modes, and scaling
     - Implement automated demo workflows (startup sequence, data flow, configuration changes)
@@ -191,25 +208,25 @@
     - Add real-time visualization of system behavior during demos
     - _Requirements: 7.1, 7.2, 7.3, 7.4, 7.5, 5.1, 5.2, 5.3, 5.4_
 
-  - [ ] 7.2 Create production-ready deployment examples
+  - [ ] 8.2 Create production-ready deployment examples
 
-    - Create production instances of all ResourceGroups with enterprise settings
+    - Create production configurations for all services with enterprise settings
     - Implement multi-environment promotion workflows (dev → staging → prod)
     - Create disaster recovery and backup scenarios
     - Document production deployment best practices
     - _Requirements: 6.3, 10.7_
 
-- [ ] 8. Complete platform documentation
+- [ ] 9. Complete platform documentation
 
-  - [ ] 8.1 Create KRO ResourceGroup documentation
+  - [ ] 9.1 Create infrastructure and service documentation
 
-    - Document all custom APIs (ObservabilityStack, DataPlaneService, etc.)
-    - Create usage examples and best practices for each ResourceGroup
-    - Write troubleshooting guides for KRO-based deployments
-    - Add API reference documentation with OpenAPI specs
+    - Document ACK-based AWS resource management
+    - Create usage examples and best practices for each service
+    - Write troubleshooting guides for infrastructure deployments
+    - Add API reference documentation
     - _Requirements: 6.1, 6.2, 6.4_
 
-  - [ ] 8.2 Create platform operator guides
+  - [ ] 9.2 Create platform operator guides
 
     - Write comprehensive deployment guides for different environments
     - Create platform administration and maintenance procedures
@@ -217,9 +234,9 @@
     - Create Cloud Native Encabulator glossary and concept mapping
     - _Requirements: 6.3, 6.5_
 
-  - [ ] 8.3 Create developer experience documentation
+  - [ ] 9.3 Create developer experience documentation
 
-    - Write service development guides using the platform ResourceGroups
+    - Write service development guides using the platform
     - Create integration examples and SDK documentation
     - Document local development environment setup
     - Add contribution guidelines and platform extension patterns

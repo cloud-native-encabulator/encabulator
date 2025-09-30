@@ -98,12 +98,12 @@ The Cloud Native Encabulator Microservices Demo is an educational project design
 
 1. WHEN implementing microservices THEN the system SHALL use a mix of languages (Go, Node.js, Python) to demonstrate polyglot architecture
 2. WHEN implementing data services THEN the system SHALL use industry-standard databases and caches (PostgreSQL, Redis)
-3. WHEN implementing infrastructure code THEN the system SHALL use Kubernetes-native approaches (ACK for AWS resources, KRO for resource composition, Kustomize for configuration)
+3. WHEN implementing infrastructure code THEN the system SHALL use Kubernetes-native approaches (ACK for AWS resources, Kustomize for configuration, with optional KRO for advanced resource composition)
 4. WHEN implementing observability THEN the system SHALL use CNCF-graduated projects where possible
 5. WHEN choosing technologies THEN the system SHALL prioritize cloud-native, Kubernetes-native solutions over external tooling
 6. WHEN implementing services THEN each service SHALL include a justification for its technology choice
 7. WHEN managing AWS resources THEN the system SHALL use AWS Controllers for Kubernetes (ACK) instead of external infrastructure tools
-8. WHEN composing complex infrastructure THEN the system SHALL use Kube Resource Orchestrator (KRO) for resource composition and management
+8. WHEN composing complex infrastructure THEN the system MAY optionally use Kube Resource Orchestrator (KRO) for advanced resource composition and management as a future enhancement
 
 ### Requirement 9: Open Source Licensing and Distribution
 
@@ -125,11 +125,11 @@ The Cloud Native Encabulator Microservices Demo is an educational project design
 #### Acceptance Criteria
 
 1. WHEN provisioning AWS resources THEN the system SHALL use AWS Controllers for Kubernetes (ACK) to manage RDS, ElastiCache, and other AWS services
-2. WHEN composing complex infrastructure THEN the system SHALL use Kube Resource Orchestrator (KRO) for resource composition and orchestration
+2. WHEN composing complex infrastructure THEN the system MAY optionally use Kube Resource Orchestrator (KRO) for advanced resource composition and orchestration as a future enhancement
 3. WHEN implementing GitOps workflows THEN the system SHALL use ArgoCD for continuous delivery of both infrastructure and applications from Git repositories
 4. WHEN managing configurations THEN the system SHALL use Kustomize overlays for environment-specific customization
 5. WHEN defining infrastructure THEN all AWS resources SHALL be declared as Kubernetes Custom Resources through ACK
-6. WHEN managing complex resource dependencies THEN KRO SHALL provide resource composition and dependency orchestration
+6. WHEN managing complex resource dependencies THEN KRO MAY optionally provide resource composition and dependency orchestration as a future enhancement
 7. WHEN managing nodes THEN the system SHALL use EKS Auto Mode for zero-touch node management and cost optimization
 
 ### Requirement 11: Interactive Control Plane

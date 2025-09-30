@@ -157,7 +157,7 @@ graph TD
 
 ### Cloud-Native Infrastructure Approach
 
-The Cloud Native Encabulator Microservices Demo adopts a fully Kubernetes-native approach to infrastructure management, eliminating the need for external infrastructure tools like Terraform or Helm. This approach provides better integration with GitOps practices and maintains consistency with Kubernetes-native workflows.
+The Cloud Native Encabulator Microservices Demo adopts a Kubernetes-native approach to infrastructure management, using ACK controllers for AWS resource management and standard Kubernetes manifests with Kustomize for configuration management. This approach provides good integration with GitOps practices and maintains consistency with Kubernetes-native workflows. KRO may be adopted in the future for advanced resource composition patterns.
 
 #### AWS Controllers for Kubernetes (ACK)
 
@@ -192,23 +192,25 @@ spec:
   allocatedStorage: 20
 ```
 
-#### Kube Resource Orchestrator (KRO)
+#### Kube Resource Orchestrator (KRO) - Future Enhancement
 
-**Purpose**: Create custom Kubernetes APIs for complex, multi-resource deployments.
+**Purpose**: Create custom Kubernetes APIs for complex, multi-resource deployments (planned for future implementation).
 
-**Implementation**:
+**Planned Implementation**:
 
-- Define ResourceGroups that create custom APIs (e.g., EncabulatorDatabase, EncabulatorCluster)
+- Define ResourceGraphDefinitions that create custom APIs (e.g., EncabulatorDatabase, EncabulatorCluster)
 - Orchestrate multiple ACK resources as single composite units
 - Handle resource dependencies and creation ordering automatically
-- Generate CRDs and controllers dynamically from ResourceGroup definitions
+- Generate CRDs and controllers dynamically from ResourceGraphDefinition specifications
 
-**Benefits**:
+**Future Benefits**:
 
 - Simplified deployment of complex infrastructure stacks
 - Encapsulation of operational knowledge into reusable APIs
 - Automatic dependency management between resources
 - Platform team can create standardized building blocks for developers
+
+**Current Approach**: Standard Kubernetes manifests with Kustomize overlays for environment-specific configuration
 
 #### ArgoCD GitOps Integration
 
@@ -243,9 +245,9 @@ graph TD
 
     subgraph "Kubernetes Cluster"
         ACKControllers[ACK Controllers]
-        KROController[KRO Controller]
         Applications[Applications]
         AWSResources[AWS Resources]
+        KROController[KRO Controller - Future]
     end
 
     InfraCode --> ArgoCDController
@@ -254,8 +256,8 @@ graph TD
     ArgoCDController --> ACKControllers
     ArgoCDController --> Applications
     ACKControllers --> AWSResources
-    KROController --> Applications
-    KROController --> AWSResources
+    KROController -.-> Applications
+    KROController -.-> AWSResources
 ```
 
 ## Components and Interfaces

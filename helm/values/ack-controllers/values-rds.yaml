@@ -1,0 +1,88 @@
+# ACK RDS Controller Helm Values
+# Chart: aws-controllers-k8s/rds-chart
+# Repository: https://aws-controllers-k8s.github.io/ec2-chart
+
+# Image configuration
+image:
+  repository: public.ecr.aws/aws-controllers-k8s/rds-controller
+  tag: "v0.0.25"
+  pullPolicy: IfNotPresent
+
+# Service Account configuration
+serviceAccount:
+  # Create service account
+  create: true
+  name: ack-rds-controller
+  annotations:
+    # Add IAM role annotation for IRSA (when using EKS)
+    # eks.amazonaws.com/role-arn: arn:aws:iam::ACCOUNT:role/ack-rds-controller-role
+
+# AWS Configuration
+aws:
+  # AWS region
+  region: us-west-2
+  
+  # Endpoint URL (leave empty for standard AWS)
+  endpoint_url: ""
+
+# Controller configuration
+controller:
+  # Resource limits
+  resources:
+    requests:
+      cpu: 100m
+      memory: 256Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
+      
+  # Log level
+  log:
+    level: info
+    
+  # Metrics configuration
+  metrics:
+    service:
+      create: true
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "8080"
+
+# Deployment configuration
+deployment:
+  replicas: 1
+  
+# RBAC configuration
+rbac:
+  create: true
+
+# Pod Security Context
+podSecurityContext:
+  runAsNonRoot: true
+  runAsUser: 65534
+  fsGroup: 65534
+
+# Security Context
+securityContext:
+  allowPrivilegeEscalation: false
+  readOnlyRootFilesystem: true
+  runAsNonRoot: true
+  runAsUser: 65534
+  capabilities:
+    drop:
+      - ALL
+
+# Node selector
+nodeSelector: {}
+
+# Tolerations
+tolerations: []
+
+# Affinity
+affinity: {}
+
+# Labels
+labels:
+  app.kubernetes.io/name: ack-rds-controller
+  app.kubernetes.io/component: infrastructure
+  encabulator.io/managed-by: helm

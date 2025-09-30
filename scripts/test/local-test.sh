@@ -44,8 +44,8 @@ check_prerequisites() {
         missing_tools+=("kubectl")
     fi
     
-    if ! command_exists docker; then
-        missing_tools+=("docker")
+    if ! command_exists docker && ! command_exists finch; then
+        missing_tools+=("docker or finch")
     fi
     
     # Check for local cluster tools
@@ -70,6 +70,7 @@ check_prerequisites() {
         log_info "Please install the missing tools:"
         log_info "  kubectl: https://kubernetes.io/docs/tasks/tools/"
         log_info "  docker: https://docs.docker.com/get-docker/"
+        log_info "  finch: https://github.com/runfinch/finch"
         log_info "  kind: https://kind.sigs.k8s.io/docs/user/quick-start/"
         log_info "  minikube: https://minikube.sigs.k8s.io/docs/start/"
         exit 1
@@ -171,16 +172,26 @@ setup_k3d_cluster() {
 install_kro_local() {
     log_info "Installing KRO for local testing..."
     
-    # Create KRO namespace
-    kubectl create namespace kro-system --dry-run=client -o yaml | kubectl apply -f -
+    # Get latest KRO version
+    log_info "Fetching latest KRO version..."
+    local kro_version
+    kro_version=$(curl -sL https://api.github.com/repos/kubernetes-sigs/kro/releases/latest | \
+        jq -r '.tag_name | ltrimstr("v")' 2>/dev/null || echo "0.1.0")
     
-    # Apply our KRO installation manifests
-    log_info "Applying KRO controller..."
-    kubectl apply -f k8s/infrastructure/kro/kro-installation/
+    if [ "$kro_version" = "null" ] || [ -z "$kro_version" ]; then
+        kro_version="0.1.0"
+        log_warning "Could not fetch latest version, using v$kro_version"
+    else
+        log_info "Using KRO version: v$kro_version"
+    fi
     
-    # Wait for KRO to be ready
-    log_info "Waiting for KRO controller to be ready..."
-    kubectl wait --for=condition=available --timeout=300s deployment/kro-controller -n kro-system
+    # Install KRO via official OCI Helm chart
+    log_info "Installing KRO via official OCI Helm chart..."
+    helm upgrade --install kro oci://ghcr.io/kro-run/kro/kro \
+        --namespace kro \
+        --create-namespace \
+        --version="${kro_version}" \
+        --wait --timeout=300s
     
     log_success "KRO controller is ready"
 }

@@ -1,0 +1,87 @@
+# ACK Controllers Installation via Helm Charts
+# This replaces the raw YAML installation with Helm chart approach
+
+# ACK RDS Controller
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: ack-rds-controller
+  namespace: argocd
+  labels:
+    app.kubernetes.io/name: ack-rds-controller
+    app.kubernetes.io/component: infrastructure
+    app.kubernetes.io/managed-by: argocd
+spec:
+  project: infrastructure
+  sources:
+    - repoURL: https://aws-controllers-k8s.github.io/ec2-chart
+      chart: rds-chart
+      targetRevision: 0.0.25
+    - repoURL: https://github.com/REPLACE_WITH_YOUR_ORG/cloud-native-encabulator-microservices.git
+      targetRevision: HEAD
+      path: helm/values/ack-controllers
+      ref: values
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: ack-system
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+      - ServerSideApply=true
+    retry:
+      limit: 5
+      backoff:
+        duration: 5s
+        factor: 2
+        maxDuration: 3m
+  info:
+    - name: Description
+      value: "ACK RDS Controller via official Helm chart"
+    - name: Chart Version
+      value: "0.0.25"
+
+---
+# ACK ElastiCache Controller
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: ack-elasticache-controller
+  namespace: argocd
+  labels:
+    app.kubernetes.io/name: ack-elasticache-controller
+    app.kubernetes.io/component: infrastructure
+    app.kubernetes.io/managed-by: argocd
+spec:
+  project: infrastructure
+  sources:
+    - repoURL: https://aws-controllers-k8s.github.io/ec2-chart
+      chart: elasticache-chart
+      targetRevision: 0.0.21
+    - repoURL: https://github.com/REPLACE_WITH_YOUR_ORG/cloud-native-encabulator-microservices.git
+      targetRevision: HEAD
+      path: helm/values/ack-controllers
+      ref: values
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: ack-system
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+      - ServerSideApply=true
+    retry:
+      limit: 5
+      backoff:
+        duration: 5s
+        factor: 2
+        maxDuration: 3m
+  info:
+    - name: Description
+      value: "ACK ElastiCache Controller via official Helm chart"
+    - name: Chart Version
+      value: "0.0.21"

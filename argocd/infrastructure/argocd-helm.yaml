@@ -1,0 +1,52 @@
+# ArgoCD Installation via Helm Chart
+# This replaces the raw YAML installation with Helm chart approach
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: argocd
+  namespace: argocd
+  labels:
+    app.kubernetes.io/name: argocd
+    app.kubernetes.io/component: infrastructure
+    app.kubernetes.io/managed-by: argocd
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: default
+  source:
+    repoURL: https://argoproj.github.io/argo-helm
+    chart: argo-cd
+    targetRevision: 5.46.7
+    helm:
+      valueFiles:
+        - $values/helm/values/argocd/values-development.yaml
+  sources:
+    - repoURL: https://argoproj.github.io/argo-helm
+      chart: argo-cd
+      targetRevision: 5.46.7
+    - repoURL: https://github.com/REPLACE_WITH_YOUR_ORG/cloud-native-encabulator-microservices.git
+      targetRevision: HEAD
+      ref: values
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: argocd
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+      - ServerSideApply=true
+    retry:
+      limit: 5
+      backoff:
+        duration: 5s
+        factor: 2
+        maxDuration: 3m
+  info:
+    - name: Description
+      value: "ArgoCD installation via official Helm chart"
+    - name: Chart Version
+      value: "5.46.7"
+    - name: App Version
+      value: "v2.8.4"

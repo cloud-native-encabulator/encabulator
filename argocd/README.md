@@ -6,7 +6,7 @@ This directory contains the ArgoCD Application definitions that manage the entir
 
 ```
 argocd/
-├── infrastructure/     # Infrastructure components (ACK, AWS resources, KRO)
+├── infrastructure/     # Infrastructure components (ACK, AWS resources)
 ├── platform/          # Platform services (monitoring, networking, namespaces)
 ├── applications/      # Cloud Native Encabulator microservices
 └── README.md          # This file
