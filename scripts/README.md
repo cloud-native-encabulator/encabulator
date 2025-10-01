@@ -41,6 +41,20 @@ scripts/
 ./scripts/deploy/status.sh
 ```
 
+### For Helm-Based Deployment:
+```bash
+# 1. Deploy complete platform via Helm + ArgoCD
+./scripts/deploy/deploy-helm.sh
+
+# 2. Deploy specific components
+./scripts/deploy/deploy-helm.sh --ack-only
+./scripts/deploy/deploy-helm.sh --observability-only
+./scripts/deploy/deploy-helm.sh --data-plane-only
+
+# 3. Validate deployment
+./scripts/deploy/deploy-helm.sh --validate
+```
+
 ### For Development Cluster Deployment:
 ```bash
 # 1. Set up EKS environment
@@ -55,9 +69,47 @@ scripts/
 
 ## 📋 Script Reference
 
+### Deployment Scripts (`deploy/`)
+
+#### `deploy-helm.sh` - **HELM-FIRST DEPLOYMENT**
+**Purpose**: Deploy complete platform using Helm charts and ArgoCD  
+**Use Case**: Production deployment with Helm-first approach  
+**What it does**:
+- Installs ArgoCD via Helm if not present
+- Deploys ACK controllers via official OCI Helm charts
+- Deploys observability stack via kube-prometheus-stack
+- Deploys data plane services via custom and community Helm charts
+- Validates all deployments and provides access information
+
+**Usage**:
+```bash
+# Complete deployment
+./scripts/deploy/deploy-helm.sh
+
+# Component-specific deployment
+./scripts/deploy/deploy-helm.sh --ack-only
+./scripts/deploy/deploy-helm.sh --observability-only
+./scripts/deploy/deploy-helm.sh --data-plane-only
+
+# Validation
+./scripts/deploy/deploy-helm.sh --validate
+```
+
+**Prerequisites**: 
+- Kubernetes cluster access
+- helm and kubectl installed
+- Configured repository URLs
+
+**Output**: 
+- Complete platform deployed via Helm charts
+- ArgoCD managing all applications
+- Access credentials and port-forward instructions
+
+---
+
 ### Platform Scripts (`platform/`)
 
-#### `bootstrap-gitops.sh` - **PRIMARY DEPLOYMENT METHOD**
+#### `bootstrap-gitops.sh` - **GITOPS DEPLOYMENT METHOD**
 **Purpose**: Complete GitOps setup from scratch  
 **Use Case**: First-time deployment, production setup  
 **What it does**:

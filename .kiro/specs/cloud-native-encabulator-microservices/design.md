@@ -157,39 +157,41 @@ graph TD
 
 ### Cloud-Native Infrastructure Approach
 
-The Cloud Native Encabulator Microservices Demo adopts a Kubernetes-native approach to infrastructure management, using ACK controllers for AWS resource management and standard Kubernetes manifests with Kustomize for configuration management. This approach provides good integration with GitOps practices and maintains consistency with Kubernetes-native workflows. KRO may be adopted in the future for advanced resource composition patterns.
+The Cloud Native Encabulator Microservices Demo adopts a **Helm-first, cloud-native approach** to infrastructure and application management. This approach leverages official Helm charts from the community, ACK controllers for AWS resource management, and ArgoCD for GitOps deployment. This provides excellent integration with GitOps practices, leverages battle-tested community charts, and maintains consistency with cloud-native best practices. KRO may be adopted in the future for advanced resource composition patterns.
 
-#### AWS Controllers for Kubernetes (ACK)
+#### AWS Controllers for Kubernetes (ACK) via Helm
 
-**Purpose**: Manage AWS resources directly from Kubernetes using Custom Resource Definitions.
+**Purpose**: Manage AWS resources directly from Kubernetes using official ACK Helm charts.
 
 **Implementation**:
 
-- ACK controllers for RDS (PostgreSQL instances)
-- ACK controllers for ElastiCache (Redis clusters)
-- ACK controllers for IAM roles and policies
-- ACK controllers for VPC and networking resources
+- ACK RDS controller via official OCI Helm chart (`oci://public.ecr.aws/aws-controllers-k8s/rds-chart`)
+- ACK ElastiCache controller via official OCI Helm chart (`oci://public.ecr.aws/aws-controllers-k8s/elasticache-chart`)
+- ACK IAM controller via official OCI Helm chart (`oci://public.ecr.aws/aws-controllers-k8s/iam-chart`)
+- Comprehensive Helm values files for configuration management
+- ArgoCD applications with Helm sources for GitOps deployment
 
 **Benefits**:
 
-- Infrastructure as Code through Kubernetes manifests
-- GitOps-compatible resource management
-- Consistent RBAC and security model
-- Native Kubernetes lifecycle management
+- Official, supported Helm charts from AWS
+- Infrastructure as Code through Helm values and ArgoCD
+- GitOps-compatible resource management with version control
+- Consistent RBAC and security model via Helm templates
+- Native Kubernetes lifecycle management with Helm hooks
 
 ```yaml
-# Example: RDS instance managed through ACK
-apiVersion: rds.services.k8s.aws/v1alpha1
-kind: DBInstance
+# Example: ACK RDS Controller via ArgoCD + Helm
+apiVersion: argoproj.io/v1alpha1
+kind: Application
 metadata:
-  name: encabulator-postgres
-  namespace: encabulator-data
+  name: ack-rds-controller
 spec:
-  dbInstanceIdentifier: encabulator-postgres
-  dbInstanceClass: db.t3.micro
-  engine: postgres
-  masterUsername: encabulator_user
-  allocatedStorage: 20
+  source:
+    repoURL: oci://public.ecr.aws/aws-controllers-k8s/rds-chart
+    targetRevision: v0.0.25
+    helm:
+      valueFiles:
+        - $values/helm/values/ack-controllers/values-rds.yaml
 ```
 
 #### Kube Resource Orchestrator (KRO) - Future Enhancement
@@ -212,23 +214,43 @@ spec:
 
 **Current Approach**: Standard Kubernetes manifests with Kustomize overlays for environment-specific configuration
 
-#### ArgoCD GitOps Integration
+#### Helm-Based Service Architecture
 
-**Purpose**: Continuous delivery and infrastructure synchronization.
+**Purpose**: Standardized, reusable service deployments using community and custom Helm charts.
 
 **Implementation**:
 
-- Git-based source of truth for all configurations
-- Automated synchronization of infrastructure changes
-- Multi-environment promotion workflows
-- Rollback and drift detection capabilities
+- **Data Plane Services**: Custom Helm charts for Encabulator services with PostgreSQL/Redis dependencies
+- **Observability Stack**: `kube-prometheus-stack` Helm chart for comprehensive monitoring
+- **Infrastructure Services**: Official ACK Helm charts for AWS resource management
+- **Third-party Services**: Community Helm charts (Redis, PostgreSQL, Grafana) for dependencies
 
 **Benefits**:
 
-- Declarative infrastructure management
-- Audit trail for all changes
-- Automated deployment pipelines
-- Environment consistency
+- Battle-tested community charts reduce maintenance overhead
+- Standardized templating and configuration management
+- Built-in best practices for security, monitoring, and scaling
+- Easy environment-specific customization via values files
+- Comprehensive lifecycle management with Helm hooks
+
+#### ArgoCD GitOps Integration
+
+**Purpose**: Continuous delivery and infrastructure synchronization with Helm chart support.
+
+**Implementation**:
+
+- Git-based source of truth for Helm values and ArgoCD applications
+- ArgoCD applications with multiple sources (Helm charts + values repositories)
+- Automated synchronization of Helm releases and infrastructure changes
+- Multi-environment promotion workflows with environment-specific values
+- Rollback and drift detection capabilities for Helm deployments
+
+**Benefits**:
+
+- Declarative infrastructure and application management
+- Audit trail for all changes with Git history
+- Automated deployment pipelines with Helm chart versioning
+- Environment consistency with shared charts and environment-specific values
 
 ```mermaid
 graph TD

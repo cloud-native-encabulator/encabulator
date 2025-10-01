@@ -15,7 +15,7 @@ serviceAccount:
   name: ack-elasticache-controller
   annotations:
     # Add IAM role annotation for IRSA (when using EKS)
-    # eks.amazonaws.com/role-arn: arn:aws:iam::ACCOUNT:role/ack-elasticache-controller-role
+    eks.amazonaws.com/role-arn: arn:aws:iam::ACCOUNT_ID:role/ack-elasticache-controller
 
 # AWS Configuration
 aws:

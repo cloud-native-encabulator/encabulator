@@ -15,7 +15,7 @@ serviceAccount:
   name: ack-rds-controller
   annotations:
     # Add IAM role annotation for IRSA (when using EKS)
-    # eks.amazonaws.com/role-arn: arn:aws:iam::ACCOUNT:role/ack-rds-controller-role
+    eks.amazonaws.com/role-arn: arn:aws:iam::ACCOUNT_ID:role/ack-rds-controller
 
 # AWS Configuration
 aws:

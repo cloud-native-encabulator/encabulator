@@ -100,33 +100,38 @@ kubectl port-forward -n encabulator-tracing svc/encabulator-observability-tracin
 
 ### 🏗️ Platform Architecture
 
-This project uses a **cloud-native platform engineering approach**:
+This project uses a **Helm-first, cloud-native platform engineering approach**:
 
-- **ArgoCD**: GitOps deployment and management
-- **ACK (AWS Controllers for Kubernetes)**: Native AWS resource management
-- **Prometheus**: Kubernetes-native monitoring and observability
-- **Standard Kubernetes manifests**: Clear, maintainable infrastructure definitions
+- **ArgoCD**: GitOps deployment and management with Helm chart support
+- **ACK (AWS Controllers for Kubernetes)**: Native AWS resource management via official Helm charts
+- **Prometheus Stack**: Complete observability via `kube-prometheus-stack` Helm chart
+- **Community Helm Charts**: Battle-tested charts for Redis, PostgreSQL, Grafana, and more
+- **Custom Helm Charts**: Encabulator-specific services with standardized templates
 
-Deploy infrastructure using standard Kubernetes resources managed by ArgoCD:
+Deploy infrastructure and applications using Helm charts managed by ArgoCD:
 
 ```yaml
-# AWS RDS Database via ACK
-apiVersion: rds.services.k8s.aws/v1alpha1
-kind: DBInstance
+# ACK RDS Controller via Helm + ArgoCD
+apiVersion: argoproj.io/v1alpha1
+kind: Application
 metadata:
-  name: hydrocoptic-datastore
+  name: ack-rds-controller
 spec:
-  dbInstanceClass: db.t3.micro
-  engine: postgres
-  # Managed by ACK controllers
+  source:
+    repoURL: oci://public.ecr.aws/aws-controllers-k8s/rds-chart
+    targetRevision: v0.0.25
+    helm:
+      valueFiles:
+        - $values/helm/values/ack-controllers/values-rds.yaml
 ```
 
 ## Documentation
 
 - **[Testing Guide](TESTING.md)** - Local and development cluster testing
 - **[Setup Guide](SETUP.md)** - Environment setup and prerequisites  
-- **[Observability Platform](k8s/platform/observability/README.md)** - Prometheus monitoring with Kubernetes service discovery
-- **[Infrastructure Management](k8s/infrastructure/README.md)** - ACK-based AWS resource management with Helm
+- **[Observability Platform](k8s/platform/observability/README.md)** - Complete monitoring stack via kube-prometheus-stack Helm chart
+- **[Infrastructure Management](k8s/infrastructure/README.md)** - ACK-based AWS resource management via official Helm charts
+- **[Helm Charts](helm/README.md)** - Custom and community Helm charts for all services
 - [Architecture Documentation](docs/architecture/) *(coming soon)*
 - [API Specifications](docs/api/) *(coming soon)*
 - [Cloud Native Encabulator Glossary](docs/glossary.md) *(coming soon)*

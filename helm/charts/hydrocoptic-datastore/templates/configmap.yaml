@@ -1,0 +1,25 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "hydrocoptic-datastore.fullname" . }}
+  labels:
+    {{- include "hydrocoptic-datastore.labels" . | nindent 4 }}
+data:
+  config.yaml: |
+    service:
+      name: {{ include "hydrocoptic-datastore.name" . }}
+      port: {{ .Values.service.port }}
+    
+    database:
+      {{- toYaml .Values.config.database | nindent 6 }}
+    
+    cache:
+      {{- toYaml .Values.config.cache | nindent 6 }}
+    
+    logging:
+      {{- toYaml .Values.config.logging | nindent 6 }}
+    
+    metrics:
+      enabled: true
+      port: {{ .Values.service.port }}
+      path: "/metrics"

@@ -1,7 +1,4 @@
-# ACK Controllers Installation via Helm Charts
-# This replaces the raw YAML installation with Helm chart approach
-
-# ACK RDS Controller
+# ACK RDS Controller via Helm
 apiVersion: argoproj.io/v1alpha1
 kind: Application
 metadata:
@@ -13,13 +10,17 @@ metadata:
     app.kubernetes.io/managed-by: argocd
 spec:
   project: infrastructure
+  source:
+    repoURL: oci://public.ecr.aws/aws-controllers-k8s/rds-chart
+    targetRevision: v0.0.25
+    helm:
+      valueFiles:
+        - $values/helm/values/ack-controllers/values-rds.yaml
   sources:
-    - repoURL: https://aws-controllers-k8s.github.io/ec2-chart
-      chart: rds-chart
-      targetRevision: 0.0.25
+    - repoURL: oci://public.ecr.aws/aws-controllers-k8s/rds-chart
+      targetRevision: v0.0.25
     - repoURL: https://github.com/REPLACE_WITH_YOUR_ORG/cloud-native-encabulator-microservices.git
       targetRevision: HEAD
-      path: helm/values/ack-controllers
       ref: values
   destination:
     server: https://kubernetes.default.svc
@@ -39,12 +40,14 @@ spec:
         maxDuration: 3m
   info:
     - name: Description
-      value: "ACK RDS Controller via official Helm chart"
+      value: "AWS Controllers for Kubernetes - RDS"
     - name: Chart Version
-      value: "0.0.25"
+      value: "v0.0.25"
+    - name: AWS Service
+      value: "Amazon RDS"
 
 ---
-# ACK ElastiCache Controller
+# ACK ElastiCache Controller via Helm
 apiVersion: argoproj.io/v1alpha1
 kind: Application
 metadata:
@@ -56,13 +59,17 @@ metadata:
     app.kubernetes.io/managed-by: argocd
 spec:
   project: infrastructure
+  source:
+    repoURL: oci://public.ecr.aws/aws-controllers-k8s/elasticache-chart
+    targetRevision: v0.0.21
+    helm:
+      valueFiles:
+        - $values/helm/values/ack-controllers/values-elasticache.yaml
   sources:
-    - repoURL: https://aws-controllers-k8s.github.io/ec2-chart
-      chart: elasticache-chart
-      targetRevision: 0.0.21
+    - repoURL: oci://public.ecr.aws/aws-controllers-k8s/elasticache-chart
+      targetRevision: v0.0.21
     - repoURL: https://github.com/REPLACE_WITH_YOUR_ORG/cloud-native-encabulator-microservices.git
       targetRevision: HEAD
-      path: helm/values/ack-controllers
       ref: values
   destination:
     server: https://kubernetes.default.svc
@@ -82,6 +89,57 @@ spec:
         maxDuration: 3m
   info:
     - name: Description
-      value: "ACK ElastiCache Controller via official Helm chart"
+      value: "AWS Controllers for Kubernetes - ElastiCache"
     - name: Chart Version
-      value: "0.0.21"
+      value: "v0.0.21"
+    - name: AWS Service
+      value: "Amazon ElastiCache"
+
+---
+# ACK IAM Controller via Helm
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: ack-iam-controller
+  namespace: argocd
+  labels:
+    app.kubernetes.io/name: ack-iam-controller
+    app.kubernetes.io/component: infrastructure
+    app.kubernetes.io/managed-by: argocd
+spec:
+  project: infrastructure
+  source:
+    repoURL: oci://public.ecr.aws/aws-controllers-k8s/iam-chart
+    targetRevision: v0.0.15
+    helm:
+      valueFiles:
+        - $values/helm/values/ack-controllers/values-iam.yaml
+  sources:
+    - repoURL: oci://public.ecr.aws/aws-controllers-k8s/iam-chart
+      targetRevision: v0.0.15
+    - repoURL: https://github.com/REPLACE_WITH_YOUR_ORG/cloud-native-encabulator-microservices.git
+      targetRevision: HEAD
+      ref: values
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: ack-system
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+      - ServerSideApply=true
+    retry:
+      limit: 5
+      backoff:
+        duration: 5s
+        factor: 2
+        maxDuration: 3m
+  info:
+    - name: Description
+      value: "AWS Controllers for Kubernetes - IAM"
+    - name: Chart Version
+      value: "v0.0.15"
+    - name: AWS Service
+      value: "AWS Identity and Access Management"

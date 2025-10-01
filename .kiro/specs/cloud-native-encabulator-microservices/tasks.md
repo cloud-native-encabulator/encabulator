@@ -32,11 +32,12 @@
 
 - [x] 2. Implement cloud-native infrastructure management
 
-  - [x] 2.1 Install and configure AWS Controllers for Kubernetes (ACK)
+  - [x] 2.1 Deploy AWS Controllers for Kubernetes (ACK) via Helm
 
-    - Install ACK controllers for RDS, ElastiCache, and other AWS services via Helm
+    - Install ACK controllers for RDS, ElastiCache, and IAM via official OCI Helm charts
     - Configure IRSA (IAM Roles for Service Accounts) for secure AWS API access
-    - Create AWS resource definitions using ACK custom resources
+    - Create comprehensive Helm values files for each ACK controller
+    - Deploy ACK controllers via ArgoCD applications using Helm sources
     - _Requirements: 10.1, 10.2, 10.3, 10.4, 10.5, 10.6_
 
   - [x] 2.2 Implement GitOps with ArgoCD
@@ -54,24 +55,26 @@
     - Proper security groups and networking configuration
     - _Requirements: 1.4, 4.1, 10.1, 10.5_
 
-- [x] 3. Implement observability infrastructure
+- [x] 3. Implement observability infrastructure via Helm
 
-  - [x] 3.1 Set up Prometheus monitoring
+  - [x] 3.1 Deploy Prometheus stack via Helm chart
 
-    - Deploy Prometheus with Kubernetes service discovery
-    - Create ServiceMonitor resources for ACK controllers
-    - Implement alerting rules for infrastructure health
-    - Configure monitoring for AWS resources via ACK
-    - _Requirements: 2.1, 2.4_
+    - Deploy kube-prometheus-stack Helm chart with Prometheus, Grafana, AlertManager
+    - Configure ServiceMonitor resources for ACK controllers and services
+    - Implement alerting rules for infrastructure and application health
+    - Configure monitoring for AWS resources via ACK controllers
+    - Set up Grafana dashboards for Cloud Native Encabulator services
+    - _Requirements: 2.1, 2.2, 2.3, 2.4, 2.5_
 
 - [ ] 4. Implement service plane infrastructure
 
-  - [ ] 4.1 Create Data Plane services
+  - [ ] 4.1 Create Data Plane services via Helm Charts
 
-    - Implement HydrocopticDataStore service (PostgreSQL wrapper with health checks)
-    - Implement SinusoidalDatabase service (time-series DB with Prometheus API)
-    - Implement PrefabulatedCache service (Redis wrapper with cache management)
-    - Deploy services using standard Kubernetes manifests via ArgoCD
+    - Create Helm chart for HydrocopticDataStore service (PostgreSQL wrapper with health checks)
+    - Deploy SinusoidalDatabase service using Prometheus Helm chart (time-series DB)
+    - Deploy PrefabulatedCache service using Redis Helm chart (cache management)
+    - Configure ArgoCD applications to deploy services via Helm charts
+    - Integrate with external RDS and ElastiCache via ACK-managed resources
     - _Requirements: 1.1, 1.4, 2.1, 4.1, 10.1, 10.5_
 
   - [ ] 4.2 Create Processing Plane services
