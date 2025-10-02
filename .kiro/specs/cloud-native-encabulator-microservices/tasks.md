@@ -30,22 +30,23 @@
     - Configure resource quotas and limits
     - _Requirements: 1.2, 1.5, 10.3_
 
-- [x] 2. Implement cloud-native infrastructure management
+- [x] 2. Implement cloud-native infrastructure management (Helm-First Phase)
 
   - [x] 2.1 Deploy AWS Controllers for Kubernetes (ACK) via Helm
 
     - Install ACK controllers for RDS, ElastiCache, and IAM via official OCI Helm charts
     - Configure IRSA (IAM Roles for Service Accounts) for secure AWS API access
     - Create comprehensive Helm values files for each ACK controller
-    - Deploy ACK controllers via ArgoCD applications using Helm sources
+    - Deploy ACK controllers via direct Helm commands (GitOps implementation deferred to `gitops` branch)
     - _Requirements: 10.1, 10.2, 10.3, 10.4, 10.5, 10.6_
 
-  - [x] 2.2 Implement GitOps with ArgoCD
+  - [x] 2.2 Implement GitOps with ArgoCD (Deferred to `gitops` branch)
 
     - Deploy ArgoCD for GitOps workflow management via Helm
     - Create ArgoCD applications for infrastructure components
     - Implement automated deployment pipelines
     - Configure multi-environment promotion workflows
+    - **Note:** ArgoCD configurations exist but implementation deferred to demonstrate deployment evolution
     - _Requirements: 9.1, 9.2, 9.3, 9.4_
 
   - [x] 2.3 Create AWS infrastructure resources
@@ -138,23 +139,31 @@
     - Configure monitoring and alerting for control services
     - _Requirements: 11.1, 11.2, 11.3, 12.1, 12.2, 12.3, 12.4, 12.5, 12.6, 4.2, 4.3, 4.4_
 
-- [ ] 6. Optional: Adopt KRO for advanced resource composition (Future Enhancement)
+- [ ] 6. Architecture Evolution on Main Branch
 
-  - [ ] 6.1 Evaluate KRO adoption for advanced use cases
+  - [ ] 6.1 Migrate to GitOps on main branch
 
-    - Assess whether KRO provides value over current Helm-first approach
-    - Identify specific use cases where KRO would be beneficial
-    - Create proof-of-concept ResourceGraphDefinitions for complex scenarios
-    - Document migration path from Helm to KRO for specific components
+    - Create `helm-first` branch to preserve current Helm-only implementation
+    - Implement ArgoCD GitOps workflow on main branch
+    - Configure repository-based deployment automation
+    - Migrate from direct Helm commands to ArgoCD Applications
+    - _Requirements: 9.1, 9.2, 9.3, 9.4_
+
+  - [ ] 6.2 Implement KRO on main branch
+
+    - Create `argo-first` branch to preserve GitOps implementation
+    - Implement KRO ResourceGraphDefinitions on main branch
+    - Create custom Kubernetes APIs for Cloud Native Encabulator services
+    - Demonstrate platform engineering patterns with KRO + ArgoCD
     - _Requirements: 8.8, 10.2, 10.6_
 
-  - [ ] 6.2 Implement KRO for complex infrastructure patterns (Optional)
+  - [ ] 6.3 Document architectural evolution
 
-    - Create ResourceGraphDefinitions for multi-service deployments
-    - Implement custom APIs for Cloud Native Encabulator service groups
-    - Add KRO-based resource composition for advanced scenarios
-    - Maintain backward compatibility with existing Helm deployments
-    - _Requirements: 1.4, 4.1, 10.1, 10.5_
+    - Create comparison documentation between preserved branches
+    - Document migration paths between deployment strategies
+    - Provide educational content on deployment evolution
+    - Create branch-specific README files with approach explanations
+    - _Requirements: 6.1, 6.2, 6.3, 6.4, 6.5_
 
 - [ ] 7. Implement platform resilience and scaling
 

@@ -73,11 +73,11 @@ aws eks update-kubeconfig --region <region> --name <cluster-name>
 # Verify setup and configure environment
 ./scripts/setup/eks-setup.sh
 
-# Deploy complete platform with ACK and observability
-./scripts/deploy/deploy-dev.sh
+# Deploy complete platform via Helm-first approach
+./scripts/deploy/deploy-helm.sh
 
 # Check deployment status
-./scripts/deploy/status.sh
+./scripts/deploy/deploy-helm.sh --validate
 ```
 
 ### 🌐 Access the Platform
@@ -98,32 +98,27 @@ kubectl port-forward -n encabulator-monitoring svc/prometheus-stack-kube-prom-pr
 kubectl port-forward -n encabulator-monitoring svc/prometheus-stack-kube-state-metrics 8080:8080       # Kube State Metrics
 ```
 
-### 🏗️ Platform Architecture
+### 🏗️ Platform Architecture (Current: Helm-First)
 
-This project uses a **Helm-first, cloud-native platform engineering approach**:
+This project currently uses a **Helm-first approach** for rapid development and learning:
 
-- **ArgoCD**: GitOps deployment and management with Helm chart support
+- **Direct Helm Deployment**: Fast iteration with immediate feedback
 - **ACK (AWS Controllers for Kubernetes)**: Native AWS resource management via official Helm charts
 - **Prometheus Stack**: Complete observability via `kube-prometheus-stack` Helm chart
 - **Community Helm Charts**: Battle-tested charts for Redis, PostgreSQL, Grafana, and more
 - **Custom Helm Charts**: Encabulator-specific services with standardized templates
 
-Deploy infrastructure and applications using Helm charts managed by ArgoCD:
+Deploy infrastructure and applications using direct Helm commands:
 
-```yaml
-# ACK RDS Controller via Helm + ArgoCD
-apiVersion: argoproj.io/v1alpha1
-kind: Application
-metadata:
-  name: ack-rds-controller
-spec:
-  source:
-    repoURL: oci://public.ecr.aws/aws-controllers-k8s/rds-chart
-    targetRevision: v0.0.25
-    helm:
-      valueFiles:
-        - $values/helm/values/ack-controllers/values-rds.yaml
+```bash
+# Deploy complete platform
+./scripts/deploy/deploy-helm.sh
+
+# Deploy specific components
+./scripts/deploy/deploy-helm.sh --observability-only
 ```
+
+**Evolution Path**: Main branch will evolve through GitOps (ArgoCD) to advanced resource composition (KRO), with educational branches preserving each phase.
 
 ## Documentation
 
@@ -136,15 +131,19 @@ spec:
 - [API Specifications](docs/api/) *(coming soon)*
 - [Cloud Native Encabulator Glossary](docs/glossary.md) *(coming soon)*
 
-## Technology Exploration Branches
+## Deployment Evolution Strategy
 
-Explore different Kubernetes ecosystem technologies:
+This project demonstrates the evolution of cloud-native deployment strategies on the `main` branch:
 
-- `gitops`: GitOps deployment with Flux/ArgoCD
-- `karpenter`: Dynamic node provisioning with Karpenter
-- `operators`: Custom Kubernetes Operators and CRDs
-- `service-mesh`: Service mesh with Istio/Linkerd
-- `serverless`: Serverless workloads with Knative
+- **Current Phase**: **Helm-First Development** - Direct Helm deployment for rapid development
+- **Future Phase**: **GitOps Migration** - Add ArgoCD workflow (preserve Helm-first in `helm-first` branch)
+- **Final Phase**: **KRO Platform Engineering** - Advanced resource composition (preserve GitOps in `argo-first` branch)
+
+**Educational Branches:**
+- **`helm-first`**: Preserved Helm-only implementation (created when GitOps added to main)
+- **`argo-first`**: Preserved GitOps implementation (created when KRO added to main)
+
+See [BRANCH_STRATEGY.md](BRANCH_STRATEGY.md) for detailed evolution plan and learning paths.
 
 ## Demo Scenarios
 
