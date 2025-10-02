@@ -41,13 +41,13 @@ scripts/
 ./scripts/deploy/status.sh
 ```
 
-### For Helm-Based Deployment:
+### For Helm-Based Deployment (Recommended):
 ```bash
 # 1. Deploy complete platform via Helm + ArgoCD
 ./scripts/deploy/deploy-helm.sh
 
 # 2. Deploy specific components
-./scripts/deploy/deploy-helm.sh --ack-only
+./scripts/deploy/deploy-helm.sh --argocd-only
 ./scripts/deploy/deploy-helm.sh --observability-only
 ./scripts/deploy/deploy-helm.sh --data-plane-only
 

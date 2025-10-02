@@ -116,16 +116,13 @@ After successful observability testing, you'll have:
 ### Access Services
 ```bash
 # Prometheus (metrics)
-kubectl port-forward -n encabulator-monitoring svc/encabulator-observability-metrics-prometheus 9090:9090
+kubectl port-forward -n encabulator-monitoring svc/prometheus-stack-kube-prom-prometheus 9090:9090
 
 # Grafana (dashboards) - admin/encabulator-dev-2024
-kubectl port-forward -n encabulator-monitoring svc/encabulator-observability-grafana 3000:3000
+kubectl port-forward -n encabulator-monitoring svc/prometheus-stack-grafana 3000:80
 
-# Jaeger (tracing)
-kubectl port-forward -n encabulator-tracing svc/encabulator-observability-tracing-jaeger 16686:16686
-
-# Loki (logs)
-kubectl port-forward -n encabulator-logging svc/encabulator-observability-logs-loki 3100:3100
+# AlertManager
+kubectl port-forward -n encabulator-monitoring svc/prometheus-stack-kube-prom-alertmanager 9093:9093
 ```
 
 ## ☁️ Development Cluster Testing
@@ -178,13 +175,13 @@ kubectl port-forward -n argocd svc/argocd-server 8080:443
 # Access: https://localhost:8080 (admin/[get-password-command])
 
 # Prometheus
-kubectl port-forward -n encabulator-monitoring svc/encabulator-observability-metrics-prometheus 9090:9090
+kubectl port-forward -n encabulator-monitoring svc/prometheus-stack-kube-prom-prometheus 9090:9090
 
 # Grafana - admin/encabulator-dev-2024
-kubectl port-forward -n encabulator-monitoring svc/encabulator-observability-grafana 3000:3000
+kubectl port-forward -n encabulator-monitoring svc/prometheus-stack-grafana 3000:80
 
-# Jaeger
-kubectl port-forward -n encabulator-tracing svc/encabulator-observability-tracing-jaeger 16686:16686
+# AlertManager
+kubectl port-forward -n encabulator-monitoring svc/prometheus-stack-kube-prom-alertmanager 9093:9093
 ```
 
 ## 🔍 Validation Checklist

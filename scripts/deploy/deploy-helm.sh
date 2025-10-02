@@ -1,7 +1,7 @@
 #!/bin/bash
 
-# Cloud Native Encabulator - Helm-Based Deployment Script
-# Deploys the complete platform using Helm charts and ArgoCD
+# Cloud Native Encabulator - Helm-First Deployment
+# Deploys the complete platform using Helm charts with ArgoCD GitOps
 
 set -e
 
@@ -10,262 +10,305 @@ RED='\033[0;31m'
 GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
 BLUE='\033[0;34m'
+PURPLE='\033[0;35m'
 NC='\033[0m' # No Color
 
-print_status() {
-    if [ $1 -eq 0 ]; then
-        echo -e "${GREEN}✅ $2${NC}"
-    else
-        echo -e "${RED}❌ $2${NC}"
-        return 1
+# Logging functions
+log_info() {
+    echo -e "${BLUE}[INFO]${NC} $1"
+}
+
+log_success() {
+    echo -e "${GREEN}[SUCCESS]${NC} $1"
+}
+
+log_warning() {
+    echo -e "${YELLOW}[WARNING]${NC} $1"
+}
+
+log_error() {
+    echo -e "${RED}[ERROR]${NC} $1"
+}
+
+log_section() {
+    echo -e "${PURPLE}[SECTION]${NC} $1"
+}
+
+# Check if command exists
+command_exists() {
+    command -v "$1" >/dev/null 2>&1
+}
+
+# Add Helm repository
+add_helm_repo() {
+    local repo_name="$1"
+    local repo_url="$2"
+    
+    if ! helm repo list | grep -q "^$repo_name"; then
+        log_info "Adding Helm repository: $repo_name"
+        helm repo add "$repo_name" "$repo_url"
+        helm repo update
     fi
-}
-
-print_info() {
-    echo -e "${BLUE}ℹ️  $1${NC}"
-}
-
-print_warning() {
-    echo -e "${YELLOW}⚠️  $1${NC}"
-}
-
-print_header() {
-    echo -e "${BLUE}"
-    echo "=============================================="
-    echo "$1"
-    echo "=============================================="
-    echo -e "${NC}"
 }
 
 # Check prerequisites
 check_prerequisites() {
-    print_header "Checking Prerequisites"
+    log_section "=== Checking Prerequisites ==="
     
-    # Check kubectl
-    if ! command -v kubectl &> /dev/null; then
-        print_status 1 "kubectl is required but not installed"
+    local missing_tools=()
+    
+    if ! command_exists kubectl; then
+        missing_tools+=("kubectl")
+    fi
+    
+    if ! command_exists helm; then
+        missing_tools+=("helm")
+    fi
+    
+    if [ ${#missing_tools[@]} -ne 0 ]; then
+        log_error "Missing required tools: ${missing_tools[*]}"
         exit 1
     fi
-    print_status 0 "kubectl found"
     
-    # Check helm
-    if ! command -v helm &> /dev/null; then
-        print_status 1 "helm is required but not installed"
+    # Verify cluster access
+    if ! kubectl cluster-info >/dev/null 2>&1; then
+        log_error "Cannot access Kubernetes cluster"
         exit 1
     fi
-    print_status 0 "helm found"
     
-    # Check cluster access
-    if ! kubectl cluster-info &> /dev/null; then
-        print_status 1 "Cannot access Kubernetes cluster"
-        exit 1
-    fi
-    print_status 0 "Kubernetes cluster access verified"
-    
-    # Check ArgoCD
-    if ! kubectl get namespace argocd &> /dev/null; then
-        print_warning "ArgoCD namespace not found - will install ArgoCD first"
-        INSTALL_ARGOCD=true
-    else
-        print_status 0 "ArgoCD namespace found"
-        INSTALL_ARGOCD=false
-    fi
+    log_success "Prerequisites verified"
+    log_info "Cluster: $(kubectl config current-context)"
+    echo ""
 }
 
-# Install ArgoCD if needed
-install_argocd() {
-    if [ "$INSTALL_ARGOCD" = true ]; then
-        print_header "Installing ArgoCD via Helm"
+# Setup Helm repositories
+setup_helm_repos() {
+    log_section "=== Setting up Helm Repositories ==="
+    
+    add_helm_repo "argo" "https://argoproj.github.io/argo-helm"
+    add_helm_repo "prometheus-community" "https://prometheus-community.github.io/helm-charts"
+    add_helm_repo "grafana" "https://grafana.github.io/helm-charts"
+    add_helm_repo "bitnami" "https://charts.bitnami.com/bitnami"
+    
+    log_success "Helm repositories configured"
+    echo ""
+}
+
+# Deploy ArgoCD
+deploy_argocd() {
+    log_section "=== Deploying ArgoCD ==="
+    
+    if kubectl get namespace argocd >/dev/null 2>&1; then
+        log_info "ArgoCD namespace already exists"
+    else
+        log_info "Installing ArgoCD via Helm..."
         
-        # Add ArgoCD Helm repository
-        helm repo add argo https://argoproj.github.io/argo-helm
-        helm repo update
-        
-        # Install ArgoCD
         helm upgrade --install argocd argo/argo-cd \
             --namespace argocd \
             --create-namespace \
             --values helm/values/argocd/values-development.yaml \
             --wait --timeout=600s
         
-        print_status $? "ArgoCD installed via Helm"
-        
-        # Wait for ArgoCD to be ready
-        print_info "Waiting for ArgoCD to be ready..."
-        kubectl wait --for=condition=available --timeout=300s deployment/argocd-server -n argocd
-        
-        # Get admin password
-        ARGOCD_PASSWORD=$(kubectl -n argocd get secret argocd-initial-admin-secret -o jsonpath="{.data.password}" | base64 -d)
-        print_info "ArgoCD admin password: $ARGOCD_PASSWORD"
+        log_success "ArgoCD installed successfully"
     fi
+    
+    # Wait for ArgoCD to be ready
+    log_info "Waiting for ArgoCD to be ready..."
+    kubectl wait --for=condition=available --timeout=300s deployment/argocd-server -n argocd
+    
+    log_success "ArgoCD is ready"
+    echo ""
 }
 
-# Deploy ACK Controllers via ArgoCD + Helm
-deploy_ack_controllers() {
-    print_header "Deploying ACK Controllers via ArgoCD + Helm"
-    
-    # Apply ACK controller applications
-    kubectl apply -f argocd/infrastructure/ack-controllers-helm.yaml
-    print_status $? "ACK controller ArgoCD applications created"
-    
-    # Wait for applications to sync
-    print_info "Waiting for ACK controllers to sync..."
-    sleep 30
-    
-    # Check application status
-    for app in ack-rds-controller ack-elasticache-controller ack-iam-controller; do
-        kubectl wait --for=condition=Synced --timeout=300s application/$app -n argocd
-        print_status $? "ACK application $app synced"
-    done
-}
-
-# Deploy Observability Stack via ArgoCD + Helm
+# Deploy observability stack
 deploy_observability() {
-    print_header "Deploying Observability Stack via ArgoCD + Helm"
+    log_section "=== Deploying Observability Stack ==="
     
-    # Apply observability applications
-    kubectl apply -f argocd/platform/monitoring-helm.yaml
-    print_status $? "Observability ArgoCD applications created"
+    # Create monitoring namespace
+    kubectl create namespace encabulator-monitoring --dry-run=client -o yaml | kubectl apply -f -
     
-    # Wait for applications to sync
-    print_info "Waiting for observability stack to sync..."
-    sleep 30
+    log_info "Installing kube-prometheus-stack..."
+    helm upgrade --install prometheus-stack prometheus-community/kube-prometheus-stack \
+        --namespace encabulator-monitoring \
+        --values helm/values/observability/values-prometheus.yaml \
+        --wait --timeout=900s
     
-    # Check application status
-    kubectl wait --for=condition=Synced --timeout=600s application/prometheus-stack -n argocd
-    print_status $? "Prometheus stack application synced"
+    if [ $? -eq 0 ]; then
+        log_success "Observability stack deployed successfully"
+    else
+        log_error "Observability stack deployment failed"
+        return 1
+    fi
+    
+    echo ""
 }
 
-# Deploy AWS Resources
-deploy_aws_resources() {
-    print_header "Deploying AWS Resources via ACK"
-    
-    # Apply AWS resources
-    kubectl apply -f argocd/infrastructure/resource-orchestration.yaml
-    print_status $? "AWS resources ArgoCD application created"
-    
-    # Wait for application to sync
-    print_info "Waiting for AWS resources to sync..."
-    sleep 30
-    
-    kubectl wait --for=condition=Synced --timeout=300s application/aws-resources -n argocd
-    print_status $? "AWS resources application synced"
-}
-
-# Deploy Data Plane Services via ArgoCD + Helm
+# Deploy data plane services
 deploy_data_plane() {
-    print_header "Deploying Data Plane Services via ArgoCD + Helm"
+    log_section "=== Deploying Data Plane Services ==="
     
-    # Apply data plane applications
-    kubectl apply -f argocd/applications/data-plane-helm.yaml
-    print_status $? "Data plane ArgoCD applications created"
+    # Create data namespace
+    kubectl create namespace encabulator-data --dry-run=client -o yaml | kubectl apply -f -
     
-    # Wait for applications to sync
-    print_info "Waiting for data plane services to sync..."
-    sleep 30
+    # Deploy Redis (Prefabulated Cache)
+    log_info "Installing Prefabulated Cache (Redis)..."
+    helm upgrade --install prefabulated-cache bitnami/redis \
+        --namespace encabulator-data \
+        --set auth.password=prefabulated-cache-password \
+        --set architecture=standalone \
+        --set master.resources.requests.cpu=100m \
+        --set master.resources.requests.memory=128Mi \
+        --set metrics.enabled=true \
+        --wait --timeout=300s
     
-    # Check application status
-    for app in hydrocoptic-datastore sinusoidal-database prefabulated-cache; do
-        kubectl wait --for=condition=Synced --timeout=300s application/$app -n argocd
-        print_status $? "Data plane application $app synced"
-    done
+    # Deploy Prometheus TSDB (Sinusoidal Database)
+    log_info "Installing Sinusoidal Database (Prometheus TSDB)..."
+    helm upgrade --install sinusoidal-database prometheus-community/prometheus \
+        --namespace encabulator-data \
+        --set server.name=sinusoidal-database \
+        --set server.resources.requests.cpu=100m \
+        --set server.resources.requests.memory=256Mi \
+        --set alertmanager.enabled=false \
+        --set kubeStateMetrics.enabled=false \
+        --set nodeExporter.enabled=false \
+        --set pushgateway.enabled=false \
+        --wait --timeout=300s
+    
+    log_success "Data plane services deployed"
+    echo ""
 }
 
 # Validate deployment
 validate_deployment() {
-    print_header "Validating Deployment"
+    log_section "=== Validating Deployment ==="
     
-    # Check ArgoCD applications
-    print_info "Checking ArgoCD applications..."
-    kubectl get applications -n argocd
+    # Check ArgoCD
+    if kubectl get deployment argocd-server -n argocd >/dev/null 2>&1; then
+        log_success "✓ ArgoCD Server deployed"
+    else
+        log_warning "⚠ ArgoCD Server not found"
+    fi
     
-    # Check ACK controllers
-    print_info "Checking ACK controllers..."
-    kubectl get pods -n ack-system
+    # Check Prometheus
+    if kubectl get deployment prometheus-stack-kube-prom-operator -n encabulator-monitoring >/dev/null 2>&1; then
+        log_success "✓ Prometheus Operator deployed"
+    else
+        log_warning "⚠ Prometheus Operator not found"
+    fi
     
-    # Check observability stack
-    print_info "Checking observability stack..."
-    kubectl get pods -n encabulator-monitoring
+    # Check Grafana
+    if kubectl get deployment prometheus-stack-grafana -n encabulator-monitoring >/dev/null 2>&1; then
+        log_success "✓ Grafana deployed"
+    else
+        log_warning "⚠ Grafana not found"
+    fi
     
-    # Check data plane services
-    print_info "Checking data plane services..."
-    kubectl get pods -n encabulator-data
+    # Check data services
+    if kubectl get deployment prefabulated-cache-master -n encabulator-data >/dev/null 2>&1; then
+        log_success "✓ Prefabulated Cache deployed"
+    else
+        log_warning "⚠ Prefabulated Cache not found"
+    fi
     
-    # Check AWS resources
-    print_info "Checking AWS resources..."
-    kubectl get dbinstance,replicationgroup -n encabulator-data
+    if kubectl get deployment sinusoidal-database-server -n encabulator-data >/dev/null 2>&1; then
+        log_success "✓ Sinusoidal Database deployed"
+    else
+        log_warning "⚠ Sinusoidal Database not found"
+    fi
+    
+    echo ""
 }
 
-# Provide access information
-provide_access_info() {
-    print_header "Access Information"
-    
-    print_info "ArgoCD UI:"
-    print_info "  kubectl port-forward svc/argocd-server -n argocd 8080:443"
-    print_info "  Username: admin"
-    print_info "  Password: $ARGOCD_PASSWORD"
-    
-    print_info "Prometheus UI:"
-    print_info "  kubectl port-forward svc/prometheus-stack-kube-prom-prometheus -n encabulator-monitoring 9090:9090"
-    
-    print_info "Grafana UI:"
-    print_info "  kubectl port-forward svc/prometheus-stack-grafana -n encabulator-monitoring 3000:80"
-    print_info "  Username: admin"
-    print_info "  Password: encabulator-dev-2024"
+# Show access information
+show_access_info() {
+    log_success "Helm-first deployment completed!"
+    log_info ""
+    log_info "🎉 Your Cloud Native Encabulator platform is ready!"
+    log_info ""
+    log_info "🌐 Access services:"
+    log_info "  ArgoCD:      kubectl port-forward -n argocd svc/argocd-server 8080:443"
+    log_info "  Prometheus:  kubectl port-forward -n encabulator-monitoring svc/prometheus-stack-kube-prom-prometheus 9090:9090"
+    log_info "  Grafana:     kubectl port-forward -n encabulator-monitoring svc/prometheus-stack-grafana 3000:80"
+    log_info ""
+    log_info "🔑 Default credentials:"
+    local argocd_password=$(kubectl -n argocd get secret argocd-initial-admin-secret -o jsonpath="{.data.password}" 2>/dev/null | base64 -d 2>/dev/null || echo "not-found")
+    if [ "$argocd_password" != "not-found" ]; then
+        log_info "  ArgoCD:  admin / $argocd_password"
+    else
+        log_info "  ArgoCD:  admin / (get password: kubectl -n argocd get secret argocd-initial-admin-secret -o jsonpath=\"{.data.password}\" | base64 -d)"
+    fi
+    log_info "  Grafana: admin / encabulator-dev-2024"
+    log_info ""
+    log_info "🔍 Monitor deployment:"
+    log_info "  helm list -A"
+    log_info "  kubectl get all -n encabulator-monitoring"
+    log_info "  kubectl get all -n encabulator-data"
+    log_info ""
+    log_info "📊 Next steps:"
+    log_info "  1. Access Grafana and verify dashboards"
+    log_info "  2. Deploy service planes: Task 4.1"
+    log_info "  3. Run comprehensive tests: ./scripts/test/comprehensive-test.sh"
 }
 
-# Main execution
+# Main deployment function
 main() {
-    print_header "Cloud Native Encabulator - Helm Deployment"
+    log_info "Starting Cloud Native Encabulator Helm-first deployment..."
+    echo ""
     
     check_prerequisites
-    install_argocd
-    deploy_ack_controllers
+    setup_helm_repos
+    deploy_argocd
     deploy_observability
-    deploy_aws_resources
     deploy_data_plane
     validate_deployment
-    provide_access_info
-    
-    print_header "Deployment Complete!"
-    print_info "All components have been deployed via Helm charts and ArgoCD"
-    print_info "Monitor the deployment progress in the ArgoCD UI"
+    show_access_info
 }
 
 # Handle script arguments
 case "${1:-}" in
-    --ack-only)
-        print_info "Deploying ACK controllers only..."
+    --argocd-only)
+        log_info "Deploying ArgoCD only..."
         check_prerequisites
-        deploy_ack_controllers
+        setup_helm_repos
+        deploy_argocd
         ;;
     --observability-only)
-        print_info "Deploying observability stack only..."
+        log_info "Deploying observability stack only..."
         check_prerequisites
+        setup_helm_repos
         deploy_observability
-        ;;
-    --data-plane-only)
-        print_info "Deploying data plane services only..."
-        check_prerequisites
-        deploy_data_plane
-        ;;
-    --validate)
-        print_info "Validating existing deployment..."
         validate_deployment
         ;;
-    --help)
+    --data-plane-only)
+        log_info "Deploying data plane services only..."
+        check_prerequisites
+        setup_helm_repos
+        deploy_data_plane
+        validate_deployment
+        ;;
+    --validate)
+        log_info "Validating deployment only..."
+        validate_deployment
+        show_access_info
+        ;;
+    --help|-h)
         echo "Usage: $0 [OPTIONS]"
         echo ""
         echo "Options:"
-        echo "  --ack-only           Deploy only ACK controllers"
+        echo "  --argocd-only        Deploy only ArgoCD"
         echo "  --observability-only Deploy only observability stack"
         echo "  --data-plane-only    Deploy only data plane services"
         echo "  --validate           Validate existing deployment"
-        echo "  --help               Show this help message"
+        echo "  --help, -h           Show this help message"
         echo ""
-        echo "Default: Deploy complete platform"
+        echo "Default: Complete Helm-first platform deployment"
+        ;;
+    "")
+        main
         ;;
     *)
-        main
+        log_error "Unknown option: $1"
+        echo "Use --help for usage information"
+        exit 1
         ;;
 esac

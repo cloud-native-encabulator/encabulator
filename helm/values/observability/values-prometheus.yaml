@@ -12,24 +12,25 @@ global:
 # Prometheus server configuration
 prometheus:
   prometheusSpec:
-    # Resource management
+    # Resource management (increased for stability)
     resources:
       requests:
         cpu: 200m
         memory: 512Mi
       limits:
-        cpu: 500m
-        memory: 1Gi
+        cpu: 1000m
+        memory: 2Gi
     
-    # Storage configuration
-    retention: 15d
+    # Storage configuration - uses default storage class
+    retention: 7d
     storageSpec:
       volumeClaimTemplate:
         spec:
+          # No explicit storageClassName - uses cluster default
           accessModes: ["ReadWriteOnce"]
           resources:
             requests:
-              storage: 10Gi
+              storage: 5Gi
     
     # Service discovery and scraping
     serviceMonitorSelectorNilUsesHelmValues: false
@@ -74,30 +75,36 @@ grafana:
   enabled: true
   adminPassword: encabulator-dev-2024
   
-  # Grafana resources
+  # Grafana resources (increased for stability)
   resources:
     requests:
       cpu: 100m
-      memory: 256Mi
-    limits:
-      cpu: 200m
       memory: 512Mi
+    limits:
+      cpu: 500m
+      memory: 1Gi
   
-  # Persistence
+  # Persistence - uses default storage class
   persistence:
     enabled: true
+    # No explicit storageClassName - uses cluster default
     size: 1Gi
+    accessModes:
+      - ReadWriteOnce
   
-  # Datasources
-  datasources:
-    datasources.yaml:
-      apiVersion: 1
-      datasources:
-      - name: Prometheus
-        type: prometheus
-        url: http://prometheus-server:80
-        access: proxy
-        isDefault: true
+  # Security context for better compatibility
+  securityContext:
+    runAsNonRoot: true
+    runAsUser: 472
+    fsGroup: 472
+  
+  # Service configuration
+  service:
+    type: ClusterIP
+    port: 80
+  
+  # Datasources (automatically configured by kube-prometheus-stack)
+  # The chart automatically creates a Prometheus datasource
   
   # Dashboards
   dashboardProviders:
@@ -126,11 +133,21 @@ alertmanager:
   alertmanagerSpec:
     resources:
       requests:
+        cpu: 25m
+        memory: 64Mi
+      limits:
         cpu: 50m
         memory: 128Mi
-      limits:
-        cpu: 100m
-        memory: 256Mi
+    # Storage configuration - uses default storage class
+    # Comment out storage section to disable persistence if PVC issues occur
+    storage:
+      volumeClaimTemplate:
+        spec:
+          # No explicit storageClassName - uses cluster default
+          accessModes: ["ReadWriteOnce"]
+          resources:
+            requests:
+              storage: 1Gi
 
 # Node Exporter
 nodeExporter:
@@ -144,20 +161,20 @@ kubeStateMetrics:
 serviceMonitor:
   enabled: true
   
-# Default rules for Kubernetes monitoring
+# Default rules for Kubernetes monitoring (EKS-compatible)
 defaultRules:
   create: true
   rules:
     alertmanager: true
-    etcd: true
+    etcd: false  # Not accessible in EKS
     configReloaders: true
     general: true
     k8s: true
-    kubeApiserver: true
-    kubeApiserverAvailability: true
-    kubeApiserverSlos: true
+    kubeApiserver: false  # Not accessible in EKS
+    kubeApiserverAvailability: false  # Not accessible in EKS
+    kubeApiserverSlos: false  # Not accessible in EKS
     kubelet: true
-    kubeProxy: true
+    kubeProxy: false  # Not accessible in EKS
     kubePrometheusGeneral: true
     kubePrometheusNodeRecording: true
     kubernetesApps: true
@@ -169,3 +186,19 @@ defaultRules:
     nodeExporterRecording: true
     prometheus: true
     prometheusOperator: true
+
+# Disable control plane monitoring for EKS
+kubeApiServer:
+  enabled: false
+
+kubeControllerManager:
+  enabled: false
+
+kubeScheduler:
+  enabled: false
+
+kubeProxy:
+  enabled: false
+
+kubeEtcd:
+  enabled: false

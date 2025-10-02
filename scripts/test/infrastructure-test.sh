@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # Cloud Native Encabulator - Infrastructure Testing Script
-# Tests ACK controllers, KRO ResourceGroups, and infrastructure components
+# Tests ACK controllers via Helm, ArgoCD, and infrastructure components
 
 set -e
 
@@ -34,9 +34,21 @@ command_exists() {
     command -v "$1" >/dev/null 2>&1
 }
 
-# Test ACK Controllers
-test_ack_controllers() {
-    log_info "=== Testing ACK Controllers ==="
+# Add Helm repository
+add_helm_repo() {
+    local repo_name="$1"
+    local repo_url="$2"
+    
+    if ! helm repo list | grep -q "^$repo_name"; then
+        log_info "Adding Helm repository: $repo_name"
+        helm repo add "$repo_name" "$repo_url"
+        helm repo update
+    fi
+}
+
+# Test ACK Controllers via Helm
+test_ack_controllers_helm() {
+    log_info "=== Testing ACK Controllers via Helm ==="
     
     # Check if ACK namespace exists
     if ! kubectl get namespace ack-system >/dev/null 2>&1; then
@@ -44,13 +56,44 @@ test_ack_controllers() {
         kubectl create namespace ack-system
     fi
     
-    # Apply ACK controller manifests
-    log_info "Applying ACK controller manifests..."
-    kubectl apply -f k8s/infrastructure/ack-controllers/
+    # Test ACK OCI chart access
+    log_info "Testing ACK OCI chart access..."
+    if helm show chart oci://public.ecr.aws/aws-controllers-k8s/rds-chart --version v0.0.25 >/dev/null 2>&1; then
+        log_success "✓ ACK RDS OCI chart accessible"
+    else
+        log_warning "⚠ ACK RDS OCI chart not accessible (expected in local testing)"
+        log_info "  In a real AWS environment, install with:"
+        log_info "  helm install ack-rds-controller oci://public.ecr.aws/aws-controllers-k8s/rds-chart --version v0.0.25"
+        return 0
+    fi
     
-    # Wait for controllers to be ready
-    log_info "Waiting for ACK controllers to be ready..."
-    sleep 30
+    # Install ACK RDS Controller via Helm
+    log_info "Installing ACK RDS Controller via Helm..."
+    helm upgrade --install ack-rds-controller oci://public.ecr.aws/aws-controllers-k8s/rds-chart \
+        --namespace ack-system \
+        --version v0.0.25 \
+        --values helm/values/ack-controllers/values-rds.yaml \
+        --wait --timeout=300s
+    
+    if [ $? -eq 0 ]; then
+        log_success "✓ ACK RDS Controller installed successfully"
+    else
+        log_warning "⚠ ACK RDS Controller installation had issues"
+    fi
+    
+    # Install ACK ElastiCache Controller via Helm
+    log_info "Installing ACK ElastiCache Controller via Helm..."
+    helm upgrade --install ack-elasticache-controller oci://public.ecr.aws/aws-controllers-k8s/elasticache-chart \
+        --namespace ack-system \
+        --version v0.0.21 \
+        --values helm/values/ack-controllers/values-elasticache.yaml \
+        --wait --timeout=300s
+    
+    if [ $? -eq 0 ]; then
+        log_success "✓ ACK ElastiCache Controller installed successfully"
+    else
+        log_warning "⚠ ACK ElastiCache Controller installation had issues"
+    fi
     
     # Check controller status
     local controllers=(
@@ -82,227 +125,139 @@ test_ack_controllers() {
         if kubectl get crd "$crd" >/dev/null 2>&1; then
             log_success "✓ ACK CRD: $crd"
         else
-            log_warning "⚠ ACK CRD: $crd (not found)"
+            log_warning "⚠ ACK CRD: $crd (not found - would be installed by ACK Helm charts)"
         fi
     done
     
     echo ""
 }
 
-# Test KRO Installation
-test_kro_installation() {
-    log_info "=== Testing KRO Installation ==="
+# Test ArgoCD Installation via Helm
+test_argocd_helm() {
+    log_info "=== Testing ArgoCD Installation via Helm ==="
     
-    # Check if KRO namespace exists
-    if ! kubectl get namespace kro >/dev/null 2>&1; then
-        log_warning "KRO namespace not found, creating..."
-        kubectl create namespace kro
-    fi
+    # Add ArgoCD Helm repository
+    add_helm_repo "argo" "https://argoproj.github.io/argo-helm"
     
-    # Install KRO via official OCI Helm chart
-    log_info "Installing KRO via official OCI Helm chart..."
-    
-    # Get latest KRO version
-    local kro_version
-    kro_version=$(curl -sL https://api.github.com/repos/kubernetes-sigs/kro/releases/latest | \
-        jq -r '.tag_name | ltrimstr("v")' 2>/dev/null || echo "0.1.0")
-    
-    if [ "$kro_version" = "null" ] || [ -z "$kro_version" ]; then
-        kro_version="0.1.0"
-        log_warning "Could not fetch latest version, using v$kro_version"
-    else
-        log_info "Using KRO version: v$kro_version"
-    fi
-    
-    # Install KRO
-    helm upgrade --install kro oci://ghcr.io/kro-run/kro/kro \
-        --namespace kro \
-        --create-namespace \
-        --version="${kro_version}" \
-        --wait --timeout=300s
-    
-    # Check KRO controller status
-    local kro_status=$(kubectl get deployment kro -n kro -o jsonpath='{.status.readyReplicas}/{.status.replicas}' 2>/dev/null || echo "0/0")
-    if [[ "$kro_status" == *"/"* ]] && [[ "${kro_status%/*}" -gt 0 ]]; then
-        log_success "✓ KRO Controller: $kro_status ready"
-    else
-        log_error "✗ KRO Controller: $kro_status ready"
-        return 1
-    fi
-    
-    # Check for KRO CRDs
-    log_info "Checking KRO Custom Resource Definitions..."
-    local kro_crds=(
-        "resourcegraphdefinitions.kro.run"
-    )
-    
-    for crd in "${kro_crds[@]}"; do
-        if kubectl get crd "$crd" >/dev/null 2>&1; then
-            log_success "✓ KRO CRD: $crd"
+    # Check if ArgoCD namespace exists
+    if ! kubectl get namespace argocd >/dev/null 2>&1; then
+        log_info "Installing ArgoCD via Helm..."
+        
+        # Install ArgoCD via Helm
+        helm upgrade --install argocd argo/argo-cd \
+            --namespace argocd \
+            --create-namespace \
+            --values helm/values/argocd/values-development.yaml \
+            --wait --timeout=300s
+        
+        if [ $? -eq 0 ]; then
+            log_success "✓ ArgoCD installed successfully via Helm"
         else
-            log_error "✗ KRO CRD: $crd (not found)"
+            log_error "✗ ArgoCD installation failed"
             return 1
         fi
-    done
-    
-    echo ""
-}
-
-# Test Infrastructure ResourceGroups
-test_infrastructure_resource_groups() {
-    log_info "=== Testing Infrastructure ResourceGroups ==="
-    
-    # Apply simple test ResourceGraphDefinition
-    log_info "Applying simple test ResourceGraphDefinition..."
-    kubectl apply -k k8s/infrastructure/kro/resource-graph-definitions/
-    
-    # Wait for ResourceGroups to be established
-    log_info "Waiting for ResourceGroups to be established..."
-    sleep 20
-    
-    # Check for infrastructure custom resources
-    local infrastructure_resources=(
-        "encabulatordatabase.encabulator.io"
-        "encabulatorcache.encabulator.io"
-        "encabulatorcluster.encabulator.io"
-    )
-    
-    for resource in "${infrastructure_resources[@]}"; do
-        if kubectl get crd "$resource" >/dev/null 2>&1; then
-            log_success "✓ Infrastructure CRD: $resource"
-        else
-            log_warning "⚠ Infrastructure CRD: $resource (not yet available)"
-        fi
-    done
-    
-    # Check ResourceGraphDefinition status
-    log_info "Checking ResourceGraphDefinition status..."
-    if kubectl get resourcegraphdefinition simple-configmap -n kro >/dev/null 2>&1; then
-        log_success "✓ ResourceGraphDefinition: simple-configmap"
-        
-        # Check if CRD was created
-        if kubectl get crd simpleconfigmaps.v1alpha1.kro.run >/dev/null 2>&1; then
-            log_success "✓ Custom Resource created: SimpleConfigMap"
-        else
-            log_warning "⚠ Custom Resource not yet created"
-        fi
     else
-        log_warning "⚠ ResourceGraphDefinition: simple-configmap (not found)"
+        log_success "✓ ArgoCD namespace already exists"
+    fi
+    
+    # Check ArgoCD deployment status
+    if kubectl get deployment argocd-server -n argocd >/dev/null 2>&1; then
+        local argocd_status=$(kubectl get deployment argocd-server -n argocd -o jsonpath='{.status.readyReplicas}/{.status.replicas}' 2>/dev/null || echo "0/0")
+        if [[ "$argocd_status" == *"/"* ]] && [[ "${argocd_status%/*}" -gt 0 ]]; then
+            log_success "✓ ArgoCD Server: $argocd_status ready"
+        else
+            log_warning "⚠ ArgoCD Server: $argocd_status ready"
+        fi
+    fi
+    
+    # Get ArgoCD admin password
+    local argocd_password=$(kubectl -n argocd get secret argocd-initial-admin-secret -o jsonpath="{.data.password}" 2>/dev/null | base64 -d 2>/dev/null || echo "not-found")
+    if [ "$argocd_password" != "not-found" ]; then
+        log_success "✓ ArgoCD admin password retrieved"
+        log_info "  Username: admin"
+        log_info "  Password: $argocd_password"
+    else
+        log_warning "⚠ ArgoCD admin password not found"
     fi
     
     echo ""
 }
 
-# Test Infrastructure Instances
-test_infrastructure_instances() {
-    log_info "=== Testing Infrastructure Instances ==="
+# Test AWS Resources via ACK
+test_aws_resources() {
+    log_info "=== Testing AWS Resources via ACK ==="
     
     # Create data namespace
     kubectl create namespace encabulator-data --dry-run=client -o yaml | kubectl apply -f -
     
-    # Deploy development cluster example
-    log_info "Deploying development cluster example..."
-    kubectl apply -f k8s/infrastructure/kro/examples/development-cluster.yaml
+    # Apply AWS resources
+    log_info "Applying AWS resources via ACK..."
+    kubectl apply -k k8s/infrastructure/aws-resources/
     
     # Wait for resources to be created
-    log_info "Waiting for infrastructure resources to be created..."
-    sleep 30
-    
-    # Check for EncabulatorCluster resource
-    if kubectl get encabulatorcluster development-cluster -n encabulator-data >/dev/null 2>&1; then
-        log_success "✓ EncabulatorCluster: development-cluster created"
-        
-        # Check status
-        local cluster_status=$(kubectl get encabulatorcluster development-cluster -n encabulator-data -o jsonpath='{.status.phase}' 2>/dev/null || echo "Unknown")
-        log_info "  Cluster Status: $cluster_status"
-    else
-        log_warning "⚠ EncabulatorCluster: development-cluster not found"
-    fi
-    
-    # Check for underlying resources created by KRO
-    log_info "Checking underlying resources created by KRO..."
-    
-    # Database
-    if kubectl get encabulatordatabase development-cluster-database -n encabulator-data >/dev/null 2>&1; then
-        log_success "✓ EncabulatorDatabase: development-cluster-database"
-    else
-        log_warning "⚠ EncabulatorDatabase: development-cluster-database (not found)"
-    fi
-    
-    # Cache
-    if kubectl get encabulatorcache development-cluster-cache -n encabulator-data >/dev/null 2>&1; then
-        log_success "✓ EncabulatorCache: development-cluster-cache"
-    else
-        log_warning "⚠ EncabulatorCache: development-cluster-cache (not found)"
-    fi
-    
-    # Namespace
-    if kubectl get namespace development-cluster-apps >/dev/null 2>&1; then
-        log_success "✓ Application Namespace: development-cluster-apps"
-    else
-        log_warning "⚠ Application Namespace: development-cluster-apps (not found)"
-    fi
-    
-    # ConfigMap
-    if kubectl get configmap development-cluster-config -n development-cluster-apps >/dev/null 2>&1; then
-        log_success "✓ Cluster ConfigMap: development-cluster-config"
-    else
-        log_warning "⚠ Cluster ConfigMap: development-cluster-config (not found)"
-    fi
-    
-    echo ""
-}
-
-# Test Individual Components
-test_individual_components() {
-    log_info "=== Testing Individual Components ==="
-    
-    # Deploy individual components example
-    log_info "Deploying individual components example..."
-    kubectl apply -f k8s/infrastructure/kro/examples/individual-components.yaml
-    
-    # Wait for resources
+    log_info "Waiting for AWS resources to be created..."
     sleep 20
     
-    # Check individual database
-    if kubectl get encabulatordatabase hydrocoptic-datastore -n encabulator-data >/dev/null 2>&1; then
-        log_success "✓ Individual Database: hydrocoptic-datastore"
+    # Check for RDS database
+    if kubectl get dbinstance hydrocoptic-datastore -n encabulator-data >/dev/null 2>&1; then
+        log_success "✓ RDS Database: hydrocoptic-datastore created"
+        
+        # Check status
+        local db_status=$(kubectl get dbinstance hydrocoptic-datastore -n encabulator-data -o jsonpath='{.status.dbInstanceStatus}' 2>/dev/null || echo "Unknown")
+        log_info "  Database Status: $db_status"
     else
-        log_warning "⚠ Individual Database: hydrocoptic-datastore (not found)"
+        log_warning "⚠ RDS Database: hydrocoptic-datastore not found"
     fi
     
-    # Check individual cache
-    if kubectl get encabulatorcache prefabulated-cache -n encabulator-data >/dev/null 2>&1; then
-        log_success "✓ Individual Cache: prefabulated-cache"
+    # Check for ElastiCache cluster
+    if kubectl get replicationgroup prefabulated-cache -n encabulator-data >/dev/null 2>&1; then
+        log_success "✓ ElastiCache Cluster: prefabulated-cache created"
+        
+        # Check status
+        local cache_status=$(kubectl get replicationgroup prefabulated-cache -n encabulator-data -o jsonpath='{.status.status}' 2>/dev/null || echo "Unknown")
+        log_info "  Cache Status: $cache_status"
     else
-        log_warning "⚠ Individual Cache: prefabulated-cache (not found)"
+        log_warning "⚠ ElastiCache Cluster: prefabulated-cache not found"
+    fi
+    
+    # Check secrets and config
+    if kubectl get secret hydrocoptic-datastore-credentials -n encabulator-data >/dev/null 2>&1; then
+        log_success "✓ Database credentials secret created"
+    else
+        log_warning "⚠ Database credentials secret not found"
+    fi
+    
+    if kubectl get configmap prefabulated-cache-config -n encabulator-data >/dev/null 2>&1; then
+        log_success "✓ Cache configuration created"
+    else
+        log_warning "⚠ Cache configuration not found"
     fi
     
     echo ""
 }
 
-# Test ArgoCD Integration
-test_argocd_integration() {
-    log_info "=== Testing ArgoCD Integration ==="
+# Test ArgoCD Applications with Helm Sources
+test_argocd_helm_applications() {
+    log_info "=== Testing ArgoCD Applications with Helm Sources ==="
     
     # Check if ArgoCD is available
     if ! kubectl get namespace argocd >/dev/null 2>&1; then
-        log_warning "ArgoCD namespace not found, skipping ArgoCD integration tests"
+        log_warning "ArgoCD namespace not found, skipping ArgoCD application tests"
         return 0
     fi
     
     # Apply ArgoCD infrastructure applications
-    log_info "Applying ArgoCD infrastructure applications..."
-    kubectl apply -f argocd/infrastructure/
+    log_info "Applying ArgoCD infrastructure applications with Helm sources..."
+    kubectl apply -f argocd/infrastructure/ack-controllers-helm.yaml
     
     # Wait for applications to be created
     sleep 10
     
     # Check ArgoCD applications
     local argocd_apps=(
-        "kro-installation"
-        "kro-resource-groups"
-        "aws-resources"
+        "ack-rds-controller"
+        "ack-elasticache-controller"
+        "ack-iam-controller"
     )
     
     for app in "${argocd_apps[@]}"; do
@@ -315,30 +270,85 @@ test_argocd_integration() {
         fi
     done
     
+    # Apply AWS resources application
+    kubectl apply -f argocd/infrastructure/resource-orchestration.yaml
+    sleep 5
+    
+    if kubectl get application aws-resources -n argocd >/dev/null 2>&1; then
+        local sync_status=$(kubectl get application aws-resources -n argocd -o jsonpath='{.status.sync.status}' 2>/dev/null || echo "Unknown")
+        local health_status=$(kubectl get application aws-resources -n argocd -o jsonpath='{.status.health.status}' 2>/dev/null || echo "Unknown")
+        log_success "✓ ArgoCD App: aws-resources (Sync: $sync_status, Health: $health_status)"
+    else
+        log_warning "⚠ ArgoCD App: aws-resources (not found)"
+    fi
+    
     echo ""
 }
 
-# Test Resource Dependencies
-test_resource_dependencies() {
-    log_info "=== Testing Resource Dependencies ==="
+# Test Helm Releases
+test_helm_releases() {
+    log_info "=== Testing Helm Releases ==="
     
-    # Test that composite resources create their dependencies
-    log_info "Checking resource dependency creation..."
+    # Check Helm releases
+    local helm_releases=(
+        "argocd:argocd"
+        "ack-rds-controller:ack-system"
+        "ack-elasticache-controller:ack-system"
+    )
     
-    # Check that EncabulatorCluster creates EncabulatorDatabase and EncabulatorCache
-    local cluster_resources=$(kubectl get encabulatorcluster -A --no-headers 2>/dev/null | wc -l)
-    local database_resources=$(kubectl get encabulatordatabase -A --no-headers 2>/dev/null | wc -l)
-    local cache_resources=$(kubectl get encabulatorcache -A --no-headers 2>/dev/null | wc -l)
+    for release_info in "${helm_releases[@]}"; do
+        IFS=':' read -r release namespace <<< "$release_info"
+        
+        if helm list -n "$namespace" | grep -q "$release"; then
+            local status=$(helm status "$release" -n "$namespace" -o json | jq -r '.info.status' 2>/dev/null || echo "unknown")
+            if [ "$status" = "deployed" ]; then
+                log_success "✓ Helm release deployed: $release in $namespace"
+            else
+                log_warning "⚠ Helm release status: $release ($status)"
+            fi
+        else
+            log_warning "⚠ Helm release not found: $release in $namespace"
+        fi
+    done
     
-    log_info "Resource counts:"
-    log_info "  EncabulatorCluster: $cluster_resources"
-    log_info "  EncabulatorDatabase: $database_resources"
-    log_info "  EncabulatorCache: $cache_resources"
+    echo ""
+}
+
+# Test Infrastructure Integration
+test_infrastructure_integration() {
+    log_info "=== Testing Infrastructure Integration ==="
     
-    if [ "$cluster_resources" -gt 0 ] && [ "$database_resources" -ge "$cluster_resources" ] && [ "$cache_resources" -ge "$cluster_resources" ]; then
-        log_success "✓ Resource dependencies are being created correctly"
+    # Test that ACK controllers are exposing metrics
+    log_info "Checking ACK controller metrics endpoints..."
+    
+    local controllers=(
+        "ack-rds-controller"
+        "ack-elasticache-controller"
+    )
+    
+    for controller in "${controllers[@]}"; do
+        if kubectl get service "$controller-metrics" -n ack-system >/dev/null 2>&1; then
+            log_success "✓ Metrics service exists: $controller-metrics"
+        else
+            log_warning "⚠ Metrics service not found: $controller-metrics"
+        fi
+    done
+    
+    # Test that AWS resources can be created (dry-run)
+    log_info "Testing AWS resource creation (dry-run)..."
+    
+    # Test RDS instance creation
+    if kubectl apply --dry-run=client -f k8s/infrastructure/aws-resources/rds-database.yaml >/dev/null 2>&1; then
+        log_success "✓ RDS resource definition is valid"
     else
-        log_warning "⚠ Resource dependency creation may have issues"
+        log_warning "⚠ RDS resource definition has issues"
+    fi
+    
+    # Test ElastiCache creation
+    if kubectl apply --dry-run=client -f k8s/infrastructure/aws-resources/elasticache-cluster.yaml >/dev/null 2>&1; then
+        log_success "✓ ElastiCache resource definition is valid"
+    else
+        log_warning "⚠ ElastiCache resource definition has issues"
     fi
     
     echo ""
@@ -349,26 +359,28 @@ show_infrastructure_status() {
     log_info "=== Infrastructure Status Summary ==="
     
     echo ""
-    log_info "ACK Controllers:"
-    kubectl get deployments -n ack-system 2>/dev/null || log_warning "No ACK controllers found"
-    
-    echo ""
-    log_info "KRO Controller:"
-    kubectl get deployments -n kro 2>/dev/null || log_warning "No KRO controller found"
-    
-    echo ""
-    log_info "Infrastructure Custom Resources:"
-    kubectl get crd | grep encabulator || log_warning "No encabulator CRDs found"
-    
-    echo ""
-    log_info "Infrastructure Instances:"
-    kubectl get encabulatorcluster -A 2>/dev/null || log_warning "No EncabulatorCluster resources found"
-    kubectl get encabulatordatabase -A 2>/dev/null || log_warning "No EncabulatorDatabase resources found"
-    kubectl get encabulatorcache -A 2>/dev/null || log_warning "No EncabulatorCache resources found"
+    log_info "Helm Releases:"
+    helm list -A 2>/dev/null || log_warning "No Helm releases found"
     
     echo ""
     log_info "ArgoCD Applications:"
     kubectl get applications -n argocd 2>/dev/null || log_warning "No ArgoCD applications found"
+    
+    echo ""
+    log_info "ACK Controllers:"
+    kubectl get deployments -n ack-system 2>/dev/null || log_warning "No ACK controllers found"
+    
+    echo ""
+    log_info "ACK Custom Resource Definitions:"
+    kubectl get crd | grep -E "(rds|elasticache)\.services\.k8s\.aws" || log_warning "No ACK CRDs found"
+    
+    echo ""
+    log_info "AWS Resources:"
+    kubectl get dbinstance,replicationgroup -A 2>/dev/null || log_warning "No AWS resources found"
+    
+    echo ""
+    log_info "Infrastructure Namespaces:"
+    kubectl get namespaces | grep -E "(ack-system|argocd|encabulator-data)" || log_warning "No infrastructure namespaces found"
     
     echo ""
 }
@@ -377,38 +389,46 @@ show_infrastructure_status() {
 show_access_info() {
     log_success "Infrastructure testing completed!"
     log_info ""
-    log_info "🎉 Your Cloud Native Encabulator infrastructure is ready!"
+    log_info "🎉 Your Cloud Native Encabulator Helm-based infrastructure is ready!"
     log_info ""
     log_info "🔍 Check infrastructure status:"
+    log_info "  helm list -A"
     log_info "  kubectl get all -n ack-system"
-    log_info "  kubectl get all -n kro"
-    log_info "  kubectl get encabulatorcluster -A"
-    log_info "  kubectl get encabulatordatabase -A"
-    log_info "  kubectl get encabulatorcache -A"
+    log_info "  kubectl get all -n argocd"
+    log_info "  kubectl get dbinstance,replicationgroup -A"
+    log_info ""
+    log_info "🌐 Access ArgoCD:"
+    log_info "  kubectl port-forward -n argocd svc/argocd-server 8080:443"
+    log_info "  Username: admin"
+    local argocd_password=$(kubectl -n argocd get secret argocd-initial-admin-secret -o jsonpath="{.data.password}" 2>/dev/null | base64 -d 2>/dev/null || echo "not-found")
+    if [ "$argocd_password" != "not-found" ]; then
+        log_info "  Password: $argocd_password"
+    else
+        log_info "  Password: (retrieve with: kubectl -n argocd get secret argocd-initial-admin-secret -o jsonpath=\"{.data.password}\" | base64 -d)"
+    fi
     log_info ""
     log_info "🛠️ Useful commands:"
-    log_info "  kubectl describe encabulatorcluster development-cluster -n encabulator-data"
-    log_info "  kubectl logs -n kro deployment/kro"
-    log_info "  kubectl get resourcegraphdefinitions -n kro"
+    log_info "  kubectl describe dbinstance hydrocoptic-datastore -n encabulator-data"
+    log_info "  kubectl logs -n ack-system deployment/ack-rds-controller"
+    log_info "  helm status argocd -n argocd"
     log_info ""
     log_info "📊 Next steps:"
-    log_info "  1. Run observability tests: ./scripts/test/local-test.sh"
-    log_info "  2. Deploy to development cluster: ./scripts/deploy/deploy-dev.sh"
+    log_info "  1. Run observability tests: ./scripts/test/comprehensive-test.sh --observability-only"
+    log_info "  2. Deploy complete platform: ./scripts/deploy/deploy-helm.sh"
     log_info "  3. Check overall status: ./scripts/deploy/status.sh"
 }
 
 # Main test function
 main() {
-    log_info "Starting Cloud Native Encabulator infrastructure testing..."
+    log_info "Starting Cloud Native Encabulator Helm-based infrastructure testing..."
     echo ""
     
-    test_ack_controllers
-    test_kro_installation
-    test_infrastructure_resource_groups
-    test_infrastructure_instances
-    test_individual_components
-    test_argocd_integration
-    test_resource_dependencies
+    test_ack_controllers_helm
+    test_argocd_helm
+    test_aws_resources
+    test_argocd_helm_applications
+    test_helm_releases
+    test_infrastructure_integration
     show_infrastructure_status
     show_access_info
 }
@@ -416,18 +436,18 @@ main() {
 # Handle script arguments
 case "${1:-}" in
     --ack-only)
-        log_info "Testing ACK controllers only..."
-        test_ack_controllers
+        log_info "Testing ACK controllers via Helm only..."
+        test_ack_controllers_helm
+        test_helm_releases
         ;;
-    --kro-only)
-        log_info "Testing KRO only..."
-        test_kro_installation
-        test_infrastructure_resource_groups
+    --argocd-only)
+        log_info "Testing ArgoCD via Helm only..."
+        test_argocd_helm
+        test_argocd_helm_applications
         ;;
-    --instances-only)
-        log_info "Testing infrastructure instances only..."
-        test_infrastructure_instances
-        test_individual_components
+    --aws-resources-only)
+        log_info "Testing AWS resources only..."
+        test_aws_resources
         ;;
     --status-only)
         log_info "Showing infrastructure status only..."
@@ -437,13 +457,13 @@ case "${1:-}" in
         echo "Usage: $0 [OPTIONS]"
         echo ""
         echo "Options:"
-        echo "  --ack-only        Test only ACK controllers"
-        echo "  --kro-only        Test only KRO installation and ResourceGroups"
-        echo "  --instances-only  Test only infrastructure instances"
-        echo "  --status-only     Show infrastructure status only"
-        echo "  --help, -h        Show this help message"
+        echo "  --ack-only           Test only ACK controllers via Helm"
+        echo "  --argocd-only        Test only ArgoCD installation and applications"
+        echo "  --aws-resources-only Test only AWS resource creation"
+        echo "  --status-only        Show infrastructure status only"
+        echo "  --help, -h           Show this help message"
         echo ""
-        echo "Default: Complete infrastructure testing suite"
+        echo "Default: Complete Helm-based infrastructure testing suite"
         ;;
     "")
         main

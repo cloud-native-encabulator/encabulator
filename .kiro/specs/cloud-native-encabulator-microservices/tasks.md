@@ -64,6 +64,8 @@
     - Implement alerting rules for infrastructure and application health
     - Configure monitoring for AWS resources via ACK controllers
     - Set up Grafana dashboards for Cloud Native Encabulator services
+    - Fix Grafana stability issues with proper resource allocation and configuration
+    - Remove conflicting standalone Grafana deployment
     - _Requirements: 2.1, 2.2, 2.3, 2.4, 2.5_
 
 - [ ] 4. Implement service plane infrastructure
@@ -136,37 +138,23 @@
     - Configure monitoring and alerting for control services
     - _Requirements: 11.1, 11.2, 11.3, 12.1, 12.2, 12.3, 12.4, 12.5, 12.6, 4.2, 4.3, 4.4_
 
-- [ ] 6. Adopt KRO for advanced resource composition (Future Enhancement)
+- [ ] 6. Optional: Adopt KRO for advanced resource composition (Future Enhancement)
 
-  - [ ] 6.1 Deploy Kube Resource Orchestrator (KRO)
+  - [ ] 6.1 Evaluate KRO adoption for advanced use cases
 
-    - Install KRO controller for advanced resource composition
-    - Create ResourceGraphDefinitions for complex multi-resource deployments
-    - Implement custom APIs for Cloud Native Encabulator services
-    - _Requirements: 9.1, 9.2, 9.3, 9.4_
-
-  - [ ] 6.2 Create infrastructure ResourceGraphDefinitions
-
-    - EncabulatorDatabase ResourceGraphDefinition (RDS + security + monitoring)
-    - EncabulatorCache ResourceGraphDefinition (ElastiCache + configuration)
-    - EncabulatorCluster ResourceGraphDefinition (complete environment setup)
-    - _Requirements: 1.4, 4.1, 10.1, 10.5_
-
-  - [ ] 6.3 Create observability ResourceGraphDefinitions
-
-    - ObservabilityMetrics ResourceGraphDefinition (Prometheus + ServiceMonitors)
-    - ObservabilityTracing ResourceGraphDefinition (Jaeger + OpenTelemetry)
-    - ObservabilityLogs ResourceGraphDefinition (Loki + Promtail)
-    - ObservabilityStack composite ResourceGraphDefinition
-    - _Requirements: 2.1, 2.2, 2.3, 2.4, 2.5_
-
-  - [ ] 6.4 Migrate services to KRO ResourceGraphDefinitions
-
-    - Convert existing service deployments to use KRO ResourceGraphDefinitions
-    - Create service plane ResourceGraphDefinitions for each service type
-    - Implement dependency management between composed resources
-    - Test migration and rollback procedures
+    - Assess whether KRO provides value over current Helm-first approach
+    - Identify specific use cases where KRO would be beneficial
+    - Create proof-of-concept ResourceGraphDefinitions for complex scenarios
+    - Document migration path from Helm to KRO for specific components
     - _Requirements: 8.8, 10.2, 10.6_
+
+  - [ ] 6.2 Implement KRO for complex infrastructure patterns (Optional)
+
+    - Create ResourceGraphDefinitions for multi-service deployments
+    - Implement custom APIs for Cloud Native Encabulator service groups
+    - Add KRO-based resource composition for advanced scenarios
+    - Maintain backward compatibility with existing Helm deployments
+    - _Requirements: 1.4, 4.1, 10.1, 10.5_
 
 - [ ] 7. Implement platform resilience and scaling
 

@@ -2,6 +2,7 @@
 
 # Cloud Native Encabulator - Comprehensive Testing Suite
 # Tests all platform components: infrastructure, observability, and integration
+# Updated for Helm-first architecture
 
 set -e
 
@@ -121,122 +122,199 @@ check_prerequisites() {
     echo ""
 }
 
-# Test Phase 1: Infrastructure Foundation
-test_infrastructure_foundation() {
-    log_section "=== Phase 1: Infrastructure Foundation ==="
+# Test Phase 1: Helm Infrastructure Foundation
+test_helm_infrastructure() {
+    log_section "=== Phase 1: Helm Infrastructure Foundation ==="
     
-    log_info "Running infrastructure tests..."
-    if ./scripts/test/infrastructure-test.sh --kro-only; then
-        log_success "✓ Infrastructure foundation tests passed"
+    log_info "Testing Helm repositories and charts..."
+    
+    # Add required Helm repositories
+    add_helm_repo "argo" "https://argoproj.github.io/argo-helm"
+    add_helm_repo "prometheus-community" "https://prometheus-community.github.io/helm-charts"
+    add_helm_repo "grafana" "https://grafana.github.io/helm-charts"
+    add_helm_repo "bitnami" "https://charts.bitnami.com/bitnami"
+    
+    # Test Helm repository access
+    if helm search repo prometheus-community/kube-prometheus-stack >/dev/null 2>&1; then
+        log_success "✓ Prometheus community charts accessible"
         track_result "pass"
     else
-        log_error "✗ Infrastructure foundation tests failed"
+        log_error "✗ Cannot access Prometheus community charts"
         track_result "fail"
         return 1
     fi
     
-    echo ""
-}
-
-# Test Phase 2: Resource Orchestration
-test_resource_orchestration() {
-    log_section "=== Phase 2: Resource Orchestration ==="
-    
-    log_info "Testing KRO ResourceGroups and custom resources..."
-    if ./scripts/test/infrastructure-test.sh --instances-only; then
-        log_success "✓ Resource orchestration tests passed"
+    # Test ACK OCI chart access
+    if helm show chart oci://public.ecr.aws/aws-controllers-k8s/rds-chart --version v0.0.25 >/dev/null 2>&1; then
+        log_success "✓ ACK OCI charts accessible"
         track_result "pass"
     else
-        log_warning "⚠ Resource orchestration tests had issues"
+        log_warning "⚠ ACK OCI charts not accessible (expected in local testing)"
         track_result "warn"
     fi
     
     echo ""
 }
 
-# Test Phase 3: Observability Platform
-test_observability_platform() {
-    log_section "=== Phase 3: Observability Platform ==="
+# Test Phase 2: ArgoCD Installation
+test_argocd_installation() {
+    log_section "=== Phase 2: ArgoCD Installation ==="
     
-    log_info "Testing observability stack deployment..."
+    log_info "Testing ArgoCD installation via Helm..."
     
-    # Create observability namespaces
-    local namespaces=("encabulator-monitoring" "encabulator-tracing" "encabulator-logging")
-    for namespace in "${namespaces[@]}"; do
-        kubectl create namespace "$namespace" --dry-run=client -o yaml | kubectl apply -f -
-    done
-    
-    # Apply observability ResourceGroups
-    log_info "Applying observability ResourceGroups..."
-    kubectl apply -k k8s/platform/observability/resource-graph-definitions/
-    
-    # Wait for ResourceGroups to be established
-    sleep 20
-    
-    # Check observability CRDs
-    local observability_crds=(
-        "observabilitymetrics.observability.encabulator.io"
-        "observabilitytracing.observability.encabulator.io"
-        "observabilitylogs.observability.encabulator.io"
-        "observabilitystack.observability.encabulator.io"
-    )
-    
-    local crd_success=true
-    for crd in "${observability_crds[@]}"; do
-        if kubectl get crd "$crd" >/dev/null 2>&1; then
-            log_success "✓ Observability CRD: $crd"
-        else
-            log_warning "⚠ Observability CRD: $crd (not found)"
-            crd_success=false
-        fi
-    done
-    
-    if [ "$crd_success" = true ]; then
+    # Check if ArgoCD namespace exists
+    if kubectl get namespace argocd >/dev/null 2>&1; then
+        log_success "✓ ArgoCD namespace exists"
         track_result "pass"
     else
-        track_result "warn"
-    fi
-    
-    # Deploy observability stack instance
-    log_info "Deploying observability stack instance..."
-    kubectl apply -k k8s/platform/observability/instances/
-    
-    # Wait for ObservabilityStack resource
-    local max_wait=120
-    local wait_time=0
-    while [ $wait_time -lt $max_wait ]; do
-        if kubectl get observabilitystack encabulator-observability -n encabulator-monitoring >/dev/null 2>&1; then
-            log_success "✓ ObservabilityStack resource created"
+        log_info "Installing ArgoCD via Helm..."
+        
+        # Install ArgoCD via Helm
+        helm upgrade --install argocd argo/argo-cd \
+            --namespace argocd \
+            --create-namespace \
+            --values helm/values/argocd/values-development.yaml \
+            --wait --timeout=300s
+        
+        if [ $? -eq 0 ]; then
+            log_success "✓ ArgoCD installed successfully"
             track_result "pass"
-            break
+        else
+            log_error "✗ ArgoCD installation failed"
+            track_result "fail"
+            return 1
         fi
-        sleep 5
-        wait_time=$((wait_time + 5))
-    done
+    fi
     
-    if [ $wait_time -ge $max_wait ]; then
-        log_warning "⚠ ObservabilityStack resource not created within timeout"
+    # Check ArgoCD deployment status
+    if kubectl get deployment argocd-server -n argocd >/dev/null 2>&1; then
+        local argocd_status=$(kubectl get deployment argocd-server -n argocd -o jsonpath='{.status.readyReplicas}/{.status.replicas}' 2>/dev/null || echo "0/0")
+        if [[ "$argocd_status" == *"/"* ]] && [[ "${argocd_status%/*}" -gt 0 ]]; then
+            log_success "✓ ArgoCD Server: $argocd_status ready"
+            track_result "pass"
+        else
+            log_warning "⚠ ArgoCD Server: $argocd_status ready"
+            track_result "warn"
+        fi
+    fi
+    
+    echo ""
+}
+
+# Test Phase 3: Observability Stack via Helm
+test_observability_helm() {
+    log_section "=== Phase 3: Observability Stack via Helm ==="
+    
+    log_info "Testing observability stack deployment via Helm..."
+    
+    # Create observability namespace
+    kubectl create namespace encabulator-monitoring --dry-run=client -o yaml | kubectl apply -f -
+    
+    # Install kube-prometheus-stack
+    log_info "Installing kube-prometheus-stack..."
+    helm upgrade --install prometheus-stack prometheus-community/kube-prometheus-stack \
+        --namespace encabulator-monitoring \
+        --values helm/values/observability/values-prometheus.yaml \
+        --wait --timeout=900s
+    
+    if [ $? -eq 0 ]; then
+        log_success "✓ Prometheus stack installed successfully"
+        track_result "pass"
+    else
+        log_error "✗ Prometheus stack installation failed"
+        track_result "fail"
+        return 1
+    fi
+    
+    # Check Prometheus deployment
+    if kubectl get deployment prometheus-stack-kube-prom-operator -n encabulator-monitoring >/dev/null 2>&1; then
+        log_success "✓ Prometheus operator deployed"
+        track_result "pass"
+    else
+        log_warning "⚠ Prometheus operator not found"
+        track_result "warn"
+    fi
+    
+    # Check Grafana deployment
+    if kubectl get deployment prometheus-stack-grafana -n encabulator-monitoring >/dev/null 2>&1; then
+        log_success "✓ Grafana deployed"
+        track_result "pass"
+    else
+        log_warning "⚠ Grafana not found"
         track_result "warn"
     fi
     
     echo ""
 }
 
-# Test Phase 4: Service Connectivity
+# Test Phase 4: Data Plane Services via Helm
+test_data_plane_helm() {
+    log_section "=== Phase 4: Data Plane Services via Helm ==="
+    
+    log_info "Testing data plane services deployment via Helm..."
+    
+    # Create data namespace
+    kubectl create namespace encabulator-data --dry-run=client -o yaml | kubectl apply -f -
+    
+    # Install Redis (Prefabulated Cache)
+    log_info "Installing Redis for Prefabulated Cache..."
+    helm upgrade --install prefabulated-cache bitnami/redis \
+        --namespace encabulator-data \
+        --set auth.password=prefabulated-cache-password \
+        --set architecture=standalone \
+        --set master.resources.requests.cpu=100m \
+        --set master.resources.requests.memory=128Mi \
+        --set metrics.enabled=true \
+        --wait --timeout=300s
+    
+    if [ $? -eq 0 ]; then
+        log_success "✓ Prefabulated Cache (Redis) installed successfully"
+        track_result "pass"
+    else
+        log_warning "⚠ Prefabulated Cache installation had issues"
+        track_result "warn"
+    fi
+    
+    # Install Prometheus for Sinusoidal Database
+    log_info "Installing Prometheus for Sinusoidal Database..."
+    helm upgrade --install sinusoidal-database prometheus-community/prometheus \
+        --namespace encabulator-data \
+        --set server.name=sinusoidal-database \
+        --set server.resources.requests.cpu=100m \
+        --set server.resources.requests.memory=256Mi \
+        --set alertmanager.enabled=false \
+        --set kubeStateMetrics.enabled=false \
+        --set nodeExporter.enabled=false \
+        --set pushgateway.enabled=false \
+        --wait --timeout=300s
+    
+    if [ $? -eq 0 ]; then
+        log_success "✓ Sinusoidal Database (Prometheus TSDB) installed successfully"
+        track_result "pass"
+    else
+        log_warning "⚠ Sinusoidal Database installation had issues"
+        track_result "warn"
+    fi
+    
+    echo ""
+}
+
+# Test Phase 5: Service Connectivity
 test_service_connectivity() {
-    log_section "=== Phase 4: Service Connectivity ==="
+    log_section "=== Phase 5: Service Connectivity ==="
     
     log_info "Testing service connectivity and health..."
     
     # Wait for services to be ready
-    sleep 60
+    log_info "Waiting for services to be ready..."
+    sleep 30
     
     # Test key services
     local services_to_test=(
-        "encabulator-monitoring:encabulator-observability-metrics-prometheus:9090"
-        "encabulator-monitoring:encabulator-observability-grafana:3000"
-        "encabulator-tracing:encabulator-observability-tracing-jaeger:16686"
-        "encabulator-logging:encabulator-observability-logs-loki:3100"
+        "encabulator-monitoring:prometheus-stack-kube-prom-prometheus:9090"
+        "encabulator-monitoring:prometheus-stack-grafana:80"
+        "encabulator-data:prefabulated-cache-master:6379"
+        "encabulator-data:sinusoidal-database-server:80"
     )
     
     local connectivity_success=true
@@ -264,13 +342,14 @@ test_service_connectivity() {
                         health_check=true
                     fi
                     ;;
-                *jaeger*) 
-                    if curl -s "http://localhost:$port/" >/dev/null 2>&1; then
+                *redis*) 
+                    # Redis doesn't have HTTP health endpoint, just check if port is open
+                    if nc -z localhost "$port" 2>/dev/null; then
                         health_check=true
                     fi
                     ;;
-                *loki*) 
-                    if curl -s "http://localhost:$port/ready" >/dev/null 2>&1; then
+                *server*) 
+                    if curl -s "http://localhost:$port/-/healthy" >/dev/null 2>&1; then
                         health_check=true
                     fi
                     ;;
@@ -301,39 +380,43 @@ test_service_connectivity() {
     echo ""
 }
 
-# Test Phase 5: Integration Validation
-test_integration_validation() {
-    log_section "=== Phase 5: Integration Validation ==="
+# Test Phase 6: Helm Integration Validation
+test_helm_integration() {
+    log_section "=== Phase 6: Helm Integration Validation ==="
     
-    log_info "Testing end-to-end integration..."
+    log_info "Testing Helm releases and integration..."
     
-    # Test that infrastructure and observability work together
+    # Check Helm releases
+    local helm_releases=(
+        "argocd:argocd"
+        "prometheus-stack:encabulator-monitoring"
+        "prefabulated-cache:encabulator-data"
+        "sinusoidal-database:encabulator-data"
+    )
+    
     local integration_success=true
+    for release_info in "${helm_releases[@]}"; do
+        IFS=':' read -r release namespace <<< "$release_info"
+        
+        if helm list -n "$namespace" | grep -q "$release"; then
+            local status=$(helm status "$release" -n "$namespace" -o json | jq -r '.info.status' 2>/dev/null || echo "unknown")
+            if [ "$status" = "deployed" ]; then
+                log_success "✓ Helm release deployed: $release in $namespace"
+            else
+                log_warning "⚠ Helm release status: $release ($status)"
+                integration_success=false
+            fi
+        else
+            log_warning "⚠ Helm release not found: $release in $namespace"
+            integration_success=false
+        fi
+    done
     
-    # Check that infrastructure resources have monitoring
-    if kubectl get servicemonitor -A | grep -q encabulator; then
-        log_success "✓ Infrastructure monitoring integration"
+    # Check ServiceMonitors for monitoring integration
+    if kubectl get servicemonitor -A | grep -q prometheus; then
+        log_success "✓ ServiceMonitor integration working"
     else
-        log_warning "⚠ Infrastructure monitoring integration not found"
-        integration_success=false
-    fi
-    
-    # Check that observability stack is monitoring itself
-    if kubectl get servicemonitor -n encabulator-monitoring | grep -q prometheus; then
-        log_success "✓ Self-monitoring integration"
-    else
-        log_warning "⚠ Self-monitoring integration not found"
-        integration_success=false
-    fi
-    
-    # Test resource composition (EncabulatorCluster creates sub-resources)
-    local cluster_count=$(kubectl get encabulatorcluster -A --no-headers 2>/dev/null | wc -l)
-    local database_count=$(kubectl get encabulatordatabase -A --no-headers 2>/dev/null | wc -l)
-    
-    if [ "$cluster_count" -gt 0 ] && [ "$database_count" -ge "$cluster_count" ]; then
-        log_success "✓ Resource composition working"
-    else
-        log_warning "⚠ Resource composition may have issues"
+        log_warning "⚠ ServiceMonitor integration not found"
         integration_success=false
     fi
     
@@ -351,29 +434,29 @@ show_comprehensive_status() {
     log_section "=== Comprehensive Platform Status ==="
     
     echo ""
-    log_info "Infrastructure Components:"
-    kubectl get deployments -n kro-system 2>/dev/null || log_warning "No KRO components found"
-    kubectl get deployments -n ack-system 2>/dev/null || log_warning "No ACK components found"
+    log_info "Helm Releases:"
+    helm list -A 2>/dev/null || log_warning "No Helm releases found"
     
     echo ""
-    log_info "Custom Resource Definitions:"
-    kubectl get crd | grep -E "(encabulator|observability)" || log_warning "No custom CRDs found"
+    log_info "ArgoCD Components:"
+    kubectl get deployments -n argocd 2>/dev/null || log_warning "No ArgoCD components found"
     
     echo ""
-    log_info "Infrastructure Instances:"
-    kubectl get encabulatorcluster -A 2>/dev/null || log_warning "No cluster instances"
-    kubectl get encabulatordatabase -A 2>/dev/null || log_warning "No database instances"
-    kubectl get encabulatorcache -A 2>/dev/null || log_warning "No cache instances"
+    log_info "Observability Components:"
+    kubectl get deployments -n encabulator-monitoring 2>/dev/null || log_warning "No observability components found"
     
     echo ""
-    log_info "Observability Instances:"
-    kubectl get observabilitystack -A 2>/dev/null || log_warning "No observability stacks"
+    log_info "Data Plane Components:"
+    kubectl get deployments,statefulsets -n encabulator-data 2>/dev/null || log_warning "No data plane components found"
     
     echo ""
     log_info "Key Services:"
     kubectl get services -n encabulator-monitoring 2>/dev/null || log_warning "No monitoring services"
-    kubectl get services -n encabulator-tracing 2>/dev/null || log_warning "No tracing services"
-    kubectl get services -n encabulator-logging 2>/dev/null || log_warning "No logging services"
+    kubectl get services -n encabulator-data 2>/dev/null || log_warning "No data services"
+    
+    echo ""
+    log_info "ServiceMonitors:"
+    kubectl get servicemonitor -A 2>/dev/null || log_warning "No ServiceMonitors found"
     
     echo ""
 }
@@ -394,7 +477,7 @@ show_test_results() {
     echo ""
     if [ $TESTS_FAILED -eq 0 ]; then
         if [ $TESTS_WARNINGS -eq 0 ]; then
-            log_success "🎉 All tests passed! Platform is fully operational."
+            log_success "🎉 All tests passed! Helm-based platform is fully operational."
         else
             log_warning "⚠️ Tests passed with warnings. Platform is mostly operational."
         fi
@@ -405,33 +488,35 @@ show_test_results() {
     
     echo ""
     log_info "🌐 Access your platform:"
-    log_info "  Prometheus:  kubectl port-forward -n encabulator-monitoring svc/encabulator-observability-metrics-prometheus 9090:9090"
-    log_info "  Grafana:     kubectl port-forward -n encabulator-monitoring svc/encabulator-observability-grafana 3000:3000"
-    log_info "  Jaeger:      kubectl port-forward -n encabulator-tracing svc/encabulator-observability-tracing-jaeger 16686:16686"
+    log_info "  ArgoCD:      kubectl port-forward -n argocd svc/argocd-server 8080:443"
+    log_info "  Prometheus:  kubectl port-forward -n encabulator-monitoring svc/prometheus-stack-kube-prom-prometheus 9090:9090"
+    log_info "  Grafana:     kubectl port-forward -n encabulator-monitoring svc/prometheus-stack-grafana 3000:80"
     
     echo ""
     log_info "🔍 Monitor your platform:"
     log_info "  ./scripts/deploy/status.sh"
-    log_info "  kubectl get all -A -l app.kubernetes.io/managed-by=kro"
+    log_info "  helm list -A"
+    log_info "  kubectl get all -A"
     
     echo ""
     log_info "🚀 Next steps:"
-    log_info "  1. Deploy to development cluster: ./scripts/deploy/deploy-dev.sh"
+    log_info "  1. Deploy via ArgoCD: ./scripts/deploy/deploy-helm.sh"
     log_info "  2. Start building service planes: Task 4.1"
     log_info "  3. Create production configurations"
 }
 
 # Main comprehensive test function
 main() {
-    log_info "Starting Cloud Native Encabulator comprehensive testing..."
+    log_info "Starting Cloud Native Encabulator Helm-based comprehensive testing..."
     echo ""
     
     check_prerequisites || exit 1
-    test_infrastructure_foundation || exit 1
-    test_resource_orchestration
-    test_observability_platform
+    test_helm_infrastructure || exit 1
+    test_argocd_installation
+    test_observability_helm
+    test_data_plane_helm
     test_service_connectivity
-    test_integration_validation
+    test_helm_integration
     show_comprehensive_status
     show_test_results
 }
@@ -439,23 +524,30 @@ main() {
 # Handle script arguments
 case "${1:-}" in
     --quick)
-        log_info "Running quick test suite..."
+        log_info "Running quick Helm test suite..."
         check_prerequisites
-        test_infrastructure_foundation
-        test_observability_platform
+        test_helm_infrastructure
+        test_observability_helm
         show_test_results
         ;;
     --infrastructure-only)
-        log_info "Testing infrastructure only..."
+        log_info "Testing Helm infrastructure only..."
         check_prerequisites
-        test_infrastructure_foundation
-        test_resource_orchestration
+        test_helm_infrastructure
+        test_argocd_installation
         show_test_results
         ;;
     --observability-only)
         log_info "Testing observability only..."
         check_prerequisites
-        test_observability_platform
+        test_observability_helm
+        test_service_connectivity
+        show_test_results
+        ;;
+    --data-plane-only)
+        log_info "Testing data plane services only..."
+        check_prerequisites
+        test_data_plane_helm
         test_service_connectivity
         show_test_results
         ;;
@@ -468,12 +560,13 @@ case "${1:-}" in
         echo ""
         echo "Options:"
         echo "  --quick               Run quick test suite (infrastructure + observability)"
-        echo "  --infrastructure-only Test only infrastructure components"
-        echo "  --observability-only  Test only observability components"
+        echo "  --infrastructure-only Test only infrastructure components (Helm + ArgoCD)"
+        echo "  --observability-only  Test only observability components (Prometheus stack)"
+        echo "  --data-plane-only     Test only data plane services (Redis, Prometheus TSDB)"
         echo "  --status-only         Show comprehensive platform status"
         echo "  --help, -h            Show this help message"
         echo ""
-        echo "Default: Complete comprehensive testing suite"
+        echo "Default: Complete comprehensive testing suite with Helm-first approach"
         ;;
     "")
         main

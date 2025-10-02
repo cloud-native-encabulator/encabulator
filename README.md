@@ -49,8 +49,8 @@ cd cloud-native-encabulator-microservices
 ./scripts/test/infrastructure-test.sh    # ACK controllers and AWS resources
 ./scripts/test/local-test.sh            # Observability stack only
 
-# Access services
-kubectl port-forward -n encabulator-monitoring svc/encabulator-observability-grafana 3000:3000
+# Access services (updated service names)
+kubectl port-forward -n encabulator-monitoring svc/prometheus-stack-grafana 3000:80
 ```
 
 See [TESTING.md](TESTING.md) for detailed testing guide.
@@ -92,10 +92,10 @@ kubectl port-forward -n argocd svc/argocd-server 8080:443
 # Get ArgoCD admin password
 kubectl -n argocd get secret argocd-initial-admin-secret -o jsonpath="{.data.password}" | base64 -d
 
-# Observability Stack
-kubectl port-forward -n encabulator-monitoring svc/encabulator-observability-grafana 3000:3000          # Grafana (admin/encabulator-dev-2024)
-kubectl port-forward -n encabulator-monitoring svc/encabulator-observability-metrics-prometheus 9090:9090  # Prometheus
-kubectl port-forward -n encabulator-tracing svc/encabulator-observability-tracing-jaeger 16686:16686        # Jaeger
+# Observability Stack (Helm-based service names)
+kubectl port-forward -n encabulator-monitoring svc/prometheus-stack-grafana 3000:80                    # Grafana (admin/encabulator-dev-2024)
+kubectl port-forward -n encabulator-monitoring svc/prometheus-stack-kube-prom-prometheus 9090:9090     # Prometheus
+kubectl port-forward -n encabulator-monitoring svc/prometheus-stack-kube-state-metrics 8080:8080       # Kube State Metrics
 ```
 
 ### 🏗️ Platform Architecture
