@@ -39,16 +39,16 @@ prometheus:
     
     # Additional scrape configs for Cloud Native Encabulator
     additionalScrapeConfigs:
-      - job_name: 'ack-controllers'
+      - job_name: 'data-services'
         kubernetes_sd_configs:
         - role: endpoints
           namespaces:
             names:
-            - ack-system
+            - encabulator-data
         relabel_configs:
         - source_labels: [__meta_kubernetes_service_label_app_kubernetes_io_name]
           action: keep
-          regex: ack-.+-controller
+          regex: (postgresql|redis)
         - source_labels: [__meta_kubernetes_endpoint_port_name]
           action: keep
           regex: metrics

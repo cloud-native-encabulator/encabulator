@@ -8,7 +8,7 @@ This guide provides comprehensive testing strategies for the Cloud Native Encabu
 Test all platform components together - infrastructure, observability, and integration.
 
 ### 2. Infrastructure Testing
-Test ACK controllers, AWS resources, and infrastructure orchestration.
+Test in-cluster services and infrastructure components.
 
 ### 3. Observability Testing
 Test the Prometheus-based observability stack on your local machine using kind, minikube, or k3d.
@@ -36,8 +36,8 @@ Deploy to a real EKS cluster for full integration testing with AWS services.
 ```
 
 ### What Comprehensive Testing Covers
-- ✅ **Phase 1**: Infrastructure foundation (ACK controllers, AWS resources)
-- ✅ **Phase 2**: Resource orchestration (ACK custom resources, dependencies)
+- ✅ **Phase 1**: Infrastructure foundation (Helm repositories, charts)
+- ✅ **Phase 2**: Service deployment (PostgreSQL, Redis via Helm)
 - ✅ **Phase 3**: Observability platform (Prometheus, metrics, dashboards)
 - ✅ **Phase 4**: Service connectivity and health checks
 - ✅ **Phase 5**: End-to-end integration validation
@@ -50,19 +50,17 @@ Deploy to a real EKS cluster for full integration testing with AWS services.
 
 ### Quick Start
 ```bash
-# Test infrastructure components only
-./scripts/test/infrastructure-test.sh
+# Test observability components only
+./scripts/test/local-test.sh
 
-# Test specific components
-./scripts/test/infrastructure-test.sh --ack-only
-./scripts/test/infrastructure-test.sh --ack-only
-./scripts/test/infrastructure-test.sh --instances-only
+# Test complete platform
+./scripts/test/comprehensive-test.sh
 ```
 
 ### What Infrastructure Testing Covers
-- ✅ ACK controllers installation and functionality
-- ✅ ACK controller installation and AWS resource creation
-- ✅ Infrastructure custom resources (RDS Database, ElastiCache)
+- ✅ Helm chart repositories and accessibility
+- ✅ PostgreSQL and Redis deployment via official charts
+- ✅ In-cluster database and cache services
 - ✅ Resource management and dependency handling
 - ✅ ArgoCD integration for GitOps deployment
 
@@ -92,16 +90,16 @@ Deploy to a real EKS cluster for full integration testing with AWS services.
 
 ### Comprehensive Test Results
 After successful comprehensive testing, you'll have:
-- **Infrastructure Layer**: ACK controllers, AWS resources, infrastructure management
-- **AWS Resources**: RDS databases, ElastiCache clusters via ACK
+- **Infrastructure Layer**: Helm charts, in-cluster services, infrastructure management
+- **Database Services**: PostgreSQL and Redis via official Helm charts
 - **Resource Instances**: Development cluster with database and cache components
 - **Observability Stack**: Complete monitoring, tracing, and logging via KRO
 - **Integration**: All components working together with proper monitoring
 
 ### Infrastructure Test Results
 After successful infrastructure testing, you'll have:
-- ACK controllers for AWS resource management
-- AWS resources deployed via ACK custom resources
+- Helm charts for in-cluster service management
+- Database services deployed via official Helm charts
 - Infrastructure components with proper dependencies
 - Example infrastructure instances (development cluster)
 - ArgoCD applications for GitOps management
@@ -153,8 +151,8 @@ aws eks update-kubeconfig --region us-west-2 --name your-cluster-name
 
 ### What Development Testing Covers
 - ✅ ArgoCD GitOps deployment
-- ✅ AWS Controllers for Kubernetes (ACK)
-- ✅ ACK with full AWS integration
+- ✅ In-cluster database services (PostgreSQL, Redis)
+- ✅ Official Helm chart integration
 - ✅ Complete observability platform
 - ✅ Infrastructure resources (Database, Cache)
 - ✅ Multi-namespace deployment
@@ -163,8 +161,8 @@ aws eks update-kubeconfig --region us-west-2 --name your-cluster-name
 ### Development Cluster Results
 After successful deployment, you'll have:
 - ArgoCD managing all deployments
-- ACK controllers for AWS resource management
-- ACK managing AWS resource lifecycle
+- Helm charts for in-cluster service management
+- PostgreSQL and Redis lifecycle management
 - Complete observability stack with persistent storage
 - Infrastructure resources ready for service deployment
 
@@ -251,11 +249,7 @@ kubectl get applications -n argocd
 kubectl describe application observability-stack -n argocd
 ```
 
-**ACK Controllers Not Working**
-```bash
-kubectl logs -n ack-system deployment/ack-rds-controller
-kubectl get serviceaccount -n ack-system
-```
+
 
 **Resource Creation Failing**
 ```bash

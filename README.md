@@ -46,7 +46,6 @@ cd cloud-native-encabulator-microservices
 ./scripts/test/comprehensive-test.sh
 
 # Or test specific components
-./scripts/test/infrastructure-test.sh    # ACK controllers and AWS resources
 ./scripts/test/local-test.sh            # Observability stack only
 
 # Access services (updated service names)
@@ -103,7 +102,7 @@ kubectl port-forward -n encabulator-monitoring svc/prometheus-stack-kube-state-m
 This project currently uses a **Helm-first approach** for rapid development and learning:
 
 - **Direct Helm Deployment**: Fast iteration with immediate feedback
-- **ACK (AWS Controllers for Kubernetes)**: Native AWS resource management via official Helm charts
+- **Official Helm Charts**: PostgreSQL and Redis via official community charts
 - **Prometheus Stack**: Complete observability via `kube-prometheus-stack` Helm chart
 - **Community Helm Charts**: Battle-tested charts for Redis, PostgreSQL, Grafana, and more
 - **Custom Helm Charts**: Encabulator-specific services with standardized templates
@@ -125,7 +124,7 @@ Deploy infrastructure and applications using direct Helm commands:
 - **[Testing Guide](TESTING.md)** - Local and development cluster testing
 - **[Setup Guide](SETUP.md)** - Environment setup and prerequisites  
 - **[Observability Platform](k8s/platform/observability/README.md)** - Complete monitoring stack via kube-prometheus-stack Helm chart
-- **[Infrastructure Management](k8s/infrastructure/README.md)** - ACK-based AWS resource management via official Helm charts
+- **[Infrastructure Management](k8s/infrastructure/README.md)** - In-cluster service deployment via official Helm charts
 - **[Helm Charts](helm/README.md)** - Custom and community Helm charts for all services
 - [Architecture Documentation](docs/architecture/) *(coming soon)*
 - [API Specifications](docs/api/) *(coming soon)*

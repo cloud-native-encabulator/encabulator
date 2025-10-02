@@ -132,7 +132,8 @@ test_helm_infrastructure() {
     add_helm_repo "argo" "https://argoproj.github.io/argo-helm"
     add_helm_repo "prometheus-community" "https://prometheus-community.github.io/helm-charts"
     add_helm_repo "grafana" "https://grafana.github.io/helm-charts"
-    add_helm_repo "bitnami" "https://charts.bitnami.com/bitnami"
+    add_helm_repo "postgresql" "https://charts.postgresql.org/"
+    add_helm_repo "redis" "https://charts.redis.io/"
     
     # Test Helm repository access
     if helm search repo prometheus-community/kube-prometheus-stack >/dev/null 2>&1; then
@@ -258,13 +259,12 @@ test_data_plane_helm() {
     
     # Install Redis (Prefabulated Cache)
     log_info "Installing Redis for Prefabulated Cache..."
-    helm upgrade --install prefabulated-cache bitnami/redis \
+    helm upgrade --install prefabulated-cache redis/redis \
         --namespace encabulator-data \
         --set auth.password=prefabulated-cache-password \
-        --set architecture=standalone \
+        --set replica.replicaCount=0 \
         --set master.resources.requests.cpu=100m \
         --set master.resources.requests.memory=128Mi \
-        --set metrics.enabled=true \
         --wait --timeout=300s
     
     if [ $? -eq 0 ]; then

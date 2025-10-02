@@ -31,7 +31,7 @@ The system is organized into **four distinct planes**:
 ## Technology Stack
 
 ### Infrastructure Management
-- **AWS Controllers for Kubernetes (ACK)**: Manage AWS resources as Kubernetes Custom Resources
+- **Official Helm Charts**: PostgreSQL and Redis via community-maintained charts
 - **Kube Resource Orchestrator (KRO)**: Custom Kubernetes APIs for complex multi-resource deployments
 - **EKS Auto Mode**: Zero-touch node management and cost optimization
 - **ArgoCD**: GitOps-based continuous delivery and infrastructure synchronization
@@ -65,7 +65,7 @@ The system is organized into **four distinct planes**:
 
 ### Cloud-Native Infrastructure
 - Kubernetes-native resource management
-- AWS resources managed through ACK Custom Resources
+- In-cluster services managed through official Helm charts
 - Zero-touch node management with EKS Auto Mode
 - Intelligent resource optimization with KRO
 
@@ -80,7 +80,7 @@ The system is organized into **four distinct planes**:
 ```
 cloud-native-encabulator-microservices/
 ├── argocd/                          # GitOps configuration
-│   ├── infrastructure/              # ACK, KRO, AWS resources
+│   ├── infrastructure/              # ArgoCD applications
 │   ├── platform/                    # Base Kubernetes, monitoring
 │   └── applications/                # Microservices by plane
 ├── services/                        # Service implementations
@@ -111,7 +111,7 @@ cloud-native-encabulator-microservices/
 ## Next Steps
 
 The project is ready for implementation, starting with:
-1. Infrastructure setup (ACK, KRO, ArgoCD)
+1. Infrastructure setup (Helm charts, ArgoCD)
 2. Data plane services
 3. Processing plane services
 4. Support plane services

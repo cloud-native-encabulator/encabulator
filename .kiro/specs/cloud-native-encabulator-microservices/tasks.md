@@ -30,17 +30,17 @@
     - Configure resource quotas and limits
     - _Requirements: 1.2, 1.5, 10.3_
 
-- [x] 2. Implement cloud-native infrastructure management (Helm-First Phase)
+- [ ] 2. Implement cloud-native infrastructure management (In-Cluster Phase)
 
-  - [x] 2.1 Deploy AWS Controllers for Kubernetes (ACK) via Helm
+  - [ ] 2.1 Deploy in-cluster data services via Helm
 
-    - Install ACK controllers for RDS, ElastiCache, and IAM via official OCI Helm charts
-    - Configure IRSA (IAM Roles for Service Accounts) for secure AWS API access
-    - Create comprehensive Helm values files for each ACK controller
-    - Deploy ACK controllers via direct Helm commands (GitOps implementation deferred to `gitops` branch)
-    - _Requirements: 10.1, 10.2, 10.3, 10.4, 10.5, 10.6_
+    - Deploy PostgreSQL via postgresql/postgresql Helm chart for Hydrocoptic Data Store
+    - Deploy Redis via redis/redis Helm chart for Prefabulated Cache
+    - Configure persistent storage using default storage class
+    - Set up service connectivity and credentials management
+    - _Requirements: 1.4, 4.1_
 
-  - [x] 2.2 Implement GitOps with ArgoCD (Deferred to `gitops` branch)
+  - [ ] 2.2 Implement GitOps with ArgoCD (Deferred to `gitops` branch)
 
     - Deploy ArgoCD for GitOps workflow management via Helm
     - Create ArgoCD applications for infrastructure components
@@ -48,13 +48,6 @@
     - Configure multi-environment promotion workflows
     - **Note:** ArgoCD configurations exist but implementation deferred to demonstrate deployment evolution
     - _Requirements: 9.1, 9.2, 9.3, 9.4_
-
-  - [x] 2.3 Create AWS infrastructure resources
-
-    - RDS PostgreSQL database for Hydrocoptic Data Store
-    - ElastiCache Redis cluster for Prefabulated Cache
-    - Proper security groups and networking configuration
-    - _Requirements: 1.4, 4.1, 10.1, 10.5_
 
 - [x] 3. Implement observability infrastructure via Helm
 
@@ -73,12 +66,12 @@
 
   - [ ] 4.1 Create Data Plane services via Helm Charts
 
-    - Create Helm chart for HydrocopticDataStore service (PostgreSQL wrapper with health checks)
+    - Deploy PostgreSQL via postgresql/postgresql Helm chart (Hydrocoptic Data Store backend)
+    - Deploy Redis via redis/redis Helm chart (Prefabulated Cache backend)
     - Deploy SinusoidalDatabase service using Prometheus Helm chart (time-series DB)
-    - Deploy PrefabulatedCache service using Redis Helm chart (cache management)
-    - Configure ArgoCD applications to deploy services via Helm charts
-    - Integrate with external RDS and ElastiCache via ACK-managed resources
-    - _Requirements: 1.1, 1.4, 2.1, 4.1, 10.1, 10.5_
+    - Create Helm chart for HydrocopticDataStore service (PostgreSQL wrapper with health checks)
+    - Configure service connectivity and credentials management
+    - _Requirements: 1.1, 1.4, 2.1, 4.1_
 
   - [ ] 4.2 Create Processing Plane services
 
@@ -111,7 +104,7 @@
 
     - Deploy development instances of HydrocopticDataStore, SinusoidalDatabase, PrefabulatedCache
     - Validate service connectivity and health endpoints
-    - Test integration with ACK-managed AWS resources
+
     - Configure monitoring and alerting for data services
     - _Requirements: 1.1, 1.4, 2.1, 4.1, 10.1, 10.5_
 
@@ -149,7 +142,17 @@
     - Migrate from direct Helm commands to ArgoCD Applications
     - _Requirements: 9.1, 9.2, 9.3, 9.4_
 
-  - [ ] 6.2 Implement KRO on main branch
+  - [ ] 6.2 Migrate to AWS managed services with ACK
+
+    - Deploy AWS Controllers for Kubernetes (ACK) via Helm
+    - Configure IRSA (IAM Roles for Service Accounts) for secure AWS API access
+    - Create RDS PostgreSQL database via ACK for Hydrocoptic Data Store
+    - Create ElastiCache Redis cluster via ACK for Prefabulated Cache
+    - Migrate services from in-cluster databases to AWS managed services
+    - Configure proper security groups and networking
+    - _Requirements: 10.1, 10.2, 10.3, 10.4, 10.5, 10.6_
+
+  - [ ] 6.3 Implement KRO on main branch
 
     - Create `argo-first` branch to preserve GitOps implementation
     - Implement KRO ResourceGraphDefinitions on main branch
@@ -157,7 +160,7 @@
     - Demonstrate platform engineering patterns with KRO + ArgoCD
     - _Requirements: 8.8, 10.2, 10.6_
 
-  - [ ] 6.3 Document architectural evolution
+  - [ ] 6.4 Document architectural evolution
 
     - Create comparison documentation between preserved branches
     - Document migration paths between deployment strategies
@@ -220,7 +223,7 @@
 
   - [ ] 9.1 Create infrastructure and service documentation
 
-    - Document ACK-based AWS resource management
+    - Document in-cluster service deployment and management
     - Create usage examples and best practices for each service
     - Write troubleshooting guides for infrastructure deployments
     - Add API reference documentation

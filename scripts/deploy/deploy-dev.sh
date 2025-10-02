@@ -91,27 +91,33 @@ install_argocd() {
     log_success "ArgoCD is ready"
 }
 
-# Install ACK Controllers
-install_ack_controllers() {
-    log_info "Installing AWS Controllers for Kubernetes (ACK)..."
+# Deploy data services
+deploy_data_services() {
+    log_info "Deploying in-cluster data services..."
     
-    # Create ACK namespace
-    kubectl create namespace ack-system --dry-run=client -o yaml | kubectl apply -f -
+    # Create data namespace
+    kubectl create namespace encabulator-data --dry-run=client -o yaml | kubectl apply -f -
     
-    # Install RDS Controller
-    if ! kubectl get deployment ack-rds-controller -n ack-system >/dev/null 2>&1; then
-        log_info "Installing ACK RDS Controller..."
-        helm repo add aws-controllers-k8s https://aws-controllers-k8s.github.io/ec2-chart || true
-        helm repo update
-        
-        # Note: In real deployment, you'd need proper IAM roles and service accounts
-        # For now, we'll apply our simplified manifests
-        kubectl apply -f k8s/infrastructure/ack-controllers/
-    else
-        log_info "ACK controllers already installed"
-    fi
+    # Deploy PostgreSQL
+    log_info "Installing PostgreSQL..."
+    helm repo add postgresql https://charts.postgresql.org/ || true
+    helm repo update
+    helm upgrade --install postgresql postgresql/postgresql \
+        --namespace encabulator-data \
+        --set auth.postgresPassword=encabulator-dev-password \
+        --set auth.database=hydrocoptic_db \
+        --wait --timeout=300s
     
-    log_success "ACK controllers ready"
+    # Deploy Redis
+    log_info "Installing Redis..."
+    helm repo add redis https://charts.redis.io/ || true
+    helm repo update
+    helm upgrade --install redis redis/redis \
+        --namespace encabulator-data \
+        --set auth.password=prefabulated-cache-password \
+        --wait --timeout=300s
+    
+    log_success "Data services ready"
 }
 
 # Install KRO
@@ -347,8 +353,7 @@ main() {
     
     check_prerequisites
     install_argocd
-    install_ack_controllers
-    install_kro
+    deploy_data_services
     deploy_infrastructure_resource_groups
     deploy_observability_resource_groups
     deploy_argocd_applications

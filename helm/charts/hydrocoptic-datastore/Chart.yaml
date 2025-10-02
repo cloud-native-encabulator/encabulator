@@ -22,8 +22,8 @@ sources:
 
 dependencies:
   - name: postgresql
-    version: 12.8.2
-    repository: https://charts.bitnami.com/bitnami
+    version: 15.5.17
+    repository: https://charts.postgresql.org/
     condition: postgresql.enabled
 
 annotations:

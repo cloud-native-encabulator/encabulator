@@ -22,7 +22,6 @@ scripts/
 ./scripts/test/comprehensive-test.sh
 
 # 2. Test specific components
-./scripts/test/infrastructure-test.sh    # Infrastructure only
 ./scripts/test/local-test.sh            # Observability only
 
 # 3. Clean up when done
@@ -161,131 +160,7 @@ scripts/
 
 ---
 
-### Infrastructure Scripts (`infrastructure/`)
 
-#### `install-ack-complete.sh` - **DIRECT ACK INSTALLATION**
-**Purpose**: Install ACK controllers without ArgoCD  
-**Use Case**: Development, testing, non-GitOps environments  
-**What it does**:
-- Installs ACK Custom Resource Definitions
-- Creates `ack-system` namespace
-- Deploys RDS, ElastiCache, and IAM controllers
-- Waits for controllers to be ready
-- Validates installation and provides troubleshooting info
-
-**Usage**:
-```bash
-./scripts/infrastructure/install-ack-complete.sh
-```
-
-**Prerequisites**: 
-- Kubernetes cluster access
-- Sufficient cluster resources
-
-**Output**: 
-- ACK controllers running in `ack-system` namespace
-- Installation summary and next steps
-
----
-
-#### `install-ack-crds.sh` - **CRD INSTALLER**
-**Purpose**: Install only ACK Custom Resource Definitions  
-**Use Case**: Prerequisite for any ACK deployment method  
-**What it does**:
-- Downloads and installs RDS CRDs (DBInstance, DBSubnetGroup, etc.)
-- Downloads and installs ElastiCache CRDs (ReplicationGroup, CacheCluster, etc.)
-- Downloads and installs IAM CRDs (Role, Policy, User, etc.)
-- Validates CRD installation
-
-**Usage**:
-```bash
-./scripts/infrastructure/install-ack-crds.sh
-```
-
-**Prerequisites**: 
-- Kubernetes cluster access
-- Internet connectivity to GitHub
-
-**Output**: 
-- ACK CRDs installed cluster-wide
-- Verification of CRD availability
-
----
-
-#### `pre-install-ack.sh` - **ARGOCD PREREQUISITE**
-**Purpose**: Install essential CRDs before ArgoCD deployment  
-**Use Case**: Preparing for GitOps ACK deployment  
-**What it does**:
-- Installs minimal required CRDs (DBInstance, ReplicationGroup, Role)
-- Prepares cluster for ArgoCD ACK applications
-- Lighter version of `install-ack-crds.sh` for GitOps workflows
-
-**Usage**:
-```bash
-./scripts/infrastructure/pre-install-ack.sh
-```
-
-**Prerequisites**: 
-- Kubernetes cluster access
-- Internet connectivity to GitHub
-
-**Output**: 
-- Essential ACK CRDs installed
-- Ready for ArgoCD ACK applications
-
----
-
-#### `validate-ack-setup.sh` - **VALIDATION & TROUBLESHOOTING**
-**Purpose**: Validate ACK installation and provide troubleshooting  
-**Use Case**: After any ACK installation method  
-**What it does**:
-- Checks ACK controller pod status and readiness
-- Validates required CRDs are installed
-- Tests AWS resource creation (dry-run)
-- Checks secrets and configuration
-- Provides detailed troubleshooting guidance
-
-**Usage**:
-```bash
-./scripts/infrastructure/validate-ack-setup.sh
-```
-
-**Prerequisites**: 
-- ACK controllers installed (any method)
-- kubectl access to cluster
-
-**Output**: 
-- Comprehensive status report
-- Troubleshooting commands
-- Next steps guidance
-
----
-
-#### `test-manifests.sh` - **DEVELOPMENT TESTING**
-**Purpose**: Test manifest syntax and structure  
-**Use Case**: Development, CI/CD validation  
-**What it does**:
-- Validates YAML syntax for all Kubernetes manifests
-- Tests Kustomize builds for infrastructure components
-- Checks resource references and consistency
-- Validates ArgoCD application structure
-- Tests namespace consistency
-
-**Usage**:
-```bash
-./scripts/infrastructure/test-manifests.sh
-```
-
-**Prerequisites**: 
-- kubectl and kustomize installed
-- Access to cluster (for server-side validation)
-
-**Output**: 
-- Detailed validation report
-- Syntax and structure verification
-- Recommendations for fixes
-
----
 
 
 
@@ -352,8 +227,7 @@ scripts/
 # 2. Deploy everything via GitOps
 ./scripts/platform/bootstrap-gitops.sh
 
-# 3. Validate deployment
-./scripts/infrastructure/validate-ack-setup.sh
+
 
 # 4. Access ArgoCD UI
 kubectl port-forward svc/argocd-server -n argocd 8080:443
@@ -364,11 +238,8 @@ kubectl port-forward svc/argocd-server -n argocd 8080:443
 # 1. Test manifests first
 ./scripts/infrastructure/test-manifests.sh
 
-# 2. Install infrastructure directly
-./scripts/infrastructure/install-ack-complete.sh
-
-# 3. Validate installation
-./scripts/infrastructure/validate-ack-setup.sh
+# 2. Deploy services directly
+./scripts/deploy/deploy-helm.sh
 
 # 4. Deploy applications manually
 kubectl apply -k k8s/applications/
@@ -382,8 +253,8 @@ kubectl apply -k k8s/applications/
 # 2. Prepare for ACK deployment
 ./scripts/infrastructure/pre-install-ack.sh
 
-# 3. Deploy infrastructure via ArgoCD
-kubectl apply -f argocd/infrastructure/ack-controllers.yaml
+# 3. Deploy services via ArgoCD
+kubectl apply -f argocd/applications/
 
 # 4. Monitor in ArgoCD UI
 kubectl port-forward svc/argocd-server -n argocd 8080:443
@@ -399,7 +270,7 @@ kubectl port-forward svc/argocd-server -n argocd 8080:443
 ./scripts/platform/bootstrap-gitops.sh
 
 # Health check pipeline
-./scripts/infrastructure/validate-ack-setup.sh
+./scripts/deploy/deploy-helm.sh --validate
 ```
 
 ## 🔧 Troubleshooting

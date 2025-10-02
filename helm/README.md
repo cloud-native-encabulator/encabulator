@@ -10,7 +10,7 @@ helm/
 │   └── hydrocoptic-datastore/  # Custom service chart with templates
 ├── values/                # Helm values files
 │   ├── argocd/           # ArgoCD Helm values
-│   ├── ack-controllers/  # ACK Controllers Helm values
+
 │   └── observability/    # Observability stack Helm values
 └── README.md             # This file
 ```
@@ -38,8 +38,8 @@ helm/
 #### Observability Stack
 - **Prometheus Stack**: `prometheus-community/kube-prometheus-stack`
 - **Grafana**: `grafana/grafana` (standalone option)
-- **Redis**: `bitnami/redis`
-- **PostgreSQL**: `bitnami/postgresql`
+- **Redis**: `redis/redis`
+- **PostgreSQL**: `postgresql/postgresql`
 
 #### Future Enhancements
 - **KRO**: `oci://ghcr.io/kro-run/kro/kro` (for advanced resource composition)

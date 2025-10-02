@@ -7,9 +7,7 @@ metadata:
     description: "Infrastructure components managed by ArgoCD"
 
 resources:
-  - ack-controllers.yaml
-  - aws-resources.yaml
-  - resource-orchestration.yaml
+  - argocd-helm.yaml
 
 commonLabels:
   app.kubernetes.io/name: cloud-native-encabulator

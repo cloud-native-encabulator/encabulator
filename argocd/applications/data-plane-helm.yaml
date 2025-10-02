@@ -183,8 +183,8 @@ metadata:
 spec:
   project: applications
   source:
-    repoURL: https://charts.bitnami.com/bitnami
-    targetRevision: 18.1.5
+    repoURL: https://charts.redis.io/
+    targetRevision: 19.6.0
     chart: redis
     helm:
       values: |

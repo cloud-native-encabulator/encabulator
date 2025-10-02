@@ -33,9 +33,10 @@ main (Final: KRO + ArgoCD)
 - **Management:** GitOps workflow with advanced resource composition
 
 **Development Evolution on Main:**
-1. **Phase 1:** Helm-first development (current)
+1. **Phase 1:** Helm-first with in-cluster services (current)
 2. **Phase 2:** Add ArgoCD GitOps workflow
-3. **Phase 3:** Implement KRO ResourceGraphDefinitions
+3. **Phase 3:** Migrate to AWS managed services with ACK
+4. **Phase 4:** Implement KRO ResourceGraphDefinitions
 
 **Target Audience:**
 - Platform engineers
@@ -115,11 +116,11 @@ main (Final: KRO + ArgoCD)
 
 ## Implementation Timeline
 
-### **Phase 1: Helm-First Development on `main` (Current)**
+### **Phase 1: Helm-First with In-Cluster Services on `main` (Current)**
 - ✅ Helm-first deployment working
 - ✅ Observability stack stable
-- 🔄 **Current Focus:** Service plane implementation (Task 4.1)
-- 📋 **Next:** Complete service planes and production readiness
+- 🔄 **Current Focus:** Service plane implementation with in-cluster databases (Task 4.1)
+- 📋 **Next:** Complete service planes with PostgreSQL and Redis via Helm
 
 ### **Phase 2: GitOps Migration on `main` (Future)**
 - 📋 Create `helm-first` branch to preserve current implementation
@@ -128,8 +129,14 @@ main (Final: KRO + ArgoCD)
 - 📋 Add Git-based configuration management
 - 📋 Document GitOps workflow and benefits
 
-### **Phase 3: KRO Implementation on `main` (Future)**
-- 📋 Create `argo-first` branch to preserve GitOps implementation
+### **Phase 3: AWS Migration on `main` (Future)**
+- 📋 Deploy ACK controllers for AWS resource management
+- 📋 Migrate from in-cluster PostgreSQL/Redis to AWS RDS/ElastiCache
+- 📋 Configure IAM roles, security groups, and networking
+- 📋 Validate production-ready AWS managed services
+
+### **Phase 4: KRO Implementation on `main` (Future)**
+- 📋 Create `argo-first` branch to preserve GitOps + AWS implementation
 - 📋 Implement KRO ResourceGraphDefinitions on `main`
 - 📋 Create custom Kubernetes APIs for Encabulator services
 - 📋 Advanced resource composition and dependency management
