@@ -120,88 +120,11 @@ deploy_data_services() {
     log_success "Data services ready"
 }
 
-# Install KRO
-install_kro() {
-    log_info "Installing Kube Resource Orchestrator (KRO)..."
-    
-    # Create KRO namespace
-    kubectl create namespace kro-system --dry-run=client -o yaml | kubectl apply -f -
-    
-    # Install KRO controller
-    if ! kubectl get deployment kro-controller -n kro-system >/dev/null 2>&1; then
-        log_info "Installing KRO controller..."
-        kubectl apply -f k8s/infrastructure/kro/kro-installation/
-        
-        # Wait for KRO to be ready
-        log_info "Waiting for KRO controller to be ready..."
-        kubectl wait --for=condition=available --timeout=300s deployment/kro-controller -n kro-system
-    else
-        log_info "KRO controller already installed"
-    fi
-    
-    log_success "KRO controller is ready"
-}
 
-# Deploy infrastructure ResourceGroups
-deploy_infrastructure_resource_groups() {
-    log_info "Deploying infrastructure ResourceGroups..."
-    
-    # Deploy KRO ResourceGroups for infrastructure
-    log_info "Applying infrastructure ResourceGroups..."
-    kubectl apply -k k8s/infrastructure/kro/resource-groups/
-    
-    # Wait for ResourceGroups to be established
-    log_info "Waiting for infrastructure ResourceGroups to be ready..."
-    sleep 15
-    
-    # Verify custom resources are available
-    local infrastructure_resources=(
-        "encabulatordatabase.infrastructure.encabulator.io"
-        "encabulatorcache.infrastructure.encabulator.io"
-        "encabulatorcluster.infrastructure.encabulator.io"
-    )
-    
-    for resource in "${infrastructure_resources[@]}"; do
-        if kubectl get crd "$resource" >/dev/null 2>&1; then
-            log_success "✓ Infrastructure resource $resource is available"
-        else
-            log_warning "⚠ Infrastructure resource $resource not yet available"
-        fi
-    done
-    
-    log_success "Infrastructure ResourceGroups deployed"
-}
 
-# Deploy observability ResourceGroups
-deploy_observability_resource_groups() {
-    log_info "Deploying observability ResourceGroups..."
-    
-    # Deploy KRO ResourceGroups for observability
-    log_info "Applying observability ResourceGroups..."
-    kubectl apply -k k8s/platform/observability/resource-groups/
-    
-    # Wait for ResourceGroups to be established
-    log_info "Waiting for observability ResourceGroups to be ready..."
-    sleep 15
-    
-    # Verify custom resources are available
-    local observability_resources=(
-        "observabilitymetrics.observability.encabulator.io"
-        "observabilitytracing.observability.encabulator.io"
-        "observabilitylogs.observability.encabulator.io"
-        "observabilitystack.observability.encabulator.io"
-    )
-    
-    for resource in "${observability_resources[@]}"; do
-        if kubectl get crd "$resource" >/dev/null 2>&1; then
-            log_success "✓ Observability resource $resource is available"
-        else
-            log_warning "⚠ Observability resource $resource not yet available"
-        fi
-    done
-    
-    log_success "Observability ResourceGroups deployed"
-}
+
+
+
 
 # Deploy ArgoCD applications
 deploy_argocd_applications() {
@@ -352,12 +275,7 @@ main() {
     echo ""
     
     check_prerequisites
-    install_argocd
     deploy_data_services
-    deploy_infrastructure_resource_groups
-    deploy_observability_resource_groups
-    deploy_argocd_applications
-    deploy_development_instances
     wait_for_deployments
     show_deployment_status
     show_access_info

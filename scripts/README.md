@@ -8,8 +8,6 @@ This directory contains all automation scripts for deploying and managing the Cl
 scripts/
 ├── test/              # Testing and validation scripts
 ├── deploy/            # Deployment and status scripts  
-├── platform/          # ArgoCD and GitOps platform scripts
-├── infrastructure/    # ACK controllers and AWS infrastructure scripts
 ├── setup/             # Initial configuration and setup scripts
 └── README.md          # This documentation
 ```
@@ -42,11 +40,10 @@ scripts/
 
 ### For Helm-Based Deployment (Recommended):
 ```bash
-# 1. Deploy complete platform via Helm + ArgoCD
+# 1. Deploy complete platform via Helm
 ./scripts/deploy/deploy-helm.sh
 
 # 2. Deploy specific components
-./scripts/deploy/deploy-helm.sh --argocd-only
 ./scripts/deploy/deploy-helm.sh --observability-only
 ./scripts/deploy/deploy-helm.sh --data-plane-only
 

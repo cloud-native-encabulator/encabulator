@@ -72,17 +72,7 @@ check_infrastructure() {
         log_warning "⚠ ACK system namespace not found"
     fi
     
-    # Check KRO
-    if kubectl get namespace kro-system >/dev/null 2>&1; then
-        local kro_status=$(kubectl get deployment kro-controller -n kro-system -o jsonpath='{.status.readyReplicas}/{.status.replicas}' 2>/dev/null || echo "0/0")
-        if [[ "$kro_status" == *"/"* ]] && [[ "${kro_status%/*}" -gt 0 ]]; then
-            log_success "✓ KRO Controller: $kro_status ready"
-        else
-            log_warning "⚠ KRO Controller: $kro_status ready"
-        fi
-    else
-        log_error "✗ KRO system namespace not found"
-    fi
+
     
     echo ""
 }
@@ -293,7 +283,7 @@ show_access_commands() {
     echo "  kubectl get all -n encabulator-monitoring"
     echo "  kubectl get observabilitystack -A"
     echo "  kubectl get applications -n argocd"
-    echo "  kubectl logs -n kro-system deployment/kro-controller"
+    echo ""
     echo ""
 }
 

@@ -84,12 +84,7 @@ aws eks update-kubeconfig --region <region> --name <cluster-name>
 After deployment, access the services:
 
 ```bash
-# ArgoCD UI (GitOps dashboard)
-kubectl port-forward -n argocd svc/argocd-server 8080:443
-# Visit: https://localhost:8080 (admin/<get-password-below>)
-
-# Get ArgoCD admin password
-kubectl -n argocd get secret argocd-initial-admin-secret -o jsonpath="{.data.password}" | base64 -d
+# Direct Helm deployment - no additional UI needed
 
 # Observability Stack (Helm-based service names)
 kubectl port-forward -n encabulator-monitoring svc/prometheus-stack-grafana 3000:80                    # Grafana (admin/encabulator-dev-2024)
@@ -117,7 +112,7 @@ Deploy infrastructure and applications using direct Helm commands:
 ./scripts/deploy/deploy-helm.sh --observability-only
 ```
 
-**Evolution Path**: Main branch will evolve through GitOps (ArgoCD) to advanced resource composition (KRO), with educational branches preserving each phase.
+**Evolution Path**: Main branch will evolve through GitOps to advanced resource composition, with educational branches preserving each phase.
 
 ## Documentation
 
@@ -135,7 +130,7 @@ Deploy infrastructure and applications using direct Helm commands:
 This project demonstrates the evolution of cloud-native deployment strategies on the `main` branch:
 
 - **Current Phase**: **Helm-First Development** - Direct Helm deployment for rapid development
-- **Future Phase**: **GitOps Migration** - Add ArgoCD workflow (preserve Helm-first in `helm-first` branch)
+- **Future Phase**: **GitOps Migration** - Add GitOps workflow (preserve Helm-first in `helm-first` branch)
 - **Final Phase**: **KRO Platform Engineering** - Advanced resource composition (preserve GitOps in `argo-first` branch)
 
 **Educational Branches:**

@@ -42,7 +42,6 @@ helm/
 - **PostgreSQL**: `postgresql/postgresql`
 
 #### Future Enhancements
-- **KRO**: `oci://ghcr.io/kro-run/kro/kro` (for advanced resource composition)
 - **Jaeger**: `jaegertracing/jaeger`
 - **Loki**: `grafana/loki-stack`
 
@@ -53,26 +52,18 @@ helm/
 3. **Phase 3**: Observability stack via kube-prometheus-stack ✅
 4. **Phase 4**: Custom service charts with community dependencies ✅
 5. **Phase 5**: ArgoCD applications using Helm sources ✅
-6. **Future**: Optional KRO adoption for advanced resource composition
+6. **Future**: Optional advanced resource composition patterns
 
-## ArgoCD Helm Integration
+## Helm Chart Integration
 
-ArgoCD Applications can reference Helm charts:
+Helm charts can be deployed directly:
 
-```yaml
-apiVersion: argoproj.io/v1alpha1
-kind: Application
-metadata:
-  name: prometheus-stack
-spec:
-  source:
-    repoURL: https://prometheus-community.github.io/helm-charts
-    chart: kube-prometheus-stack
-    targetRevision: 45.7.1
-    helm:
-      valueFiles:
-        - values.yaml
-  # ... rest of application spec
+```bash
+# Deploy Prometheus stack via Helm
+helm upgrade --install prometheus-stack prometheus-community/kube-prometheus-stack \
+  --namespace monitoring \
+  --values values.yaml \
+  --wait
 ```
 
 ## Benefits of Helm-First Approach
@@ -91,7 +82,7 @@ spec:
 
 ### For Operations
 - **Version Management**: Easy upgrades and rollbacks with semantic versioning
-- **GitOps Integration**: ArgoCD manages Helm charts natively with multiple sources
+- **Direct Integration**: Helm charts deployed directly with custom values
 - **Observability**: Built-in ServiceMonitor and dashboard configurations
 - **Scaling**: HPA and resource management built into templates
 
