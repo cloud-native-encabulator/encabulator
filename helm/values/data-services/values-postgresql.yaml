@@ -1,0 +1,81 @@
+# PostgreSQL configuration for Hydrocoptic DataStore backend
+# Cloud Native Encabulator - Data Plane
+
+# Authentication
+auth:
+  postgresPassword: "encabulator-dev-password"
+  username: "hydrocoptic"
+  password: "hydrocoptic-password"
+  database: "hydrocoptic_db"
+
+# Primary configuration
+primary:
+  resources:
+    requests:
+      cpu: 200m
+      memory: 256Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
+  
+  # Persistence
+  persistence:
+    enabled: true
+    size: 8Gi
+    # Use default storage class
+    # storageClass: ""
+
+# Security context
+primary:
+  securityContext:
+    enabled: true
+    runAsUser: 1001
+    runAsGroup: 1001
+    runAsNonRoot: true
+    allowPrivilegeEscalation: false
+    readOnlyRootFilesystem: false
+    capabilities:
+      drop:
+        - ALL
+
+# Service configuration
+service:
+  type: ClusterIP
+  ports:
+    postgresql: 5432
+
+# Monitoring
+metrics:
+  enabled: true
+  serviceMonitor:
+    enabled: true
+    namespace: ""
+    labels: {}
+    annotations: {}
+    interval: 30s
+
+# Pod Disruption Budget
+pdb:
+  create: true
+  minAvailable: 1
+
+# Network Policy (disabled by default)
+networkPolicy:
+  enabled: false
+  allowExternal: true
+  ingressNSMatchLabels: {}
+  ingressNSPodMatchLabels: {}
+
+# Node selection
+nodeSelector: {}
+tolerations: []
+affinity: {}
+
+# Common labels
+commonLabels:
+  app.kubernetes.io/part-of: "cloud-native-encabulator"
+  app.kubernetes.io/component: "hydrocoptic-datastore-backend"
+
+# Disable read replicas for development
+readReplicas:
+  replicaCount: 0

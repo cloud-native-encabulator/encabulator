@@ -30,24 +30,16 @@
     - Configure resource quotas and limits
     - _Requirements: 1.2, 1.5, 10.3_
 
-- [ ] 2. Implement cloud-native infrastructure management (In-Cluster Phase)
+- [-] 2. Deploy data infrastructure backends via Helm
 
-  - [ ] 2.1 Deploy in-cluster data services via Helm
+  - [x] 2.1 Deploy database backends
 
-    - Deploy PostgreSQL via postgresql/postgresql Helm chart for Hydrocoptic Data Store
-    - Deploy Redis via redis/redis Helm chart for Prefabulated Cache
+    - Deploy PostgreSQL via postgresql/postgresql Helm chart (Hydrocoptic Data Store backend)
+    - Deploy Redis via redis/redis Helm chart (Prefabulated Cache backend)
+    - Deploy InfluxDB via influxdata/influxdb2 Helm chart (Sinusoidal Database backend)
     - Configure persistent storage using default storage class
-    - Set up service connectivity and credentials management
+    - Set up database connectivity and credentials management
     - _Requirements: 1.4, 4.1_
-
-  - [ ] 2.2 Implement GitOps with ArgoCD (Deferred to `gitops` branch)
-
-    - Deploy ArgoCD for GitOps workflow management via Helm
-    - Create ArgoCD applications for infrastructure components
-    - Implement automated deployment pipelines
-    - Configure multi-environment promotion workflows
-    - **Note:** ArgoCD configurations exist but implementation deferred to demonstrate deployment evolution
-    - _Requirements: 9.1, 9.2, 9.3, 9.4_
 
 - [x] 3. Implement observability infrastructure via Helm
 
@@ -64,13 +56,13 @@
 
 - [ ] 4. Implement service plane infrastructure
 
-  - [ ] 4.1 Create Data Plane services via Helm Charts
+  - [ ] 4.1 Create Data Plane service applications
 
-    - Deploy PostgreSQL via postgresql/postgresql Helm chart (Hydrocoptic Data Store backend)
-    - Deploy Redis via redis/redis Helm chart (Prefabulated Cache backend)
-    - Deploy SinusoidalDatabase service using Prometheus Helm chart (time-series DB)
-    - Create Helm chart for HydrocopticDataStore service (PostgreSQL wrapper with health checks)
-    - Configure service connectivity and credentials management
+    - Create Helm chart for HydrocopticDataStore service (PostgreSQL wrapper with REST API)
+    - Create Helm chart for PrefabulatedCache service (Redis wrapper with REST API)
+    - Create Helm chart for SinusoidalDatabase service (InfluxDB wrapper with REST API)
+    - Implement service health endpoints and monitoring integration
+    - Configure inter-service connectivity and service discovery
     - _Requirements: 1.1, 1.4, 2.1, 4.1_
 
   - [ ] 4.2 Create Processing Plane services

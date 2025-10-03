@@ -90,6 +90,7 @@ setup_helm_repos() {
     add_helm_repo "grafana" "https://grafana.github.io/helm-charts"
     add_helm_repo "postgresql" "https://charts.postgresql.org/"
     add_helm_repo "redis" "https://charts.redis.io/"
+    add_helm_repo "influxdata" "https://helm.influxdata.com/"
     
     log_success "Helm repositories configured"
     echo ""
@@ -151,27 +152,25 @@ deploy_data_plane() {
     # Create data namespace
     kubectl create namespace encabulator-data --dry-run=client -o yaml | kubectl apply -f -
     
+    # Deploy PostgreSQL (Hydrocoptic Data Store backend)
+    log_info "Installing PostgreSQL (Hydrocoptic Data Store backend)..."
+    helm upgrade --install hydrocoptic-postgresql postgresql/postgresql \
+        --namespace encabulator-data \
+        --values helm/values/data-services/values-postgresql.yaml \
+        --wait --timeout=600s
+    
     # Deploy Redis (Prefabulated Cache)
     log_info "Installing Prefabulated Cache (Redis)..."
     helm upgrade --install prefabulated-cache redis/redis \
         --namespace encabulator-data \
-        --set auth.password=prefabulated-cache-password \
-        --set replica.replicaCount=0 \
-        --set master.resources.requests.cpu=100m \
-        --set master.resources.requests.memory=128Mi \
+        --values helm/values/data-services/values-redis.yaml \
         --wait --timeout=300s
     
-    # Deploy Prometheus TSDB (Sinusoidal Database)
-    log_info "Installing Sinusoidal Database (Prometheus TSDB)..."
-    helm upgrade --install sinusoidal-database prometheus-community/prometheus \
+    # Deploy InfluxDB (Sinusoidal Database)
+    log_info "Installing Sinusoidal Database (InfluxDB)..."
+    helm upgrade --install sinusoidal-database influxdata/influxdb2 \
         --namespace encabulator-data \
-        --set server.name=sinusoidal-database \
-        --set server.resources.requests.cpu=100m \
-        --set server.resources.requests.memory=256Mi \
-        --set alertmanager.enabled=false \
-        --set kubeStateMetrics.enabled=false \
-        --set nodeExporter.enabled=false \
-        --set pushgateway.enabled=false \
+        --values helm/values/data-services/values-influxdb.yaml \
         --wait --timeout=300s
     
     log_success "Data plane services deployed"
@@ -204,16 +203,22 @@ validate_deployment() {
     fi
     
     # Check data services
+    if kubectl get statefulset hydrocoptic-postgresql -n encabulator-data >/dev/null 2>&1; then
+        log_success "✓ PostgreSQL (Hydrocoptic backend) deployed"
+    else
+        log_warning "⚠ PostgreSQL (Hydrocoptic backend) not found"
+    fi
+    
     if kubectl get deployment prefabulated-cache-master -n encabulator-data >/dev/null 2>&1; then
         log_success "✓ Prefabulated Cache deployed"
     else
         log_warning "⚠ Prefabulated Cache not found"
     fi
     
-    if kubectl get deployment sinusoidal-database-server -n encabulator-data >/dev/null 2>&1; then
-        log_success "✓ Sinusoidal Database deployed"
+    if kubectl get statefulset sinusoidal-database-influxdb2 -n encabulator-data >/dev/null 2>&1; then
+        log_success "✓ Sinusoidal Database (InfluxDB) deployed"
     else
-        log_warning "⚠ Sinusoidal Database not found"
+        log_warning "⚠ Sinusoidal Database (InfluxDB) not found"
     fi
     
     echo ""
@@ -246,8 +251,9 @@ show_access_info() {
     log_info ""
     log_info "📊 Next steps:"
     log_info "  1. Access Grafana and verify dashboards"
-    log_info "  2. Deploy service planes: Task 4.1"
-    log_info "  3. Run comprehensive tests: ./scripts/test/comprehensive-test.sh"
+    log_info "  2. Test data services: ./scripts/test/test-data-services.sh"
+    log_info "  3. Deploy service planes: Task 4.1"
+    log_info "  4. Run comprehensive tests: ./scripts/test/comprehensive-test.sh"
 }
 
 # Main deployment function
