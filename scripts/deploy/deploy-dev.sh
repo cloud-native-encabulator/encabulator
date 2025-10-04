@@ -100,21 +100,27 @@ deploy_data_services() {
     
     # Deploy PostgreSQL
     log_info "Installing PostgreSQL..."
-    helm repo add postgresql https://charts.postgresql.org/ || true
+    helm repo add groundhog2k https://groundhog2k.github.io/helm-charts/ || true
     helm repo update
-    helm upgrade --install postgresql postgresql/postgresql \
+    helm upgrade --install hydrocoptic-postgresql groundhog2k/postgres \
         --namespace encabulator-data \
-        --set auth.postgresPassword=encabulator-dev-password \
-        --set auth.database=hydrocoptic_db \
+        --values helm/values/data-services/values-postgresql.yaml \
         --wait --timeout=300s
     
     # Deploy Redis
     log_info "Installing Redis..."
-    helm repo add redis https://charts.redis.io/ || true
-    helm repo update
-    helm upgrade --install redis redis/redis \
+    helm upgrade --install prefabulated-cache groundhog2k/redis \
         --namespace encabulator-data \
-        --set auth.password=prefabulated-cache-password \
+        --values helm/values/data-services/values-redis.yaml \
+        --wait --timeout=300s
+    
+    # Deploy InfluxDB
+    log_info "Installing InfluxDB..."
+    helm repo add influxdata https://helm.influxdata.com/ || true
+    helm repo update
+    helm upgrade --install sinusoidal-database influxdata/influxdb2 \
+        --namespace encabulator-data \
+        --values helm/values/data-services/values-influxdb.yaml \
         --wait --timeout=300s
     
     log_success "Data services ready"

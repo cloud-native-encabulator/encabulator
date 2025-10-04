@@ -59,7 +59,7 @@ Deploy to a real EKS cluster for full integration testing with AWS services.
 
 ### What Infrastructure Testing Covers
 - ✅ Helm chart repositories and accessibility
-- ✅ PostgreSQL and Redis deployment via official charts
+- ✅ PostgreSQL, Redis, and InfluxDB deployment via community charts
 - ✅ In-cluster database and cache services
 - ✅ Resource management and dependency handling
 - ✅ ArgoCD integration for GitOps deployment
@@ -91,7 +91,7 @@ Deploy to a real EKS cluster for full integration testing with AWS services.
 ### Comprehensive Test Results
 After successful comprehensive testing, you'll have:
 - **Infrastructure Layer**: Helm charts, in-cluster services, infrastructure management
-- **Database Services**: PostgreSQL and Redis via official Helm charts
+- **Database Services**: PostgreSQL, Redis, and InfluxDB via community Helm charts
 - **Resource Instances**: Development cluster with database and cache components
 - **Observability Stack**: Complete monitoring, tracing, and logging via KRO
 - **Integration**: All components working together with proper monitoring

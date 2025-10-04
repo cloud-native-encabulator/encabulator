@@ -31,7 +31,7 @@ The system is organized into **four distinct planes**:
 ## Technology Stack
 
 ### Infrastructure Management
-- **Official Helm Charts**: PostgreSQL and Redis via community-maintained charts
+- **Community Helm Charts**: PostgreSQL, Redis, and InfluxDB via community-maintained charts
 - **Kube Resource Orchestrator (KRO)**: Custom Kubernetes APIs for complex multi-resource deployments
 - **EKS Auto Mode**: Zero-touch node management and cost optimization
 - **ArgoCD**: GitOps-based continuous delivery and infrastructure synchronization

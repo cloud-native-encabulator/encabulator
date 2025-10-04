@@ -442,7 +442,7 @@ graph TD
 
 **Technology Stack**:
 
-- Prometheus TSDB or VictoriaMetrics
+- InfluxDB time-series database
 - Go-based query service
 - Kubernetes Deployment with ConfigMaps
 

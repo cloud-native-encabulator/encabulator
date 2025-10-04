@@ -259,12 +259,9 @@ test_data_plane_helm() {
     
     # Install Redis (Prefabulated Cache)
     log_info "Installing Redis for Prefabulated Cache..."
-    helm upgrade --install prefabulated-cache redis/redis \
+    helm upgrade --install prefabulated-cache groundhog2k/redis \
         --namespace encabulator-data \
-        --set auth.password=prefabulated-cache-password \
-        --set replica.replicaCount=0 \
-        --set master.resources.requests.cpu=100m \
-        --set master.resources.requests.memory=128Mi \
+        --values helm/values/data-services/values-redis.yaml \
         --wait --timeout=300s
     
     if [ $? -eq 0 ]; then
@@ -275,21 +272,15 @@ test_data_plane_helm() {
         track_result "warn"
     fi
     
-    # Install Prometheus for Sinusoidal Database
-    log_info "Installing Prometheus for Sinusoidal Database..."
-    helm upgrade --install sinusoidal-database prometheus-community/prometheus \
+    # Install InfluxDB for Sinusoidal Database
+    log_info "Installing InfluxDB for Sinusoidal Database..."
+    helm upgrade --install sinusoidal-database influxdata/influxdb2 \
         --namespace encabulator-data \
-        --set server.name=sinusoidal-database \
-        --set server.resources.requests.cpu=100m \
-        --set server.resources.requests.memory=256Mi \
-        --set alertmanager.enabled=false \
-        --set kubeStateMetrics.enabled=false \
-        --set nodeExporter.enabled=false \
-        --set pushgateway.enabled=false \
+        --values helm/values/data-services/values-influxdb.yaml \
         --wait --timeout=300s
     
     if [ $? -eq 0 ]; then
-        log_success "✓ Sinusoidal Database (Prometheus TSDB) installed successfully"
+        log_success "✓ Sinusoidal Database (InfluxDB) installed successfully"
         track_result "pass"
     else
         log_warning "⚠ Sinusoidal Database installation had issues"
@@ -562,7 +553,7 @@ case "${1:-}" in
         echo "  --quick               Run quick test suite (infrastructure + observability)"
         echo "  --infrastructure-only Test only infrastructure components (Helm + ArgoCD)"
         echo "  --observability-only  Test only observability components (Prometheus stack)"
-        echo "  --data-plane-only     Test only data plane services (Redis, Prometheus TSDB)"
+        echo "  --data-plane-only     Test only data plane services (PostgreSQL, Redis, InfluxDB)"
         echo "  --status-only         Show comprehensive platform status"
         echo "  --help, -h            Show this help message"
         echo ""

@@ -136,7 +136,7 @@ kubectl port-forward -n encabulator-monitoring svc/prometheus-stack-kube-prom-pr
 ### Comprehensive Test Coverage
 - **Infrastructure:** ACK controllers, ArgoCD, AWS resources
 - **Observability:** Prometheus stack with proper Grafana testing
-- **Data Plane:** Redis and PostgreSQL via Helm charts
+- **Data Plane:** PostgreSQL, Redis, and InfluxDB via Helm charts
 - **Integration:** Service connectivity and health checks
 
 ### Grafana-Specific Testing

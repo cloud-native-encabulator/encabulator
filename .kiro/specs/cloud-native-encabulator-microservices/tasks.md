@@ -34,8 +34,8 @@
 
   - [x] 2.1 Deploy database backends
 
-    - Deploy PostgreSQL via postgresql/postgresql Helm chart (Hydrocoptic Data Store backend)
-    - Deploy Redis via redis/redis Helm chart (Prefabulated Cache backend)
+    - Deploy PostgreSQL via groundhog2k/postgres Helm chart (Hydrocoptic Data Store backend)
+    - Deploy Redis via groundhog2k/redis Helm chart (Prefabulated Cache backend)
     - Deploy InfluxDB via influxdata/influxdb2 Helm chart (Sinusoidal Database backend)
     - Configure persistent storage using default storage class
     - Set up database connectivity and credentials management

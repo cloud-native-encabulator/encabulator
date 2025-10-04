@@ -97,9 +97,9 @@ kubectl port-forward -n encabulator-monitoring svc/prometheus-stack-kube-state-m
 This project currently uses a **Helm-first approach** for rapid development and learning:
 
 - **Direct Helm Deployment**: Fast iteration with immediate feedback
-- **Official Helm Charts**: PostgreSQL and Redis via official community charts
+- **Community Helm Charts**: PostgreSQL, Redis, and InfluxDB via community charts
 - **Prometheus Stack**: Complete observability via `kube-prometheus-stack` Helm chart
-- **Community Helm Charts**: Battle-tested charts for Redis, PostgreSQL, Grafana, and more
+- **Community Helm Charts**: Battle-tested charts for PostgreSQL, Redis, InfluxDB, Grafana, and more
 - **Custom Helm Charts**: Encabulator-specific services with standardized templates
 
 Deploy infrastructure and applications using direct Helm commands:

@@ -7,14 +7,15 @@ This directory contains Helm values files for the Cloud Native Encabulator data 
 The data plane consists of three backend databases that provide persistent storage for the Encabulator microservices:
 
 1. **PostgreSQL** - Relational database for the Hydrocoptic Data Store
-2. **Redis** - In-memory cache for the Prefabulated Cache  
+2. **Redis** - In-memory cache for the Prefabulated Cache
 3. **InfluxDB** - Time-series database for the Sinusoidal Database
 
 ## Configuration Files
 
 ### `values-postgresql.yaml`
+
 - **Purpose**: Backend database for Hydrocoptic Data Store service
-- **Chart**: `postgresql/postgresql` (Bitnami)
+- **Chart**: `groundhog2k/postgres` (Community)
 - **Instance**: `hydrocoptic-postgresql`
 - **Database**: `hydrocoptic_db`
 - **User**: `hydrocoptic`
@@ -22,14 +23,16 @@ The data plane consists of three backend databases that provide persistent stora
 - **Storage**: 8Gi persistent volume
 
 ### `values-redis.yaml`
+
 - **Purpose**: Backend cache for Prefabulated Cache service
-- **Chart**: `redis/redis` (Bitnami)
+- **Chart**: `groundhog2k/redis` (Community)
 - **Mode**: Standalone (no replicas for development)
 - **Resources**: 100m CPU, 128Mi memory (requests)
 - **Storage**: 4Gi persistent volume
 - **Authentication**: Password-based
 
 ### `values-influxdb.yaml`
+
 - **Purpose**: Backend time-series database for Sinusoidal Database service
 - **Chart**: `influxdata/influxdb2` (InfluxData)
 - **Organization**: `encabulator`
@@ -46,11 +49,11 @@ These values files are used by the deployment script:
 ./scripts/deploy/deploy-helm.sh --data-plane-only
 
 # Or deploy individually
-helm upgrade --install hydrocoptic-postgresql postgresql/postgresql \
+helm upgrade --install hydrocoptic-postgresql groundhog2k/postgres \
   --namespace encabulator-data \
   --values helm/values/data-services/values-postgresql.yaml
 
-helm upgrade --install prefabulated-cache redis/redis \
+helm upgrade --install prefabulated-cache groundhog2k/redis \
   --namespace encabulator-data \
   --values helm/values/data-services/values-redis.yaml
 
@@ -71,13 +74,14 @@ Test individual services:
 
 ```bash
 ./scripts/test/test-data-services.sh --postgresql
-./scripts/test/test-data-services.sh --redis  
+./scripts/test/test-data-services.sh --redis
 ./scripts/test/test-data-services.sh --influxdb
 ```
 
 ## Security
 
 All databases are configured with:
+
 - **Authentication**: Username/password or token-based
 - **Security Context**: Non-root users, dropped capabilities
 - **Network Policies**: Configurable (disabled by default)
@@ -86,6 +90,7 @@ All databases are configured with:
 ## Monitoring
 
 All databases include:
+
 - **Prometheus Metrics**: Exposed via ServiceMonitor
 - **Health Checks**: Liveness and readiness probes
 - **Resource Monitoring**: CPU, memory, and storage metrics
@@ -101,6 +106,7 @@ Default development credentials (change for production):
 ## Storage
 
 All databases use:
+
 - **Storage Class**: Default cluster storage class
 - **Persistence**: Enabled with appropriate sizes
 - **Backup**: Not configured (add for production)
@@ -108,11 +114,13 @@ All databases use:
 ## Scaling
 
 Development configuration uses:
+
 - **Single instances**: No replicas or clustering
 - **Resource requests**: Minimal for development
 - **Pod Disruption Budgets**: Configured for availability
 
 For production, consider:
+
 - **High Availability**: Enable replicas and clustering
 - **Resource Scaling**: Increase CPU/memory limits
 - **Storage Scaling**: Use larger persistent volumes
