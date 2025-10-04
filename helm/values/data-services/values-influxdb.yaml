@@ -34,18 +34,10 @@ service:
     prometheus.io/port: "8086"
     prometheus.io/path: "/metrics"
 
-# Security context
-securityContext:
-  runAsNonRoot: true
-  runAsUser: 1000
-  allowPrivilegeEscalation: false
-  readOnlyRootFilesystem: false  # InfluxDB needs to write to filesystem
-  capabilities:
-    drop:
-      - ALL
+# Security context - use defaults for InfluxDB
+securityContext: {}
 
-podSecurityContext:
-  fsGroup: 1000
+podSecurityContext: {}
 
 # Health checks
 livenessProbe:

@@ -1,81 +1,94 @@
 # PostgreSQL configuration for Hydrocoptic DataStore backend
 # Cloud Native Encabulator - Data Plane
+# Uses groundhog2k/postgres chart with official postgres image
 
-# Authentication
-auth:
-  postgresPassword: "encabulator-dev-password"
-  username: "hydrocoptic"
-  password: "hydrocoptic-password"
-  database: "hydrocoptic_db"
+# Image configuration (uses official postgres image)
+image:
+  registry: "docker.io"
+  repository: "postgres"
+  tag: "17"
+  pullPolicy: IfNotPresent
 
-# Primary configuration
-primary:
-  resources:
-    requests:
-      cpu: 200m
-      memory: 256Mi
-    limits:
-      cpu: 500m
-      memory: 512Mi
-  
-  # Persistence
-  persistence:
-    enabled: true
-    size: 8Gi
-    # Use default storage class
-    # storageClass: ""
+# Resources
+resources:
+  requests:
+    cpu: 200m
+    memory: 256Mi
+  limits:
+    cpu: 500m
+    memory: 512Mi
 
-# Security context
-primary:
-  securityContext:
-    enabled: true
-    runAsUser: 1001
-    runAsGroup: 1001
-    runAsNonRoot: true
-    allowPrivilegeEscalation: false
-    readOnlyRootFilesystem: false
-    capabilities:
-      drop:
-        - ALL
+# Database configuration
+settings:
+  superuserPassword:
+    value: "encabulator-dev-password"
+
+# User database
+userDatabase:
+  name:
+    value: "hydrocoptic_db"
+  user:
+    value: "hydrocoptic"
+  password:
+    value: "hydrocoptic-password"
+
+# Additional environment variables to ensure proper setup
+env:
+  - name: POSTGRES_PASSWORD
+    value: "encabulator-dev-password"
+  - name: POSTGRES_DB
+    value: "hydrocoptic_db"
+  - name: POSTGRES_USER
+    value: "hydrocoptic"
+
+# Storage configuration
+storage:
+  requestedSize: "8Gi"
+  # Use default storage class
+  className: ""
 
 # Service configuration
 service:
   type: ClusterIP
-  ports:
-    postgresql: 5432
+  port: 5432
 
-# Monitoring
-metrics:
+# Security context (already configured in chart)
+securityContext:
+  allowPrivilegeEscalation: false
+  privileged: false
+  readOnlyRootFilesystem: true
+  runAsNonRoot: true
+  runAsGroup: 999
+  runAsUser: 999
+
+# Health checks
+startupProbe:
   enabled: true
-  serviceMonitor:
-    enabled: true
-    namespace: ""
-    labels: {}
-    annotations: {}
-    interval: 30s
+  initialDelaySeconds: 10
+  timeoutSeconds: 5
+  failureThreshold: 30
+  periodSeconds: 10
 
-# Pod Disruption Budget
-pdb:
-  create: true
-  minAvailable: 1
+livenessProbe:
+  enabled: true
+  initialDelaySeconds: 10
+  timeoutSeconds: 5
+  failureThreshold: 3
+  periodSeconds: 10
 
-# Network Policy (disabled by default)
-networkPolicy:
-  enabled: false
-  allowExternal: true
-  ingressNSMatchLabels: {}
-  ingressNSPodMatchLabels: {}
+readinessProbe:
+  enabled: true
+  initialDelaySeconds: 10
+  timeoutSeconds: 5
+  failureThreshold: 3
+  periodSeconds: 10
 
 # Node selection
 nodeSelector: {}
 tolerations: []
 affinity: {}
 
-# Common labels
-commonLabels:
+# Custom labels
+customLabels:
   app.kubernetes.io/part-of: "cloud-native-encabulator"
   app.kubernetes.io/component: "hydrocoptic-datastore-backend"
-
-# Disable read replicas for development
-readReplicas:
-  replicaCount: 0

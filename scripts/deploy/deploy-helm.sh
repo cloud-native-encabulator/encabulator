@@ -88,8 +88,8 @@ setup_helm_repos() {
     add_helm_repo "argo" "https://argoproj.github.io/argo-helm"
     add_helm_repo "prometheus-community" "https://prometheus-community.github.io/helm-charts"
     add_helm_repo "grafana" "https://grafana.github.io/helm-charts"
-    add_helm_repo "postgresql" "https://charts.postgresql.org/"
-    add_helm_repo "redis" "https://charts.redis.io/"
+    add_helm_repo "cowboysysop" "https://cowboysysop.github.io/charts/"
+    add_helm_repo "groundhog2k" "https://groundhog2k.github.io/helm-charts/"
     add_helm_repo "influxdata" "https://helm.influxdata.com/"
     
     log_success "Helm repositories configured"
@@ -154,14 +154,14 @@ deploy_data_plane() {
     
     # Deploy PostgreSQL (Hydrocoptic Data Store backend)
     log_info "Installing PostgreSQL (Hydrocoptic Data Store backend)..."
-    helm upgrade --install hydrocoptic-postgresql postgresql/postgresql \
+    helm upgrade --install hydrocoptic-postgresql groundhog2k/postgres \
         --namespace encabulator-data \
         --values helm/values/data-services/values-postgresql.yaml \
         --wait --timeout=600s
     
     # Deploy Redis (Prefabulated Cache)
     log_info "Installing Prefabulated Cache (Redis)..."
-    helm upgrade --install prefabulated-cache redis/redis \
+    helm upgrade --install prefabulated-cache groundhog2k/redis \
         --namespace encabulator-data \
         --values helm/values/data-services/values-redis.yaml \
         --wait --timeout=300s

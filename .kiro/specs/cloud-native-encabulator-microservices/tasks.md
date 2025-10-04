@@ -30,7 +30,7 @@
     - Configure resource quotas and limits
     - _Requirements: 1.2, 1.5, 10.3_
 
-- [-] 2. Deploy data infrastructure backends via Helm
+- [x] 2. Deploy data infrastructure backends via Helm
 
   - [x] 2.1 Deploy database backends
 

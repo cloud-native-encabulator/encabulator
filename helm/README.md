@@ -1,28 +1,26 @@
-# Cloud Native Encabulator - Helm-First Architecture
+# Cloud Native Encabulator - Helm Configuration
 
-This directory contains Helm charts, values files, and configurations for deploying all infrastructure and application components using a Helm-first approach with community-maintained and custom charts.
+This directory contains Helm values files and configurations for deploying all infrastructure components using upstream community charts with custom configuration.
 
 ## Architecture
 
 ```
 helm/
-├── charts/                # Custom Helm charts
-│   └── hydrocoptic-datastore/  # Custom service chart with templates
-├── values/                # Helm values files
-│   ├── argocd/           # ArgoCD Helm values
-
-│   └── observability/    # Observability stack Helm values
+├── values/                # Helm values files for upstream charts
+│   ├── data-services/    # Database backend configurations
+│   ├── observability/    # Monitoring stack configurations
+│   └── scaling/          # Auto-scaling configurations
 └── README.md             # This file
 ```
 
-## Chart Categories
+## Upstream Charts Used
 
-### Custom Charts (Application Services)
-- **hydrocoptic-datastore**: Custom Encabulator service with PostgreSQL dependency
-- **sinusoidal-database**: Time-series service (uses Prometheus chart)
-- **prefabulated-cache**: Cache service (uses Redis chart)
+### Data Services (Task 2.1)
+- **PostgreSQL**: `postgresql/postgresql` (Bitnami) - Hydrocoptic Data Store backend
+- **Redis**: `redis/redis` (Bitnami) - Prefabulated Cache backend  
+- **InfluxDB**: `influxdata/influxdb2` (InfluxData) - Sinusoidal Database backend
 
-### Community Charts (Infrastructure)
+### Infrastructure Services
 
 #### ArgoCD
 - **Chart**: `argo/argo-cd`
@@ -47,65 +45,61 @@ helm/
 
 ## Implementation Status
 
-1. **Phase 1**: ArgoCD Helm chart integration ✅
-2. **Phase 2**: ACK controllers via official OCI Helm charts ✅
-3. **Phase 3**: Observability stack via kube-prometheus-stack ✅
-4. **Phase 4**: Custom service charts with community dependencies ✅
-5. **Phase 5**: ArgoCD applications using Helm sources ✅
-6. **Future**: Optional advanced resource composition patterns
+1. **Task 1**: Project infrastructure ✅
+2. **Task 2**: Database backends via upstream charts ⏳
+3. **Task 3**: Observability stack via kube-prometheus-stack ✅
+4. **Task 4**: Service applications (future - will use custom charts) ⏳
+5. **Task 6**: GitOps evolution (future) ⏳
 
-## Helm Chart Integration
+## Deployment
 
-Helm charts can be deployed directly:
+Deploy database backends using upstream charts:
 
 ```bash
-# Deploy Prometheus stack via Helm
-helm upgrade --install prometheus-stack prometheus-community/kube-prometheus-stack \
-  --namespace monitoring \
-  --values values.yaml \
-  --wait
+# Deploy all data services
+./scripts/deploy/deploy-helm.sh --data-plane-only
+
+# Or deploy individually
+helm upgrade --install hydrocoptic-postgresql postgresql/postgresql \
+  --namespace encabulator-data \
+  --values helm/values/data-services/values-postgresql.yaml
+
+helm upgrade --install prefabulated-cache redis/redis \
+  --namespace encabulator-data \
+  --values helm/values/data-services/values-redis.yaml
+
+helm upgrade --install sinusoidal-database influxdata/influxdb2 \
+  --namespace encabulator-data \
+  --values helm/values/data-services/values-influxdb.yaml
 ```
 
-## Benefits of Helm-First Approach
+## Benefits of Upstream Charts Approach
 
-### For Infrastructure
-- **Official Charts**: Use AWS-maintained ACK charts and community-maintained observability charts
-- **Battle-Tested**: Leverage thousands of hours of community testing and hardening
+### For Infrastructure (Task 2)
+- **Battle-Tested**: Leverage community-maintained charts with thousands of deployments
 - **Security**: Built-in security best practices and regular security updates
-- **Maintenance**: Reduced maintenance overhead with community-maintained charts
+- **Maintenance**: Reduced maintenance overhead - no custom database chart code
+- **Standards**: Follow Kubernetes and Helm best practices automatically
 
-### For Applications
-- **Standardization**: Consistent templating patterns across all services
-- **Reusability**: Custom charts can be reused across environments
-- **Dependencies**: Automatic management of service dependencies (PostgreSQL, Redis)
-- **Configuration**: Environment-specific values without template duplication
+### For Applications (Task 4 - Future)
+- **Custom Business Logic**: Focus on service APIs and business logic
+- **Clean Separation**: Infrastructure (upstream) vs Applications (custom)
+- **Reusability**: Service charts can be reused across environments
+- **Integration**: Easy integration with upstream database backends
 
 ### For Operations
 - **Version Management**: Easy upgrades and rollbacks with semantic versioning
-- **Direct Integration**: Helm charts deployed directly with custom values
-- **Observability**: Built-in ServiceMonitor and dashboard configurations
-- **Scaling**: HPA and resource management built into templates
+- **Configuration Management**: Environment-specific values without chart duplication
+- **Observability**: Built-in monitoring integration with ServiceMonitors
+- **Scaling**: HPA and resource management built into upstream charts
 
-## Custom Chart Development
+## Values File Structure
 
-### Hydrocoptic Data Store Chart Structure
-```
-helm/charts/hydrocoptic-datastore/
-├── Chart.yaml              # Chart metadata and dependencies
-├── values.yaml             # Default configuration values
-└── templates/
-    ├── _helpers.tpl        # Template helpers and labels
-    ├── deployment.yaml     # Service deployment
-    ├── service.yaml        # Kubernetes service
-    ├── configmap.yaml      # Configuration management
-    ├── serviceaccount.yaml # RBAC service account
-    ├── hpa.yaml           # Horizontal Pod Autoscaler
-    └── servicemonitor.yaml # Prometheus monitoring
-```
+Each service has a dedicated values file with:
+- **Resource Management**: CPU/memory requests and limits
+- **Security Context**: Non-root users, dropped capabilities
+- **Persistence**: Storage configuration with default storage class
+- **Monitoring**: ServiceMonitor configuration for Prometheus
+- **Authentication**: Service-specific credentials and configuration
 
-### Key Features
-- **PostgreSQL Dependency**: Automatic PostgreSQL deployment or external database configuration
-- **Monitoring Integration**: Built-in ServiceMonitor for Prometheus scraping
-- **Security**: Non-root containers, read-only filesystems, dropped capabilities
-- **Scaling**: HPA configuration with CPU and memory targets
-- **Health Checks**: Liveness and readiness probes
+See `helm/values/data-services/README.md` for detailed configuration options.
