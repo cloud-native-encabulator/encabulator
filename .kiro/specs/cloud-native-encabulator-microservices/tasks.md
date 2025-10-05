@@ -54,39 +54,39 @@
     - Remove conflicting standalone Grafana deployment
     - _Requirements: 2.1, 2.2, 2.3, 2.4, 2.5_
 
-- [ ] 4. Implement service plane infrastructure
+- [-] 4. Implement service plane infrastructure
 
   - [x] 4.1 Create Data Plane service applications
 
-    - Create Helm chart for HydrocopticDataStore service (PostgreSQL wrapper with REST API)
-    - Create Helm chart for PrefabulatedCache service (Redis wrapper with REST API)
-    - Create Helm chart for SinusoidalDatabase service (InfluxDB wrapper with REST API)
+    - Create Helm chart for HydrocopticDataStore service (Go - PostgreSQL wrapper with REST API)
+    - Create Helm chart for PrefabulatedCache service (Go - Redis wrapper with REST API)
+    - Create Helm chart for SinusoidalDatabase service (Go - InfluxDB wrapper with REST API)
     - Implement service health endpoints and monitoring integration
     - Configure inter-service connectivity and service discovery
     - _Requirements: 1.1, 1.4, 2.1, 4.1_
 
-  - [ ] 4.2 Create Processing Plane services
+  - [-] 4.2 Create Processing Plane services
 
-    - Implement PanametricFamProcessor service (Node.js service with message handling)
-    - Implement LogarithmicCasingService (message broker with routing)
-    - Implement DingleArmAPIGateway (API gateway with rate limiting)
+    - Implement PanametricFamProcessor service (Node.js/TypeScript with Express - core business logic and async processing)
+    - Implement LogarithmicCasingService (Go - message broker wrapper with NATS/RabbitMQ)
+    - Implement DingleArmAPIGateway (Go - API gateway with rate limiting and routing)
     - Deploy services using standard Kubernetes manifests via ArgoCD
     - _Requirements: 1.1, 1.3, 2.1, 4.1, 4.2, 4.3, 5.1, 8.1, 10.2_
 
   - [ ] 4.3 Create Support Plane services
 
-    - Implement CardinalGrammeter service (authentication service with RBAC)
-    - Implement DifferentialGirdle service (configuration service with feature flags)
-    - Implement SideFumblingCollector service (resource optimization operator)
+    - Implement CardinalGrammeter service (Python/FastAPI - authentication and authorization with OAuth2/JWT)
+    - Implement DifferentialGirdle service (Go - configuration management with feature flags)
+    - Implement SideFumblingCollector service (Python - resource optimization and cleanup with data analysis)
     - Deploy services using standard Kubernetes manifests via ArgoCD
     - _Requirements: 1.1, 2.1, 3.1, 3.2, 3.3, 3.4, 4.1, 8.1, 10.2, 10.6_
 
   - [ ] 4.4 Create Control Plane services
 
-    - Implement EncabulationControlConsole (React app with real-time visualization)
-    - Implement MalaiseInjectionEngine (chaos engineering operator)
-    - Implement UnilateralPhaseDetractorEngine (traffic generation and load testing)
-    - Implement DemoScenarioOrchestrator (scenario management and automation)
+    - Implement EncabulationControlConsole (React/TypeScript - web UI with real-time visualization and WebSocket)
+    - Implement MalaiseInjectionEngine (Go - chaos engineering operator with Kubernetes integration)
+    - Implement UnilateralPhaseDetractorEngine (Node.js/TypeScript - traffic generation and load testing with concurrent HTTP)
+    - Implement DemoScenarioOrchestrator (Python - scenario management and automation with Kubernetes client)
     - Deploy services using standard Kubernetes manifests via ArgoCD
     - _Requirements: 11.1, 11.2, 11.3, 12.1, 12.2, 12.3, 12.4, 12.5, 12.6, 4.2, 4.3, 4.4_
 
