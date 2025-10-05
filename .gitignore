@@ -32,6 +32,21 @@ yarn-error.log*
 .npm
 .eslintcache
 
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+venv/
+env/
+ENV/
+.venv
+*.egg-info/
+.pytest_cache/
+.coverage
+htmlcov/
+
 # IDE
 .idea/
 .vscode/
