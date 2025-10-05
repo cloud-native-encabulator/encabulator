@@ -18,6 +18,9 @@ go.work
 services/data-plane/hydrocoptic-datastore/hydrocoptic-datastore
 services/data-plane/prefabulated-cache/prefabulated-cache
 services/data-plane/sinusoidal-database/sinusoidal-database
+services/processing-plane/logarithmic-casing-service/logarithmic-casing-service
+services/processing-plane/dingle-arm-api-gateway/dingle-arm-api-gateway
+services/processing-plane/panametric-fam-processor/panametric-fam-processor
 
 # Node.js
 node_modules/
