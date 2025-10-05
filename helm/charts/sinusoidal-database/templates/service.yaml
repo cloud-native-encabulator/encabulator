@@ -1,0 +1,15 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "sinusoidal-database.fullname" . }}
+  labels:
+    {{- include "sinusoidal-database.labels" . | nindent 4 }}
+spec:
+  type: {{ .Values.service.type }}
+  ports:
+    - port: {{ .Values.service.port }}
+      targetPort: http
+      protocol: TCP
+      name: http
+  selector:
+    {{- include "sinusoidal-database.selectorLabels" . | nindent 4 }}

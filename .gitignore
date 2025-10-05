@@ -1,0 +1,41 @@
+# Binaries for programs and plugins
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+
+# Test binary, built with `go test -c`
+*.test
+
+# Output of the go coverage tool
+*.out
+
+# Go workspace file
+go.work
+
+# Compiled binaries
+services/data-plane/hydrocoptic-datastore/hydrocoptic-datastore
+services/data-plane/prefabulated-cache/prefabulated-cache
+services/data-plane/sinusoidal-database/sinusoidal-database
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Kubernetes
+*.kubeconfig
+
+# Helm
+*.tgz
+
+# Temporary files
+tmp/
+temp/

@@ -6,6 +6,7 @@ This directory contains all automation scripts for deploying and managing the Cl
 
 ```
 scripts/
+├── build/             # Build scripts for services and images
 ├── test/              # Testing and validation scripts
 ├── deploy/            # Deployment and status scripts  
 ├── setup/             # Initial configuration and setup scripts
@@ -66,6 +67,36 @@ scripts/
 ## 📋 Script Reference
 
 ### Deployment Scripts (`deploy/`)
+
+#### `deploy-data-plane-services.sh` - **DATA PLANE DEPLOYMENT**
+**Purpose**: Deploy Data Plane services (Hydrocoptic DataStore, Prefabulated Cache, Sinusoidal Database)  
+**Use Case**: Deploy data plane wrapper services  
+**What it does**:
+- Deploys all three Data Plane services via Helm
+- Creates namespace if it doesn't exist
+- Waits for deployments to be ready
+- Provides status check commands
+
+**Usage**:
+```bash
+# Deploy to default namespace (encabulator-data)
+./scripts/deploy/deploy-data-plane-services.sh
+
+# Deploy to custom namespace
+./scripts/deploy/deploy-data-plane-services.sh my-namespace
+```
+
+**Prerequisites**: 
+- Kubernetes cluster access
+- Helm installed
+- Data backends deployed (PostgreSQL, Redis, InfluxDB)
+- Docker images built
+
+**Output**: 
+- All Data Plane services deployed
+- Status check commands provided
+
+---
 
 #### `deploy-helm.sh` - **HELM-FIRST DEPLOYMENT**
 **Purpose**: Deploy complete platform using Helm charts and ArgoCD  
@@ -160,6 +191,60 @@ scripts/
 
 
 
+
+### Build Scripts (`build/`)
+
+#### `build-data-plane-services.sh` - **BUILD GO SERVICES**
+**Purpose**: Build all Data Plane Go services  
+**Use Case**: Local development, testing, CI/CD  
+**What it does**:
+- Runs `go mod tidy` for each service
+- Builds binaries for all Data Plane services
+- Runs unit tests
+- Validates build success
+
+**Usage**:
+```bash
+./scripts/build/build-data-plane-services.sh
+```
+
+**Prerequisites**: 
+- Go 1.21 or later installed
+- Service source code present
+
+**Output**: 
+- Compiled binaries in each service directory
+- Test results
+- Build status for each service
+
+---
+
+#### `build-data-plane-images.sh` - **BUILD DOCKER IMAGES**
+**Purpose**: Build Docker images for Data Plane services  
+**Use Case**: Container deployment, image registry updates  
+**What it does**:
+- Builds Docker images for all Data Plane services
+- Tags images with specified version
+- Lists built images
+
+**Usage**:
+```bash
+# Build with default 'latest' tag
+./scripts/build/build-data-plane-images.sh
+
+# Build with specific tag
+./scripts/build/build-data-plane-images.sh v0.1.0
+```
+
+**Prerequisites**: 
+- Docker installed and running
+- Service Dockerfiles present
+
+**Output**: 
+- Docker images built and tagged
+- Image list with tags
+
+---
 
 ### Setup Scripts (`setup/`)
 

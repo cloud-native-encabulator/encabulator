@@ -56,7 +56,7 @@
 
 - [ ] 4. Implement service plane infrastructure
 
-  - [ ] 4.1 Create Data Plane service applications
+  - [x] 4.1 Create Data Plane service applications
 
     - Create Helm chart for HydrocopticDataStore service (PostgreSQL wrapper with REST API)
     - Create Helm chart for PrefabulatedCache service (Redis wrapper with REST API)

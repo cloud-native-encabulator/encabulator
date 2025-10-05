@@ -1,0 +1,57 @@
+replicaCount: 2
+
+image:
+  repository: prefabulated-cache
+  pullPolicy: IfNotPresent
+  tag: "latest"
+
+service:
+  type: ClusterIP
+  port: 8080
+  targetPort: 8080
+
+resources:
+  limits:
+    cpu: 500m
+    memory: 512Mi
+  requests:
+    cpu: 250m
+    memory: 256Mi
+
+autoscaling:
+  enabled: false
+  minReplicas: 2
+  maxReplicas: 10
+  targetCPUUtilizationPercentage: 80
+
+livenessProbe:
+  httpGet:
+    path: /health
+    port: 8080
+  initialDelaySeconds: 10
+  periodSeconds: 10
+
+readinessProbe:
+  httpGet:
+    path: /ready
+    port: 8080
+  initialDelaySeconds: 5
+  periodSeconds: 5
+
+serviceMonitor:
+  enabled: true
+  interval: 30s
+  path: /metrics
+
+redis:
+  addr: redis-master:6379
+  passwordSecret: redis
+  passwordKey: redis-password
+
+env: []
+
+nodeSelector: {}
+
+tolerations: []
+
+affinity: {}
