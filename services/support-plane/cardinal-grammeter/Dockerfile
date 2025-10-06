@@ -3,31 +3,32 @@ FROM python:3.13-slim AS builder
 
 WORKDIR /app
 
-# Install dependencies in a virtual environment
-RUN python -m venv /opt/venv
-ENV PATH="/opt/venv/bin:$PATH"
-
+# Install dependencies to user site-packages
 COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
+RUN pip install --no-cache-dir --user -r requirements.txt
 
 # Final stage
 FROM python:3.13-slim
 
-# Copy virtual environment from builder
-COPY --from=builder /opt/venv /opt/venv
-
-# Set environment to use venv
-ENV PATH="/opt/venv/bin:$PATH"
-ENV PYTHONUNBUFFERED=1
-
 WORKDIR /app
+
+# Copy installed packages from builder
+COPY --from=builder /root/.local /root/.local
+
+# Set environment
+ENV PATH=/root/.local/bin:$PATH
+ENV PYTHONUNBUFFERED=1
 
 # Copy application code
 COPY app ./app
 
-# Create non-root user
-RUN useradd -m -u 1000 appuser && chown -R appuser:appuser /app
+# Create non-root user and copy packages to their home
+RUN useradd -m -u 1000 appuser && \
+    cp -r /root/.local /home/appuser/.local && \
+    chown -R appuser:appuser /home/appuser/.local /app
+
 USER appuser
+ENV PATH=/home/appuser/.local/bin:$PATH
 
 # Expose port
 EXPOSE 8000
