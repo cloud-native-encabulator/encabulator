@@ -20,10 +20,17 @@ build-backend: ## Build Node.js backend
 	@cd server && npm install && npm run build
 	@echo "✓ Backend build complete"
 
-test: ## Run tests
-	@echo "Testing $(SERVICE_NAME)..."
+test: test-frontend test-backend ## Run all tests
+
+test-frontend: ## Run frontend tests
+	@echo "Testing frontend..."
 	@npm test
-	@echo "✓ Tests complete"
+	@echo "✓ Frontend tests complete"
+
+test-backend: ## Run backend tests
+	@echo "Testing backend..."
+	@cd server && npm test
+	@echo "✓ Backend tests complete"
 
 run: ## Run frontend and backend in development mode
 	@echo "Run 'make run-frontend' and 'make run-backend' in separate terminals"
