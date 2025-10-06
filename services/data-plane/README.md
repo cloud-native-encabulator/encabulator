@@ -65,18 +65,21 @@ All services implement:
 ### Build All Services
 
 ```bash
-./scripts/build/build-data-plane-services.sh
-```
+# From repository root
+make build-data-plane
 
-This script will:
-1. Run `go mod tidy` for each service
-2. Build the binary
-3. Run tests
+# Or from this directory
+cd services/data-plane
+make build
+```
 
 ### Build Individual Service
 
 ```bash
 cd services/data-plane/<service-name>
+make build
+
+# Or manually
 go mod tidy
 go build -o <service-name> ./cmd/server
 ```
@@ -84,35 +87,50 @@ go build -o <service-name> ./cmd/server
 ### Build Docker Images
 
 ```bash
-./scripts/build/build-data-plane-images.sh [tag]
-```
+# From repository root
+make image-data-plane
 
-Default tag is `latest`.
+# Or from this directory
+cd services/data-plane
+make image
+```
 
 ## Testing
 
 ### Run All Tests
 
 ```bash
-cd services/data-plane/<service-name>
-go test ./...
+# From repository root
+make test-data-plane
+
+# Or from this directory
+cd services/data-plane
+make test
 ```
 
-### Run Tests with Coverage
+### Run Individual Service Tests
 
 ```bash
+cd services/data-plane/<service-name>
+go test ./...
+
+# With coverage
 go test -cover ./...
 ```
 
 ## Deployment
 
-### Deploy All Services
+Data Plane services are deployed as part of the complete platform via Helm.
+
+### Deploy All Data Services
 
 ```bash
-./scripts/deploy/deploy-data-plane-services.sh [namespace]
-```
+# Deploy complete platform (includes data backends)
+./scripts/deploy/deploy-helm.sh
 
-Default namespace is `encabulator-data`.
+# Or deploy only data plane backends
+./scripts/deploy/deploy-helm.sh --data-plane-only
+```
 
 ### Deploy Individual Service
 
@@ -122,6 +140,8 @@ helm upgrade --install <service-name> \
     --namespace encabulator-data \
     --create-namespace
 ```
+
+**Note**: Data Plane services require their backend services (PostgreSQL, Redis, InfluxDB) to be running. These are deployed automatically by `deploy-helm.sh`.
 
 ## Configuration
 

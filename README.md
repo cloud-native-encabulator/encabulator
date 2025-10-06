@@ -8,51 +8,80 @@ The Cloud Native Encabulator Microservices Demo provides a hands-on learning exp
 
 ## Architecture
 
-The system is organized into three main planes:
+The system is organized into four main planes with 13 microservices:
 
-- **Data Plane**: Handles data storage, persistence, and caching
-- **Processing Plane**: Manages core business logic, message routing, and API gateway functionality  
-- **Support Plane**: Provides cross-cutting concerns like authentication, configuration, and resource management
+- **Data Plane** (3 services): Handles data storage, persistence, and caching
+- **Processing Plane** (3 services): Manages core business logic, message routing, and API gateway functionality  
+- **Support Plane** (3 services): Provides cross-cutting concerns like feature flags, metrics, and telemetry
+- **Control Plane** (4 services): Interactive control, chaos engineering, and demonstration capabilities
 
 ### Services
 
-#### Data Plane
-- **Hydrocoptic Data Store**: Primary persistence layer (PostgreSQL with custom wrapper)
-- **Sinusoidal Database**: Time-series metrics storage
-- **Prefabulated Cache**: In-memory data caching (Redis)
+#### Data Plane (3 services - Go)
+- **Hydrocoptic Data Store**: PostgreSQL wrapper with domain-specific CRUD operations
+- **Prefabulated Cache**: Redis wrapper with TTL support and caching operations
+- **Sinusoidal Database**: InfluxDB wrapper for time-series data operations
 
-#### Processing Plane
-- **Panametric Fam Processor**: Core business logic execution engine (Node.js)
-- **Logarithmic Casing Service**: Message broker and event bus (NATS/RabbitMQ)
-- **Dingle Arm API Gateway**: External API facade and entry point (Envoy/NGINX)
+[Data Plane Documentation](./services/data-plane/README.md)
 
-#### Support Plane
-- **Cardinal Grammeter**: Authentication and authorization service (Python/FastAPI)
-- **Differential Girdle**: Configuration management service (Go)
-- **Side Fumbling Collector**: Resource optimization and cleanup service (Go/Kubernetes Operator)
+#### Processing Plane (3 services - 2 Go, 1 TypeScript)
+- **Panametric Fam Processor**: Core encabulation processing engine with caching (TypeScript/Node.js)
+- **Logarithmic Casing Service**: Message broker and event bus for async communication (Go)
+- **Dingle Arm API Gateway**: API gateway with rate limiting and routing (Go)
+
+[Processing Plane Documentation](./services/processing-plane/README.md)
+
+#### Support Plane (3 services - 1 Go, 2 Python)
+- **Differential Girdle**: Feature flags and configuration management (Go)
+- **Cardinal Grammeter**: Custom metrics collection and aggregation (Python/FastAPI)
+- **Side Fumbling Collector**: Telemetry and observability data collection (Python/FastAPI)
+
+[Support Plane Documentation](./services/support-plane/README.md)
+
+#### Control Plane (4 services - 1 Go, 2 TypeScript, 1 Python)
+- **Encabulation Control Console**: Interactive web UI for system control (React + TypeScript, Node.js backend)
+- **Malaise Injection Engine**: Chaos engineering and failure injection (Go)
+- **Unilateral Phase Detractor**: Advanced traffic simulation and load generation (TypeScript/Node.js)
+- **Demo Scenario Orchestrator**: Automated demonstration scenario management (Python/FastAPI)
+
+[Control Plane Documentation](./services/control-plane/README.md)
 
 ## Quick Start
 
-### 🧪 Testing First (Recommended)
+### 🏗️ Build and Test Locally
 
-Start with comprehensive testing to validate the entire platform:
+Build and test all services before deploying:
 
 ```bash
 # Clone the repository
 git clone <repository-url>
 cd cloud-native-encabulator-microservices
 
+# Build all services
+make build
+
+# Run all tests
+make test
+
+# Build container images
+make image
+```
+
+### 🧪 Comprehensive Platform Testing
+
+Validate the entire platform with integration tests:
+
+```bash
 # Run comprehensive tests (requires Docker/Finch + kind/minikube/k3d)
 ./scripts/test/comprehensive-test.sh
 
 # Or test specific components
-./scripts/test/local-test.sh            # Observability stack only
-
-# Access services (updated service names)
-kubectl port-forward -n encabulator-monitoring svc/prometheus-stack-grafana 3000:80
+./scripts/test/comprehensive-test.sh --quick              # Quick test
+./scripts/test/comprehensive-test.sh --observability-only # Observability only
+./scripts/test/test-data-services.sh                      # Data services only
 ```
 
-See [TESTING.md](TESTING.md) for detailed testing guide.
+See [TESTING.md](TESTING.md) for detailed testing guide and [scripts/README.md](scripts/README.md) for all available scripts.
 
 ### ☁️ Development Cluster Deployment
 
@@ -116,12 +145,26 @@ Deploy infrastructure and applications using direct Helm commands:
 
 ## Documentation
 
-- **[Testing Guide](TESTING.md)** - Local and development cluster testing
+### Getting Started
 - **[Setup Guide](SETUP.md)** - Environment setup and prerequisites  
-- **[Observability Platform](k8s/platform/observability/README.md)** - Complete monitoring stack via kube-prometheus-stack Helm chart
-- **[Infrastructure Management](k8s/infrastructure/README.md)** - In-cluster service deployment via official Helm charts
+- **[Build Guide](BUILD.md)** - Building services and container images
+- **[Testing Guide](TESTING.md)** - Local and development cluster testing
+- **[Scripts Documentation](scripts/README.md)** - Build, test, and deployment scripts
+
+### Service Planes
+- **[Data Plane](./services/data-plane/README.md)** - Storage and persistence services (3 Go services)
+- **[Processing Plane](./services/processing-plane/README.md)** - Business logic and API gateway (2 Go, 1 TypeScript)
+- **[Support Plane](./services/support-plane/README.md)** - Feature flags, metrics, telemetry (1 Go, 2 Python)
+- **[Control Plane](./services/control-plane/README.md)** - Interactive control and chaos engineering (1 Go, 2 TypeScript, 1 Python)
+
+### Infrastructure & Deployment
 - **[Helm Charts](helm/README.md)** - Custom and community Helm charts for all services
-- [Architecture Documentation](docs/architecture/) *(coming soon)*
+- **[Observability Platform](k8s/platform/observability/README.md)** - Complete monitoring stack via kube-prometheus-stack
+- **[Infrastructure Management](k8s/infrastructure/README.md)** - In-cluster service deployment
+
+### Architecture
+- **[Architecture Summary](ARCHITECTURE_SUMMARY.md)** - High-level architecture overview
+- **[Cloud Native Infrastructure](docs/architecture/cloud-native-infrastructure.md)** - Infrastructure patterns
 - [API Specifications](docs/api/) *(coming soon)*
 - [Cloud Native Encabulator Glossary](docs/glossary.md) *(coming soon)*
 
