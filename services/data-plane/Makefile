@@ -25,13 +25,16 @@ test: ## Test all Data Plane services
 	done
 	@echo "✓ All Data Plane tests complete"
 
-.PHONY: docker-build
-docker-build: ## Build Docker images for all Data Plane services
-	@echo "Building Docker images for all Data Plane services..."
+.PHONY: image
+image: ## Build container images for all Data Plane services
+	@echo "Building container images for all Data Plane services..."
 	@for service in $(SERVICES); do \
-		$(MAKE) -C $$service docker-build || exit 1; \
+		$(MAKE) -C $$service image || exit 1; \
 	done
-	@echo "✓ All Data Plane Docker images built"
+	@echo "✓ All Data Plane container images built"
+
+.PHONY: docker-build
+docker-build: image ## Build Docker images (deprecated, use 'image')
 
 .PHONY: clean
 clean: ## Clean all Data Plane services

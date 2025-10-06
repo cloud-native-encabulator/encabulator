@@ -120,44 +120,32 @@ build-demo-scenario-orchestrator: ## Build DemoScenarioOrchestrator
 	@cd services/control-plane/demo-scenario-orchestrator && python3 -m py_compile main.py
 
 #############################################################################
-# Docker Targets
+# Container Image Targets
 #############################################################################
 
+.PHONY: image
+image: image-data-plane image-processing-plane image-support-plane image-control-plane ## Build all container images
+
+.PHONY: image-data-plane
+image-data-plane: ## Build container images for Data Plane services
+	@$(MAKE) -C services/data-plane image
+
+.PHONY: image-processing-plane
+image-processing-plane: ## Build container images for Processing Plane services
+	@$(MAKE) -C services/processing-plane image
+
+.PHONY: image-support-plane
+image-support-plane: ## Build container images for Support Plane services
+	@$(MAKE) -C services/support-plane image
+
+.PHONY: image-control-plane
+image-control-plane: ## Build container images for Control Plane services
+	@$(MAKE) -C services/control-plane image
+
 .PHONY: docker-build
-docker-build: docker-build-data-plane docker-build-processing-plane docker-build-support-plane docker-build-control-plane ## Build all Docker images
+docker-build: image ## Build all Docker images (deprecated, use 'image')
 
-.PHONY: docker-build-data-plane
-docker-build-data-plane: ## Build Docker images for Data Plane services
-	@echo "Building Data Plane Docker images..."
-	@docker build -t hydrocoptic-datastore:latest services/data-plane/hydrocoptic-datastore
-	@docker build -t prefabulated-cache:latest services/data-plane/prefabulated-cache
-	@docker build -t sinusoidal-database:latest services/data-plane/sinusoidal-database
-	@echo "✓ Data Plane Docker images built"
 
-.PHONY: docker-build-processing-plane
-docker-build-processing-plane: ## Build Docker images for Processing Plane services
-	@echo "Building Processing Plane Docker images..."
-	@docker build -t logarithmic-casing-service:latest services/processing-plane/logarithmic-casing-service
-	@docker build -t dingle-arm-api-gateway:latest services/processing-plane/dingle-arm-api-gateway
-	@docker build -t panametric-fam-processor:latest services/processing-plane/panametric-fam-processor
-	@echo "✓ Processing Plane Docker images built"
-
-.PHONY: docker-build-support-plane
-docker-build-support-plane: ## Build Docker images for Support Plane services
-	@echo "Building Support Plane Docker images..."
-	@docker build -t differential-girdle:latest services/support-plane/differential-girdle
-	@docker build -t cardinal-grammeter:latest services/support-plane/cardinal-grammeter
-	@docker build -t side-fumbling-collector:latest services/support-plane/side-fumbling-collector
-	@echo "✓ Support Plane Docker images built"
-
-.PHONY: docker-build-control-plane
-docker-build-control-plane: ## Build Docker images for Control Plane services
-	@echo "Building Control Plane Docker images..."
-	@docker build -t malaise-injection-engine:latest services/control-plane/malaise-injection-engine
-	@docker build -t unilateral-phase-detractor:latest services/control-plane/unilateral-phase-detractor
-	@docker build -t encabulation-control-console:latest services/control-plane/encabulation-control-console
-	@docker build -t demo-scenario-orchestrator:latest services/control-plane/demo-scenario-orchestrator
-	@echo "✓ Control Plane Docker images built"
 
 #############################################################################
 # Helm Targets

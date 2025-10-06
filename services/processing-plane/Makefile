@@ -25,14 +25,17 @@ test: ## Test all Processing Plane services
 	done
 	@echo "✓ All Processing Plane tests complete"
 
-.PHONY: docker-build
-docker-build: ## Build Docker images for all Processing Plane services
-	@echo "Building Docker images for all Processing Plane services..."
-	@for service in $(SERVICES); do \
-		$(MAKE) -C $$service docker-build || exit 1; \
-	done
-	@echo "✓ All Processing Plane Docker images built"
+.PHONY: image
+image: ## Build container images for all services
+@echo "Building container images..."
+@for service in $(SERVICES); do \
+$(MAKE) -C $$service image || exit 1; \
+done
+@echo "✓ All container images built"
 
+
+.PHONY: docker-build
+docker-build: image ## Build Docker images (deprecated, use 'image')
 .PHONY: clean
 clean: ## Clean all Processing Plane services
 	@for service in $(SERVICES); do \
