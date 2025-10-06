@@ -1,0 +1,78 @@
+.control-panel {
+  background: #1a1a1a;
+  border-radius: 8px;
+  padding: 1rem;
+}
+
+.control-panel h3 {
+  margin-bottom: 1rem;
+  color: #61dafb;
+  font-size: 1.2rem;
+}
+
+.control-section {
+  margin-bottom: 1.5rem;
+  padding-bottom: 1.5rem;
+  border-bottom: 1px solid #3a3a3a;
+}
+
+.control-section:last-child {
+  border-bottom: none;
+  margin-bottom: 0;
+  padding-bottom: 0;
+}
+
+.control-section h4 {
+  margin-bottom: 0.75rem;
+  color: #999;
+  font-size: 0.9rem;
+  text-transform: uppercase;
+}
+
+.control-select {
+  width: 100%;
+  padding: 0.5rem;
+  margin-bottom: 0.75rem;
+  background: #2a2a2a;
+  border: 1px solid #3a3a3a;
+  border-radius: 4px;
+  color: #fff;
+  font-size: 0.9rem;
+}
+
+.button-group {
+  display: flex;
+  gap: 0.5rem;
+  margin-bottom: 0.75rem;
+}
+
+button {
+  flex: 1;
+  padding: 0.5rem 1rem;
+  background: #61dafb;
+  border: none;
+  border-radius: 4px;
+  color: #000;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+button:hover:not(:disabled) {
+  background: #4fa8c5;
+}
+
+button:disabled {
+  background: #3a3a3a;
+  color: #666;
+  cursor: not-allowed;
+}
+
+.danger-button {
+  background: #f44336;
+  color: #fff;
+}
+
+.danger-button:hover:not(:disabled) {
+  background: #d32f2f;
+}

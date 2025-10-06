@@ -81,7 +81,7 @@
     - Create Helm charts for Support Plane services
     - _Requirements: 1.1, 2.1, 3.1, 3.2, 3.3, 3.4, 4.1, 8.1, 10.2, 10.6_
 
-  - [ ] 4.4 Create Control Plane services
+  - [x] 4.4 Create Control Plane services
 
     - Implement EncabulationControlConsole (React/TypeScript - web UI with real-time visualization and WebSocket)
     - Implement MalaiseInjectionEngine (Go - chaos engineering operator with Kubernetes integration)
