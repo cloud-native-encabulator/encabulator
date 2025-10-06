@@ -11,8 +11,14 @@ help: ## Show this help message
 .PHONY: build
 build: ## Build the service
 	@echo "Building $(SERVICE_NAME)..."
-	@go build -o $(BINARY) .
+	@go build -o $(BINARY) ./cmd/server
 	@echo "✓ Build complete: $(BINARY)"
+
+.PHONY: build-static
+build-static: ## Build statically linked binary (for containers)
+	@echo "Building static $(SERVICE_NAME)..."
+	@CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo -ldflags="-w -s" -o $(BINARY) ./cmd/server
+	@echo "✓ Static build complete: $(BINARY)"
 
 .PHONY: test
 test: ## Run tests
@@ -32,9 +38,9 @@ run: build ## Build and run the service
 
 .PHONY: image
 image: ## Build container image (alias for docker-build)
-@echo "Building container image for $(SERVICE_NAME)..."
-@finch build -t $(SERVICE_NAME):latest .
-@echo "✓ Container image built: $(SERVICE_NAME):latest"
+	@echo "Building container image for $(SERVICE_NAME)..."
+	@finch build -t $(SERVICE_NAME):latest .
+	@echo "✓ Container image built: $(SERVICE_NAME):latest"
 
 .PHONY: docker-build
 docker-build: image ## Build Docker image (deprecated, use 'image')

@@ -11,9 +11,15 @@ help: ## Show this help message
 .PHONY: build
 build: ## Build the service
 	@echo "Building $(SERVICE_NAME)..."
-	@go build -o $(BINARY) .
+	@go build -o $(BINARY) ./cmd/server
 	@echo "✓ Build complete: $(BINARY)"
 
+	.PHONY: build-static
+	build-static: ## Build statically linked binary (for containers)
+		@echo "Building static $(SERVICE_NAME)..."
+		@CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo -ldflags="-w -s" -o $(BINARY) ./cmd/server
+		@echo "✓ Static build complete: $(BINARY)"
+	
 .PHONY: test
 test: ## Run tests
 	@echo "Testing $(SERVICE_NAME)..."

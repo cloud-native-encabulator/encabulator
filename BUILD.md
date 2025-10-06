@@ -14,6 +14,7 @@ Ensure you have the following tools installed:
 - **Make** (for build automation)
 
 Verify all dependencies:
+
 ```bash
 make dev-deps
 ```
@@ -21,21 +22,25 @@ make dev-deps
 ## Quick Start
 
 ### View All Available Targets
+
 ```bash
 make help
 ```
 
 ### Build Everything
+
 ```bash
 make build
 ```
 
 ### Run All Tests
+
 ```bash
 make test
 ```
 
 ### Full Verification (Build + Test + Helm Lint)
+
 ```bash
 make verify
 ```
@@ -67,6 +72,7 @@ make test-control-plane        # Test all Control Plane services
 Each service has its own build target:
 
 ### Data Plane
+
 ```bash
 make build-hydrocoptic-datastore
 make build-prefabulated-cache
@@ -74,6 +80,7 @@ make build-sinusoidal-database
 ```
 
 ### Processing Plane
+
 ```bash
 make build-logarithmic-casing-service
 make build-dingle-arm-api-gateway
@@ -81,6 +88,7 @@ make build-panametric-fam-processor
 ```
 
 ### Support Plane
+
 ```bash
 make build-differential-girdle
 make build-cardinal-grammeter
@@ -88,6 +96,7 @@ make build-side-fumbling-collector
 ```
 
 ### Control Plane
+
 ```bash
 make build-malaise-injection-engine
 make build-unilateral-phase-detractor
@@ -159,13 +168,13 @@ jobs:
       - uses: actions/checkout@v3
       - uses: actions/setup-go@v4
         with:
-          go-version: '1.21'
+          go-version: "1.21"
       - uses: actions/setup-node@v3
         with:
-          node-version: '18'
+          node-version: "18"
       - uses: actions/setup-python@v4
         with:
-          python-version: '3.12'
+          python-version: "3.12"
       - name: Run CI
         run: make ci
 ```
@@ -184,16 +193,19 @@ Typical development workflow:
 ## Service-Specific Build Details
 
 ### Go Services
+
 - Built with `go build`
 - Tests run with `go test ./...`
 - Binaries output to service directory
 
 ### Node.js/TypeScript Services
+
 - Dependencies installed with `npm install`
 - Built with `npm run build` (TypeScript compilation)
 - Tests run with `npm test`
 
 ### Python Services
+
 - Syntax validated with `python3 -m py_compile`
 - Tests run with `pytest` (when available)
 - No compilation step required
@@ -203,6 +215,7 @@ Typical development workflow:
 ### Build Failures
 
 **Go build fails:**
+
 ```bash
 cd services/<plane>/<service>
 go mod tidy
@@ -210,6 +223,7 @@ go build .
 ```
 
 **Node.js build fails:**
+
 ```bash
 cd services/<plane>/<service>
 rm -rf node_modules package-lock.json
@@ -218,6 +232,7 @@ npm run build
 ```
 
 **Python syntax errors:**
+
 ```bash
 cd services/<plane>/<service>
 python3 -m py_compile *.py
@@ -226,6 +241,7 @@ python3 -m py_compile *.py
 ### Clean and Rebuild
 
 If you encounter persistent issues:
+
 ```bash
 make clean
 make build
@@ -234,6 +250,7 @@ make build
 ## Performance Tips
 
 - **Parallel builds**: Make supports parallel execution with `-j` flag:
+
   ```bash
   make -j4 build  # Build with 4 parallel jobs
   ```
