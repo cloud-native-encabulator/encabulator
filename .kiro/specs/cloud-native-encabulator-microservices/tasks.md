@@ -70,15 +70,15 @@
     - Implement PanametricFamProcessor service (Node.js/TypeScript with Express - core business logic and async processing)
     - Implement LogarithmicCasingService (Go - message broker wrapper with NATS/RabbitMQ)
     - Implement DingleArmAPIGateway (Go - API gateway with rate limiting and routing)
-    - Deploy services using standard Kubernetes manifests via ArgoCD
+    - Create Helm charts for Processing Plane services
     - _Requirements: 1.1, 1.3, 2.1, 4.1, 4.2, 4.3, 5.1, 8.1, 10.2_
 
-  - [ ] 4.3 Create Support Plane services
+  - [x] 4.3 Create Support Plane services
 
     - Implement CardinalGrammeter service (Python/FastAPI - authentication and authorization with OAuth2/JWT)
     - Implement DifferentialGirdle service (Go - configuration management with feature flags)
     - Implement SideFumblingCollector service (Python - resource optimization and cleanup with data analysis)
-    - Deploy services using standard Kubernetes manifests via ArgoCD
+    - Create Helm charts for Support Plane services
     - _Requirements: 1.1, 2.1, 3.1, 3.2, 3.3, 3.4, 4.1, 8.1, 10.2, 10.6_
 
   - [ ] 4.4 Create Control Plane services
@@ -87,7 +87,7 @@
     - Implement MalaiseInjectionEngine (Go - chaos engineering operator with Kubernetes integration)
     - Implement UnilateralPhaseDetractorEngine (Node.js/TypeScript - traffic generation and load testing with concurrent HTTP)
     - Implement DemoScenarioOrchestrator (Python - scenario management and automation with Kubernetes client)
-    - Deploy services using standard Kubernetes manifests via ArgoCD
+    - Create Helm charts for Control Plane services
     - _Requirements: 11.1, 11.2, 11.3, 12.1, 12.2, 12.3, 12.4, 12.5, 12.6, 4.2, 4.3, 4.4_
 
 - [ ] 5. Deploy and validate service planes
