@@ -13,14 +13,14 @@ Feature flag and configuration management service providing dynamic feature togg
 
 [Service Documentation](./differential-girdle/README.md)
 
-### 2. Cardinal Grammeter
-Metrics collection and aggregation service for custom business metrics.
+### 2. Unilateral Phase Detractor
+Authentication and authorization service providing JWT-based authentication and RBAC.
 
 **Technology**: Python + FastAPI  
 **Port**: 8080  
-**Purpose**: Custom metrics collection and aggregation
+**Purpose**: Authentication and authorization
 
-[Service Documentation](./cardinal-grammeter/README.md)
+[Service Documentation](./unilateral-phase-detractor/README.md)
 
 ### 3. Side Fumbling Collector
 Telemetry and observability data collection service.
@@ -240,19 +240,19 @@ curl http://differential-girdle:8080/flags/prefabulation-v2
 }
 ```
 
-### Cardinal Grammeter Integration
+### Unilateral Phase Detractor Integration
 
-Services send custom metrics to Cardinal Grammeter:
+Services authenticate with Unilateral Phase Detractor:
 
 ```bash
-# Submit custom metric
-curl -X POST http://cardinal-grammeter:8080/metrics \
-  -H "Content-Type: application/json" \
-  -d '{
-    "name": "encabulation_success_rate",
-    "value": 0.95,
-    "labels": {"service": "panametric-fam", "environment": "prod"}
-  }'
+# Login and get JWT token
+curl -X POST http://unilateral-phase-detractor:8080/token \
+  -H "Content-Type: application/x-www-form-urlencoded" \
+  -d 'username=admin&password=admin'
+
+# Use token for authenticated requests
+curl -H "Authorization: Bearer <token>" \
+  http://unilateral-phase-detractor:8080/api/v1/users/me
 ```
 
 ### Side Fumbling Collector Integration
@@ -321,10 +321,10 @@ cd services/support-plane/differential-girdle
 go run ./cmd/server
 ```
 
-#### Cardinal Grammeter
+#### Unilateral Phase Detractor
 ```bash
 export PORT=8080
-cd services/support-plane/cardinal-grammeter
+cd services/support-plane/unilateral-phase-detractor
 pip install -r requirements.txt
 python app/main.py
 ```
@@ -359,21 +359,17 @@ curl -X PUT http://localhost:8080/flags/prefabulation-v2 \
   -d '{"enabled": true, "rollout_percentage": 75}'
 ```
 
-### Cardinal Grammeter
+### Unilateral Phase Detractor
 
 ```bash
-# Submit metric
-curl -X POST http://localhost:8080/metrics \
-  -H "Content-Type: application/json" \
-  -d '{
-    "name": "encabulation_duration",
-    "value": 125.5,
-    "type": "histogram",
-    "labels": {"service": "panametric-fam"}
-  }'
+# Login
+curl -X POST http://localhost:8080/token \
+  -H "Content-Type: application/x-www-form-urlencoded" \
+  -d 'username=admin&password=admin'
 
-# Get aggregated metrics
-curl http://localhost:8080/metrics/aggregated?name=encabulation_duration
+# Get current user
+curl -H "Authorization: Bearer <token>" \
+  http://localhost:8080/api/v1/users/me
 
 # Health check
 curl http://localhost:8080/health
@@ -438,17 +434,19 @@ Verify flag evaluation logic in logs:
 kubectl logs -n encabulator-support <pod-name> | grep "flag evaluation"
 ```
 
-### Metrics Not Appearing (Cardinal Grammeter)
+### Authentication Not Working (Unilateral Phase Detractor)
 
-Verify Prometheus is scraping the service:
+Verify service is running:
 ```bash
-kubectl get servicemonitor -n encabulator-support
+kubectl get pods -n encabulator-support
 ```
 
-Check metrics endpoint:
+Check authentication endpoint:
 ```bash
-kubectl port-forward -n encabulator-support svc/cardinal-grammeter 8080:8080
-curl http://localhost:8080/metrics
+kubectl port-forward -n encabulator-support svc/unilateral-phase-detractor 8080:8080
+curl -X POST http://localhost:8080/token \
+  -H "Content-Type: application/x-www-form-urlencoded" \
+  -d 'username=admin&password=admin'
 ```
 
 ## Performance Tuning

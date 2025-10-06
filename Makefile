@@ -154,7 +154,7 @@ fmt-go: ## Format Go code
 fmt-node: ## Format Node.js/TypeScript code
 	@echo "Formatting Node.js/TypeScript code..."
 	@cd services/processing-plane/panametric-fam-processor && npm run lint --fix 2>/dev/null || true
-	@cd services/control-plane/unilateral-phase-detractor && npm run lint --fix 2>/dev/null || true
+	@cd services/control-plane/cardinal-grammeter && npm run lint --fix 2>/dev/null || true
 	@cd services/control-plane/encabulation-control-console && npm run lint --fix 2>/dev/null || true
 	@echo "✓ Node.js/TypeScript code formatted"
 

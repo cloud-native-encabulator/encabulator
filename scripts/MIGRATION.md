@@ -98,12 +98,12 @@ The platform now consists of 13 microservices across 4 planes:
 
 3. **Support Plane** (3 services - 1 Go, 2 Python)
    - differential-girdle
-   - cardinal-grammeter
+   - unilateral-phase-detractor
    - side-fumbling-collector
 
 4. **Control Plane** (4 services - 1 Go, 2 TypeScript, 1 Python)
    - malaise-injection-engine
-   - unilateral-phase-detractor
+   - cardinal-grammeter
    - encabulation-control-console
    - demo-scenario-orchestrator
 

@@ -39,7 +39,7 @@ app.kubernetes.io/version: {{ .Chart.AppVersion | quote }}
 {{- end }}
 app.kubernetes.io/managed-by: {{ .Release.Service }}
 app.kubernetes.io/part-of: cloud-native-encabulator
-app.kubernetes.io/component: support-plane
+app.kubernetes.io/component: control-plane
 {{- end }}
 
 {{/*
@@ -48,4 +48,15 @@ Selector labels
 {{- define "cardinal-grammeter.selectorLabels" -}}
 app.kubernetes.io/name: {{ include "cardinal-grammeter.name" . }}
 app.kubernetes.io/instance: {{ .Release.Name }}
+{{- end }}
+
+{{/*
+Create the name of the service account to use
+*/}}
+{{- define "cardinal-grammeter.serviceAccountName" -}}
+{{- if .Values.serviceAccount.create }}
+{{- default (include "cardinal-grammeter.fullname" .) .Values.serviceAccount.name }}
+{{- else }}
+{{- default "default" .Values.serviceAccount.name }}
+{{- end }}
 {{- end }}

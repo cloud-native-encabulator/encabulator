@@ -59,7 +59,7 @@ env:
   - name: NAMESPACE
     value: "encabulator-system"
   - name: TRAFFIC_ENGINE_URL
-    value: "http://unilateral-phase-detractor:8080"
+    value: "http://cardinal-grammeter:8080"
   - name: MALAISE_ENGINE_URL
     value: "http://malaise-injection-engine:8080"
 

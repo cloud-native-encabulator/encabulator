@@ -1,6 +1,6 @@
 # Control Plane Makefile
 
-SERVICES := malaise-injection-engine unilateral-phase-detractor encabulation-control-console demo-scenario-orchestrator
+SERVICES := malaise-injection-engine cardinal-grammeter encabulation-control-console demo-scenario-orchestrator
 
 # Declare all phony targets
 .PHONY: help targets build test image images docker-build clean fmt

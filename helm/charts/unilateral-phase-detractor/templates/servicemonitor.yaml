@@ -11,7 +11,6 @@ spec:
       {{- include "unilateral-phase-detractor.selectorLabels" . | nindent 6 }}
   endpoints:
   - port: http
-    path: /metrics
+    path: {{ .Values.serviceMonitor.path }}
     interval: {{ .Values.serviceMonitor.interval }}
-    scrapeTimeout: {{ .Values.serviceMonitor.scrapeTimeout }}
 {{- end }}

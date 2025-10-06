@@ -1,6 +1,6 @@
 # Support Plane Makefile
 
-SERVICES := differential-girdle cardinal-grammeter side-fumbling-collector
+SERVICES := differential-girdle unilateral-phase-detractor side-fumbling-collector
 
 # Declare all phony targets
 .PHONY: help targets build test image images docker-build clean fmt

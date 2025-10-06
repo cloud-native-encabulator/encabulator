@@ -1,10 +1,10 @@
-# Unilateral Phase Detractor Engine
+# Cardinal Grammeter Engine
 
 Advanced traffic simulation and load generation engine for the Cloud Native Encabulator system.
 
 ## Overview
 
-The Unilateral Phase Detractor Engine generates realistic traffic patterns with configurable parameters to test system behavior under various load conditions. It uses Cloud Native Encabulator terminology for educational purposes while providing sophisticated load testing capabilities.
+The Cardinal Grammeter Engine generates realistic traffic patterns with configurable parameters to test system behavior under various load conditions. It uses Cloud Native Encabulator terminology for educational purposes while providing sophisticated load testing capabilities.
 
 ## Features
 
@@ -124,17 +124,17 @@ npm start
 
 Build the image:
 ```bash
-docker build -t unilateral-phase-detractor:latest .
+docker build -t cardinal-grammeter:latest .
 ```
 
 Run the container:
 ```bash
-docker run -p 8080:8080 unilateral-phase-detractor:latest
+docker run -p 8080:8080 cardinal-grammeter:latest
 ```
 
 ## Kubernetes Deployment
 
-The service is deployed via Helm chart. See `helm/charts/unilateral-phase-detractor/` for configuration.
+The service is deployed via Helm chart. See `helm/charts/cardinal-grammeter/` for configuration.
 
 ## Integration
 

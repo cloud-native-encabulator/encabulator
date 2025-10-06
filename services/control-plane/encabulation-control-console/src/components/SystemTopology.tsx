@@ -24,8 +24,8 @@ export default function SystemTopology({ services }: SystemTopologyProps) {
     const planes = [
       { name: 'Data Plane', services: ['hydrocoptic-datastore', 'sinusoidal-database', 'prefabulated-cache'], y: 100 },
       { name: 'Processing Plane', services: ['panametric-fam-processor', 'logarithmic-casing-service', 'dingle-arm-api-gateway'], y: 250 },
-      { name: 'Support Plane', services: ['cardinal-grammeter', 'differential-girdle', 'side-fumbling-collector'], y: 400 },
-      { name: 'Control Plane', services: ['encabulation-control-console', 'malaise-injection-engine', 'demo-scenario-orchestrator', 'unilateral-phase-detractor'], y: 550 },
+      { name: 'Support Plane', services: ['unilateral-phase-detractor', 'differential-girdle', 'side-fumbling-collector'], y: 400 },
+      { name: 'Control Plane', services: ['encabulation-control-console', 'malaise-injection-engine', 'demo-scenario-orchestrator', 'cardinal-grammeter'], y: 550 },
     ]
 
     // Draw planes

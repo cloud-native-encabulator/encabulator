@@ -52,7 +52,7 @@ curl -X POST http://malaise-injection-engine:8080/inject \
   }'
 ```
 
-### 3. Unilateral Phase Detractor Engine
+### 3. Cardinal Grammeter Engine
 **Technology**: Node.js + TypeScript  
 **Port**: 8080  
 **Purpose**: Advanced traffic simulation and load generation
@@ -77,7 +77,7 @@ curl -X POST http://malaise-injection-engine:8080/inject \
 
 **Example**:
 ```bash
-curl -X POST http://unilateral-phase-detractor:8080/traffic/start \
+curl -X POST http://cardinal-grammeter:8080/traffic/start \
   -H "Content-Type: application/json" \
   -d '{
     "target": "http://dingle-arm-api-gateway:8080/api/encabulate",
@@ -195,8 +195,8 @@ cd server && npm install && npm run dev
 cd malaise-injection-engine
 go run main.go
 
-# Unilateral Phase Detractor
-cd unilateral-phase-detractor
+# Cardinal Grammeter
+cd cardinal-grammeter
 npm install && npm run dev
 
 # Demo Scenario Orchestrator

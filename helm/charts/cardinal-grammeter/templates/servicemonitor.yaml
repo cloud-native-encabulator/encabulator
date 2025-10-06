@@ -11,6 +11,7 @@ spec:
       {{- include "cardinal-grammeter.selectorLabels" . | nindent 6 }}
   endpoints:
   - port: http
-    path: {{ .Values.serviceMonitor.path }}
+    path: /metrics
     interval: {{ .Values.serviceMonitor.interval }}
+    scrapeTimeout: {{ .Values.serviceMonitor.scrapeTimeout }}
 {{- end }}

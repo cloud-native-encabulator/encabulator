@@ -1,5 +1,5 @@
 [tool.poetry]
-name = "cardinal-grammeter"
+name = "unilateral-phase-detractor"
 version = "0.1.0"
 description = "Authentication and authorization service for Cloud Native Encabulator"
 authors = ["Cloud Native Encabulator Team"]

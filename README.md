@@ -46,7 +46,7 @@ The system is organized into four main tiers with 13 microservices:
 #### Support Plane (3 services - 1 Go, 2 Python)
 
 - **Differential Girdle**: Feature flags and configuration management (Go)
-- **Cardinal Grammeter**: Custom metrics collection and aggregation (Python/FastAPI)
+- **Unilateral Phase Detractor**: Authentication and authorization service (Python/FastAPI)
 - **Side Fumbling Collector**: Telemetry and observability data collection (Python/FastAPI)
 
 [Support Plane Documentation](./services/support-plane/README.md)
@@ -55,7 +55,7 @@ The system is organized into four main tiers with 13 microservices:
 
 - **Encabulation Control Console**: Interactive web UI for system control (React + TypeScript, Node.js backend)
 - **Malaise Injection Engine**: Chaos engineering and failure injection (Go)
-- **Unilateral Phase Detractor**: Advanced traffic simulation and load generation (TypeScript/Node.js)
+- **Cardinal Grammeter**: Advanced traffic simulation and load generation (TypeScript/Node.js)
 - **Demo Scenario Orchestrator**: Automated demonstration scenario management (Python/FastAPI)
 
 [Control Plane Documentation](./services/control-plane/README.md)

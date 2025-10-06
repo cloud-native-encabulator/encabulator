@@ -72,7 +72,7 @@ cloud-native-encabulator-microservices/
 │   │   ├── logarithmic-casing-service/
 │   │   └── dingle-arm-api-gateway/
 │   └── support-plane/
-│       ├── cardinal-grammeter/
+│       ├── unilateral-phase-detractor/
 │       ├── differential-girdle/
 │       └── side-fumbling-collector/
 ├── infrastructure/

@@ -39,7 +39,7 @@ app.kubernetes.io/version: {{ .Chart.AppVersion | quote }}
 {{- end }}
 app.kubernetes.io/managed-by: {{ .Release.Service }}
 app.kubernetes.io/part-of: cloud-native-encabulator
-app.kubernetes.io/component: control-plane
+app.kubernetes.io/component: support-plane
 {{- end }}
 
 {{/*
@@ -48,15 +48,4 @@ Selector labels
 {{- define "unilateral-phase-detractor.selectorLabels" -}}
 app.kubernetes.io/name: {{ include "unilateral-phase-detractor.name" . }}
 app.kubernetes.io/instance: {{ .Release.Name }}
-{{- end }}
-
-{{/*
-Create the name of the service account to use
-*/}}
-{{- define "unilateral-phase-detractor.serviceAccountName" -}}
-{{- if .Values.serviceAccount.create }}
-{{- default (include "unilateral-phase-detractor.fullname" .) .Values.serviceAccount.name }}
-{{- else }}
-{{- default "default" .Values.serviceAccount.name }}
-{{- end }}
 {{- end }}

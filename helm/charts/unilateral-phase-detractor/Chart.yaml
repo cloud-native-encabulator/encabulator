@@ -1,13 +1,12 @@
 apiVersion: v2
 name: unilateral-phase-detractor
-description: Advanced traffic simulation and load generation engine
+description: Unilateral Phase Detractor - Authentication and authorization service with OAuth2/JWT
 type: application
-version: 1.0.0
-appVersion: "1.0.0"
+version: 0.1.0
+appVersion: "0.1.0"
 keywords:
   - encabulator
-  - control-plane
-  - traffic-generation
-  - load-testing
+  - support-plane
+  - authentication
 maintainers:
   - name: Cloud Native Encabulator Team

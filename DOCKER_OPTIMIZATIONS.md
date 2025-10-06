@@ -41,7 +41,7 @@ All service Dockerfiles have been optimized for minimal image size, security, an
 
 **Services**:
 - demo-scenario-orchestrator
-- cardinal-grammeter
+- unilateral-phase-detractor
 - side-fumbling-collector
 
 ### Node.js Services (3 services)
@@ -55,7 +55,7 @@ All service Dockerfiles have been optimized for minimal image size, security, an
 
 **Services**:
 - encabulation-control-console (React + Node.js backend)
-- unilateral-phase-detractor
+- cardinal-grammeter
 - panametric-fam-processor
 
 ## Makefile Updates

@@ -1,6 +1,6 @@
-# Cardinal Grammeter
+# Unilateral Phase Detractor
 
-The Cardinal Grammeter is an authentication and authorization service for the Cloud Native Encabulator system, providing JWT-based authentication and role-based access control.
+The Unilateral Phase Detractor is an authentication and authorization service for the Cloud Native Encabulator system, providing JWT-based authentication and role-based access control.
 
 ## Features
 
@@ -66,7 +66,7 @@ pytest tests/ -v
 ### Docker Build
 
 ```bash
-docker build -t cardinal-grammeter:latest .
+docker build -t unilateral-phase-detractor:latest .
 ```
 
 ## Example Usage

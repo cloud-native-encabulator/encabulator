@@ -1,6 +1,6 @@
-# UnilateralPhaseDetractor Makefile (Node.js/TypeScript)
+# CardinalGrammeter Makefile (Node.js/TypeScript)
 
-SERVICE_NAME := unilateral-phase-detractor
+SERVICE_NAME := cardinal-grammeter
 
 .PHONY: help
 help: ## Show this help message

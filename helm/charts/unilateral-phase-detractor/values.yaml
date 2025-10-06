@@ -1,84 +1,57 @@
-replicaCount: 1
+replicaCount: 3
 
 image:
   repository: unilateral-phase-detractor
   pullPolicy: IfNotPresent
   tag: "latest"
 
-imagePullSecrets: []
-nameOverride: ""
-fullnameOverride: ""
-
-serviceAccount:
-  create: false
-
-podAnnotations:
-  prometheus.io/scrape: "true"
-  prometheus.io/port: "8080"
-  prometheus.io/path: "/metrics"
-
-podSecurityContext:
-  runAsNonRoot: true
-  runAsUser: 1000
-  fsGroup: 1000
-
-securityContext:
-  allowPrivilegeEscalation: false
-  capabilities:
-    drop:
-    - ALL
-  readOnlyRootFilesystem: false
-
 service:
   type: ClusterIP
-  port: 8080
-  targetPort: 8080
+  port: 8000
+  targetPort: 8000
 
 resources:
   limits:
     cpu: 500m
     memory: 512Mi
   requests:
-    cpu: 100m
-    memory: 128Mi
+    cpu: 250m
+    memory: 256Mi
 
 autoscaling:
   enabled: true
-  minReplicas: 1
-  maxReplicas: 5
-  targetCPUUtilizationPercentage: 80
+  minReplicas: 3
+  maxReplicas: 10
+  targetCPUUtilizationPercentage: 75
+
+livenessProbe:
+  httpGet:
+    path: /health
+    port: 8000
+  initialDelaySeconds: 15
+  periodSeconds: 10
+
+readinessProbe:
+  httpGet:
+    path: /health
+    port: 8000
+  initialDelaySeconds: 10
+  periodSeconds: 5
+
+serviceMonitor:
+  enabled: true
+  interval: 30s
+  path: /metrics
+
+env:
+  - name: SECRET_KEY
+    valueFrom:
+      secretKeyRef:
+        name: unilateral-phase-detractor-secrets
+        key: secret-key
 
 nodeSelector: {}
 
 tolerations: []
 
 affinity: {}
-
-env:
-  - name: PORT
-    value: "8080"
-  - name: NODE_ENV
-    value: "production"
-
-livenessProbe:
-  httpGet:
-    path: /health
-    port: 8080
-  initialDelaySeconds: 10
-  periodSeconds: 10
-  timeoutSeconds: 3
-  failureThreshold: 3
-
-readinessProbe:
-  httpGet:
-    path: /ready
-    port: 8080
-  initialDelaySeconds: 5
-  periodSeconds: 5
-  timeoutSeconds: 3
-  failureThreshold: 3
-
-serviceMonitor:
-  enabled: true
-  interval: 30s
-  scrapeTimeout: 10s

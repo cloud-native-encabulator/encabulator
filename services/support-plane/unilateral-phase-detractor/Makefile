@@ -1,6 +1,6 @@
-# CardinalGrammeter Makefile (Python)
+# UnilateralPhaseDetractor Makefile (Python)
 
-SERVICE_NAME := cardinal-grammeter
+SERVICE_NAME := unilateral-phase-detractor
 
 .PHONY: help
 help: ## Show this help message

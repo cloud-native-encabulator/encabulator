@@ -145,7 +145,7 @@ export class TrafficGenerator {
 
     if (complexity > 60) {
       payload.metadata = {
-        source: 'unilateral-phase-detractor',
+        source: 'cardinal-grammeter',
         tags: Array.from({ length: size }, (_, i) => `tag-${i}`),
         correlationId: `corr-${Date.now()}`,
       }

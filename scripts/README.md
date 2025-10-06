@@ -450,12 +450,12 @@ The platform consists of 13 microservices across 4 planes:
 
 ### Support Plane (3 services - 1 Go, 2 Python)
 - `differential-girdle` - Feature flags (Go)
-- `cardinal-grammeter` - Metrics collector (Python)
+- `unilateral-phase-detractor` - Auth service (Python)
 - `side-fumbling-collector` - Telemetry (Python)
 
 ### Control Plane (4 services - 1 Go, 2 TypeScript, 1 Python)
 - `malaise-injection-engine` - Chaos engineering (Go)
-- `unilateral-phase-detractor` - Traffic generator (TypeScript)
+- `cardinal-grammeter` - Traffic generator (TypeScript)
 - `encabulation-control-console` - Web UI (TypeScript/React)
 - `demo-scenario-orchestrator` - Demo orchestration (Python)
 

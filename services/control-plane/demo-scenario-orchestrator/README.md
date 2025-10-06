@@ -124,7 +124,7 @@ Each scenario consists of multiple steps:
 
 - `PORT`: Server port (default: `8080`)
 - `NAMESPACE`: Target Kubernetes namespace (default: `encabulator-system`)
-- `TRAFFIC_ENGINE_URL`: Unilateral Phase Detractor Engine URL (default: `http://unilateral-phase-detractor:8080`)
+- `TRAFFIC_ENGINE_URL`: Cardinal Grammeter Engine URL (default: `http://cardinal-grammeter:8080`)
 - `MALAISE_ENGINE_URL`: Malaise Injection Engine URL (default: `http://malaise-injection-engine:8080`)
 - `KUBECONFIG`: Path to kubeconfig file (optional, uses in-cluster config if not set)
 

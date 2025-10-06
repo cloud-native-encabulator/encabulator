@@ -228,8 +228,8 @@ async def execute_step(step: ScenarioStep):
                 raise Exception(f"Service {deployment.metadata.name} is not healthy")
     
     elif step.action == "generate_traffic":
-        # Call Unilateral Phase Detractor Engine
-        traffic_engine_url = os.getenv("TRAFFIC_ENGINE_URL", "http://unilateral-phase-detractor:8080")
+        # Call Cardinal Grammeter Engine
+        traffic_engine_url = os.getenv("TRAFFIC_ENGINE_URL", "http://cardinal-grammeter:8080")
         
         async with httpx.AsyncClient() as client:
             response = await client.post(

@@ -91,7 +91,7 @@ make build-panametric-fam-processor
 
 ```bash
 make build-differential-girdle
-make build-cardinal-grammeter
+make build-unilateral-phase-detractor
 make build-side-fumbling-collector
 ```
 
@@ -99,7 +99,7 @@ make build-side-fumbling-collector
 
 ```bash
 make build-malaise-injection-engine
-make build-unilateral-phase-detractor
+make build-cardinal-grammeter
 make build-encabulation-control-console
 make build-demo-scenario-orchestrator
 ```
