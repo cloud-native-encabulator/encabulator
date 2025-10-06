@@ -1,0 +1,16 @@
+{{- if .Values.serviceMonitor.enabled }}
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: {{ include "panametric-fam-processor.fullname" . }}
+  labels:
+    {{- include "panametric-fam-processor.labels" . | nindent 4 }}
+spec:
+  selector:
+    matchLabels:
+      {{- include "panametric-fam-processor.selectorLabels" . | nindent 6 }}
+  endpoints:
+  - port: http
+    path: {{ .Values.serviceMonitor.path }}
+    interval: {{ .Values.serviceMonitor.interval }}
+{{- end }}

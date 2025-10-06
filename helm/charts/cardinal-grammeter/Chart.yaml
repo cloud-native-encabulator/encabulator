@@ -1,0 +1,12 @@
+apiVersion: v2
+name: cardinal-grammeter
+description: Cardinal Grammeter - Authentication and authorization service with OAuth2/JWT
+type: application
+version: 0.1.0
+appVersion: "0.1.0"
+keywords:
+  - encabulator
+  - support-plane
+  - authentication
+maintainers:
+  - name: Cloud Native Encabulator Team

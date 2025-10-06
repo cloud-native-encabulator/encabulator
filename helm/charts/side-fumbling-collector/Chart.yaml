@@ -1,0 +1,12 @@
+apiVersion: v2
+name: side-fumbling-collector
+description: Side Fumbling Collector - Resource optimization and cleanup service
+type: application
+version: 0.1.0
+appVersion: "0.1.0"
+keywords:
+  - encabulator
+  - support-plane
+  - optimization
+maintainers:
+  - name: Cloud Native Encabulator Team

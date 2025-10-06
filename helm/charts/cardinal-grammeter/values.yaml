@@ -1,0 +1,57 @@
+replicaCount: 3
+
+image:
+  repository: cardinal-grammeter
+  pullPolicy: IfNotPresent
+  tag: "latest"
+
+service:
+  type: ClusterIP
+  port: 8000
+  targetPort: 8000
+
+resources:
+  limits:
+    cpu: 500m
+    memory: 512Mi
+  requests:
+    cpu: 250m
+    memory: 256Mi
+
+autoscaling:
+  enabled: true
+  minReplicas: 3
+  maxReplicas: 10
+  targetCPUUtilizationPercentage: 75
+
+livenessProbe:
+  httpGet:
+    path: /health
+    port: 8000
+  initialDelaySeconds: 15
+  periodSeconds: 10
+
+readinessProbe:
+  httpGet:
+    path: /health
+    port: 8000
+  initialDelaySeconds: 10
+  periodSeconds: 5
+
+serviceMonitor:
+  enabled: true
+  interval: 30s
+  path: /metrics
+
+env:
+  - name: SECRET_KEY
+    valueFrom:
+      secretKeyRef:
+        name: cardinal-grammeter-secrets
+        key: secret-key
+
+nodeSelector: {}
+
+tolerations: []
+
+affinity: {}
