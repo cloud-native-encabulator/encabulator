@@ -1,6 +1,9 @@
 # Cloud Native Encabulator Microservices - Makefile
 # Provides unified build, test, and deployment targets for all services
 
+# Container runtime (docker or finch)
+CONTAINER_RUNTIME ?= finch
+
 .PHONY: help
 help: ## Show this help message
 	@echo "Cloud Native Encabulator - Available targets:"

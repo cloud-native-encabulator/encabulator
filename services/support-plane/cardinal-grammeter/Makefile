@@ -28,10 +28,14 @@ test-coverage: ## Run tests with coverage
 run: ## Run the service
 	@python3 app/main.py
 
+.PHONY: image
+image: ## Build container image (alias for docker-build)
+@echo "Building container image for $(SERVICE_NAME)..."
+@finch build -t $(SERVICE_NAME):latest .
+@echo "✓ Container image built: $(SERVICE_NAME):latest"
+
 .PHONY: docker-build
-docker-build: ## Build Docker image
-	@docker build -t $(SERVICE_NAME):latest .
-	@echo "✓ Docker image built: $(SERVICE_NAME):latest"
+docker-build: image ## Build Docker image (deprecated, use 'image')
 
 .PHONY: clean
 clean: ## Clean build artifacts
