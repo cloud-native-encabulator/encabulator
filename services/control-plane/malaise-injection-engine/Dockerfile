@@ -22,19 +22,18 @@ RUN CGO_ENABLED=0 GOOS=linux go build \
     -ldflags="-w -s" \
     -o malaise-injection-engine .
 
-# Final stage - using scratch for minimal image size
-FROM scratch
+# Final stage - using alpine for minimal image with shell/utilities
+FROM alpine:latest
 
-# Copy CA certificates from builder for HTTPS
-COPY --from=builder /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/
+RUN apk --no-cache add ca-certificates
 
-# Copy the binary
-COPY --from=builder /app/malaise-injection-engine /malaise-injection-engine
+WORKDIR /root/
+
+# Copy the binary from builder
+COPY --from=builder /app/malaise-injection-engine .
 
 # Expose port
 EXPOSE 8080
 
-# Note: HEALTHCHECK not supported in scratch, handle at orchestration level
-
 # Run the application
-ENTRYPOINT ["/malaise-injection-engine"]
+CMD ["./malaise-injection-engine"]

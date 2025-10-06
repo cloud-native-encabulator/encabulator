@@ -7,16 +7,15 @@ All service Dockerfiles have been optimized for minimal image size, security, an
 ## Optimizations Applied
 
 ### Go Services (7 services)
-**Before**: Multi-stage build with `alpine:latest` (~50MB+ final images)
-**After**: Multi-stage build with `scratch` base (~10-15MB final images)
+**Before**: Multi-stage build with `alpine:latest` but no binary optimization (~50MB+ final images)
+**After**: Multi-stage build with `alpine:latest` and optimized binaries (~20-25MB final images)
 
 **Changes**:
 - ✅ Statically compiled binaries with `CGO_ENABLED=0`
 - ✅ Strip debug symbols with `-ldflags="-w -s"` (reduces binary size ~30%)
-- ✅ Using `scratch` as final base image (0MB base vs 5MB alpine)
-- ✅ Only copying CA certificates and binary to final image
+- ✅ Using `alpine:latest` as final base image (5MB base + utilities)
 - ✅ Added git to builder stage for `GOPROXY=direct`
-- ✅ Using `ENTRYPOINT` instead of `CMD` for better container behavior
+- ✅ Kept shell and utilities for debugging (vs scratch which has none)
 
 **Services**:
 - sinusoidal-database
@@ -27,7 +26,8 @@ All service Dockerfiles have been optimized for minimal image size, security, an
 - malaise-injection-engine
 - differential-girdle
 
-**Example size**: sinusoidal-database: **11.58MB** (was ~50MB+)
+**Example size**: sinusoidal-database: **22.09MB** (was ~50MB+)
+**Size reduction**: ~50-60% while maintaining debuggability
 
 ### Python Services (3 services)
 **Before**: Single-stage build with `python:3.13-slim` (~150MB+ images)
@@ -82,29 +82,48 @@ make build-all-images  # (if implemented in root Makefile)
 
 | Service Type | Before | After | Savings |
 |-------------|--------|-------|---------|
-| Go Services | ~50MB+ | ~10-15MB | ~70-80% |
+| Go Services | ~50MB+ | ~20-25MB | ~50-60% |
 | Python Services | ~150MB+ | ~100-120MB | ~20-30% |
 | Node Services | ~80-100MB | ~80-100MB | Already optimized |
 
 ## Security Improvements
 
-1. **Go Services**: Using `scratch` eliminates attack surface (no shell, no package manager)
+1. **Go Services**: Using minimal `alpine` base with only CA certificates
 2. **Python Services**: Running as non-root user (appuser, UID 1000)
 3. **All Services**: Minimal dependencies in final images
 4. **All Services**: No build tools in production images
+5. **Go Services**: Statically compiled binaries reduce dependency vulnerabilities
 
 ## Best Practices Applied
 
 - ✅ Multi-stage builds for all services
 - ✅ Layer caching optimization (dependencies before source code)
-- ✅ Minimal base images
+- ✅ Minimal base images (alpine for Go, slim for Python/Node)
 - ✅ Non-root users where applicable
 - ✅ Health checks where supported
 - ✅ Explicit GOPROXY configuration for Go services
 - ✅ Virtual environments for Python services
 - ✅ Production-only dependencies for Node services
+- ✅ Binary optimization with stripped debug symbols
+- ✅ Shell access maintained for debugging (alpine vs scratch)
 
-## Future Considerations
+## Design Decisions
+
+### Why Alpine Instead of Scratch for Go?
+
+**Scratch Pros**:
+- Absolute minimal size (~10-12MB)
+- Zero attack surface (no shell, no utilities)
+
+**Alpine Pros** (our choice):
+- Only slightly larger (~20-25MB, +10MB difference)
+- Shell access for debugging (`kubectl exec`)
+- Has `/tmp` directory
+- Has timezone data
+- Has basic utilities (wget, nc, etc.)
+- More practical for real-world operations
+
+**Decision**: Use alpine for Go services. The 10MB size difference is negligible compared to the operational benefits of having a shell and utilities for debugging.
 
 ### Cloud Native Buildpacks
 While we've optimized Dockerfiles manually, Cloud Native Buildpacks could be considered for:
@@ -115,14 +134,15 @@ While we've optimized Dockerfiles manually, Cloud Native Buildpacks could be con
 
 **Trade-offs**:
 - Less control over final image
-- Larger images than our optimized scratch-based Go images
+- Larger images than our optimized alpine-based Go images
 - Additional tooling required
 
 **Decision**: Stick with optimized Dockerfiles for now, as they provide:
 - Maximum control
-- Minimal image sizes (especially for Go)
+- Excellent image sizes with alpine
 - Clear, maintainable build process
 - No additional dependencies
+- Shell access for debugging
 
 ## Testing
 

@@ -22,17 +22,18 @@ RUN CGO_ENABLED=0 GOOS=linux go build \
     -ldflags="-w -s" \
     -o prefabulated-cache ./cmd/server
 
-# Final stage - using scratch for minimal image size
-FROM scratch
+# Final stage - using alpine for minimal image with shell/utilities
+FROM alpine:latest
 
-# Copy CA certificates from builder for HTTPS
-COPY --from=builder /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/
+RUN apk --no-cache add ca-certificates
 
-# Copy the binary
-COPY --from=builder /app/prefabulated-cache /prefabulated-cache
+WORKDIR /root/
+
+# Copy the binary from builder
+COPY --from=builder /app/prefabulated-cache .
 
 # Expose port
 EXPOSE 8080
 
 # Run the application
-ENTRYPOINT ["/prefabulated-cache"]
+CMD ["./prefabulated-cache"]
