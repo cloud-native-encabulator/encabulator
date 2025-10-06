@@ -1,0 +1,13 @@
+apiVersion: v2
+name: encabulation-control-console
+description: Interactive web interface for Cloud Native Encabulator system control
+type: application
+version: 1.0.0
+appVersion: "1.0.0"
+keywords:
+  - encabulator
+  - control-plane
+  - web-ui
+  - monitoring
+maintainers:
+  - name: Cloud Native Encabulator Team
