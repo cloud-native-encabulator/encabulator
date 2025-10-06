@@ -1,6 +1,6 @@
 module github.com/jlbutler/cloud-native-encabulator/services/processing-plane/dingle-arm-api-gateway
 
-go 1.21
+go 1.24
 
 require (
 	github.com/gorilla/mux v1.8.1

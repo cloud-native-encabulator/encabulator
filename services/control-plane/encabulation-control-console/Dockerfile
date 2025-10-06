@@ -1,7 +1,7 @@
 # Multi-stage build for React frontend and Node.js backend
 
 # Stage 1: Build frontend
-FROM node:18-alpine AS frontend-builder
+FROM node:22-alpine AS frontend-builder
 WORKDIR /app/frontend
 COPY package.json package-lock.json* ./
 RUN npm ci
@@ -9,7 +9,7 @@ COPY . .
 RUN npm run build
 
 # Stage 2: Build backend
-FROM node:18-alpine AS backend-builder
+FROM node:22-alpine AS backend-builder
 WORKDIR /app/backend
 COPY server/package.json server/package-lock.json* ./
 RUN npm ci
@@ -17,7 +17,7 @@ COPY server/ .
 RUN npm run build
 
 # Stage 3: Production image
-FROM node:18-alpine
+FROM node:22-alpine
 WORKDIR /app
 
 # Copy backend

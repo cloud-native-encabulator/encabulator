@@ -1,6 +1,6 @@
 module github.com/jlbutler/cloud-native-encabulator/services/data-plane/prefabulated-cache
 
-go 1.21
+go 1.24
 
 require (
 	github.com/gorilla/mux v1.8.1

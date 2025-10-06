@@ -10,20 +10,20 @@
     "test": "jest --passWithNoTests"
   },
   "dependencies": {
-    "express": "^4.18.2",
-    "socket.io": "^4.7.2",
-    "@kubernetes/client-node": "^0.20.0",
+    "express": "^5.1.0",
+    "socket.io": "^4.8.0",
+    "@kubernetes/client-node": "^0.22.0",
     "cors": "^2.8.5",
     "prom-client": "^15.1.0"
   },
   "devDependencies": {
-    "@types/express": "^4.17.21",
+    "@types/express": "^5.0.0",
     "@types/cors": "^2.8.17",
-    "@types/node": "^20.10.6",
+    "@types/node": "^22.0.0",
     "ts-node": "^10.9.2",
-    "typescript": "^5.3.3",
+    "typescript": "^5.8.0",
     "jest": "^29.7.0",
     "@types/jest": "^29.5.11",
-    "ts-jest": "^29.1.1"
+    "ts-jest": "^29.2.0"
   }
 }

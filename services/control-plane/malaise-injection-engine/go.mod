@@ -1,6 +1,6 @@
 module github.com/cloud-native-encabulator/malaise-injection-engine
 
-go 1.21
+go 1.24
 
 require (
 	github.com/prometheus/client_golang v1.18.0

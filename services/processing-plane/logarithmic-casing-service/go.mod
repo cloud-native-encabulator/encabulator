@@ -1,6 +1,6 @@
 module github.com/jlbutler/cloud-native-encabulator/services/processing-plane/logarithmic-casing-service
 
-go 1.21
+go 1.24
 
 require (
 	github.com/google/uuid v1.5.0
