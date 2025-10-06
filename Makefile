@@ -59,67 +59,6 @@ test-control-plane: ## Test all Control Plane services
 	@$(MAKE) -C services/control-plane test
 
 #############################################################################
-# Individual Service Targets
-#############################################################################
-
-# Data Plane
-.PHONY: build-hydrocoptic-datastore
-build-hydrocoptic-datastore: ## Build HydrocopticDataStore
-	@cd services/data-plane/hydrocoptic-datastore && go build -o hydrocoptic-datastore .
-
-.PHONY: build-prefabulated-cache
-build-prefabulated-cache: ## Build PrefabulatedCache
-	@cd services/data-plane/prefabulated-cache && go build -o prefabulated-cache .
-
-.PHONY: build-sinusoidal-database
-build-sinusoidal-database: ## Build SinusoidalDatabase
-	@cd services/data-plane/sinusoidal-database && go build -o sinusoidal-database .
-
-# Processing Plane
-.PHONY: build-logarithmic-casing-service
-build-logarithmic-casing-service: ## Build LogarithmicCasingService
-	@cd services/processing-plane/logarithmic-casing-service && go build -o logarithmic-casing-service .
-
-.PHONY: build-dingle-arm-api-gateway
-build-dingle-arm-api-gateway: ## Build DingleArmAPIGateway
-	@cd services/processing-plane/dingle-arm-api-gateway && go build -o dingle-arm-api-gateway .
-
-.PHONY: build-panametric-fam-processor
-build-panametric-fam-processor: ## Build PanametricFamProcessor
-	@cd services/processing-plane/panametric-fam-processor && npm install && npm run build
-
-# Support Plane
-.PHONY: build-differential-girdle
-build-differential-girdle: ## Build DifferentialGirdle
-	@cd services/support-plane/differential-girdle && go build -o differential-girdle .
-
-.PHONY: build-cardinal-grammeter
-build-cardinal-grammeter: ## Build CardinalGrammeter
-	@cd services/support-plane/cardinal-grammeter && python3 -m py_compile app/*.py
-
-.PHONY: build-side-fumbling-collector
-build-side-fumbling-collector: ## Build SideFumblingCollector
-	@cd services/support-plane/side-fumbling-collector && python3 -m py_compile app/*.py
-
-# Control Plane
-.PHONY: build-malaise-injection-engine
-build-malaise-injection-engine: ## Build MalaiseInjectionEngine
-	@cd services/control-plane/malaise-injection-engine && go build -o malaise-injection-engine .
-
-.PHONY: build-unilateral-phase-detractor
-build-unilateral-phase-detractor: ## Build UnilateralPhaseDetractor
-	@cd services/control-plane/unilateral-phase-detractor && npm install && npm run build
-
-.PHONY: build-encabulation-control-console
-build-encabulation-control-console: ## Build EncabulationControlConsole
-	@cd services/control-plane/encabulation-control-console && npm install && npm run build
-	@cd services/control-plane/encabulation-control-console/server && npm install && npm run build
-
-.PHONY: build-demo-scenario-orchestrator
-build-demo-scenario-orchestrator: ## Build DemoScenarioOrchestrator
-	@cd services/control-plane/demo-scenario-orchestrator && python3 -m py_compile main.py
-
-#############################################################################
 # Container Image Targets
 #############################################################################
 
