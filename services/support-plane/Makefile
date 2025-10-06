@@ -29,14 +29,13 @@ test: ## Test all Support Plane services
 	@echo "✓ All Support Plane tests complete"
 
 image: ## Build container images for all services
+	@echo "Building container images..."
+	@for service in $(SERVICES); do \
+		$(MAKE) -C $$service image || exit 1; \
+	done
+	@echo "✓ All container images built"
 
 images: image ## Alias for image
-@echo "Building container images..."
-@for service in $(SERVICES); do \
-$(MAKE) -C $$service image || exit 1; \
-done
-@echo "✓ All container images built"
-
 
 docker-build: image ## Build Docker images (deprecated, use 'image')
 clean: ## Clean all Support Plane services
