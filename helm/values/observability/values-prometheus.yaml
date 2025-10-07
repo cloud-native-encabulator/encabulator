@@ -12,14 +12,14 @@ global:
 # Prometheus server configuration
 prometheus:
   prometheusSpec:
-    # Resource management (increased for stability)
+    # Resource management (increased to trigger EKS Auto Mode node provisioning)
     resources:
       requests:
-        cpu: 200m
-        memory: 512Mi
-      limits:
         cpu: 1000m
         memory: 2Gi
+      limits:
+        cpu: 2000m
+        memory: 4Gi
     
     # Storage configuration - uses default storage class
     retention: 7d
@@ -75,14 +75,14 @@ grafana:
   enabled: true
   adminPassword: encabulator-dev-2024
   
-  # Grafana resources (increased for stability)
+  # Grafana resources (increased to ensure adequate resources)
   resources:
     requests:
-      cpu: 100m
-      memory: 512Mi
-    limits:
       cpu: 500m
       memory: 1Gi
+    limits:
+      cpu: 1000m
+      memory: 2Gi
   
   # Persistence - uses default storage class
   persistence:
