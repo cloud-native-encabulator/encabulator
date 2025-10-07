@@ -1,16 +1,29 @@
 # Cloud Native Encabulator - Helm Configuration
 
-This directory contains Helm values files and configurations for deploying all infrastructure components using upstream community charts with custom configuration.
+This directory contains Helm charts and values files for deploying all Cloud Native Encabulator services and their dependencies.
+
+## Quick Links
+
+- **[Chart Inventory](./INVENTORY.md)** - Complete list of all charts, images, and registries
+- **[Data Services Values](./values/data-services/README.md)** - Backend database configurations
+- **[Deployment Scripts](../scripts/README.md)** - Automated deployment workflows
 
 ## Architecture
 
 ```
 helm/
-├── values/                # Helm values files for upstream charts
-│   ├── data-services/    # Database backend configurations
-│   ├── observability/    # Monitoring stack configurations
-│   └── scaling/          # Auto-scaling configurations
-└── README.md             # This file
+├── charts/               # Custom Helm charts for all 13 services
+│   ├── Data Plane (3)
+│   ├── Processing Plane (3)
+│   ├── Support Plane (3)
+│   └── Control Plane (4)
+├── values/              # Helm values files for upstream charts
+│   ├── data-services/  # Database backend configurations
+│   ├── observability/  # Monitoring stack configurations
+│   ├── argocd/         # GitOps platform configurations
+│   └── scaling/        # Auto-scaling configurations
+├── INVENTORY.md        # Complete chart and image inventory
+└── README.md           # This file
 ```
 
 ## Upstream Charts Used
