@@ -2,7 +2,7 @@ replicaCount: 2
 
 image:
   repository: 510431938379.dkr.ecr.us-east-2.amazonaws.com/encabulator/side-fumbling-collector
-  pullPolicy: IfNotPresent
+  pullPolicy: Always
   tag: "0.0.1"
 
 service:
