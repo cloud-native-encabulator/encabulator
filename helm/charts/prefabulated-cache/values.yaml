@@ -44,9 +44,10 @@ serviceMonitor:
   path: /metrics
 
 redis:
-  addr: redis-master:6379
-  passwordSecret: redis
-  passwordKey: redis-password
+  addr: prefabulated-cache-redis:6379
+  # No password - Redis deployed without authentication
+  passwordSecret: ""
+  passwordKey: ""
 
 env: []
 

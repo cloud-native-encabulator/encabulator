@@ -46,8 +46,8 @@ serviceMonitor:
 database:
   host: hydrocoptic-postgresql
   port: 5432
-  name: hydrocoptic
-  user: postgres
+  name: hydrocoptic_db
+  user: hydrocoptic
   passwordSecret: hydrocoptic-postgresql
   passwordKey: POSTGRES_PASSWORD
 

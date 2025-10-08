@@ -29,11 +29,13 @@ spec:
           value: "{{ .Values.service.targetPort }}"
         - name: REDIS_ADDR
           value: "{{ .Values.redis.addr }}"
+        {{- if .Values.redis.passwordSecret }}
         - name: REDIS_PASSWORD
           valueFrom:
             secretKeyRef:
               name: {{ .Values.redis.passwordSecret }}
               key: {{ .Values.redis.passwordKey }}
+        {{- end }}
         {{- with .Values.env }}
         {{- toYaml . | nindent 8 }}
         {{- end }}

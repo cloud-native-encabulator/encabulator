@@ -44,8 +44,8 @@ serviceMonitor:
   path: /metrics
 
 influxdb:
-  url: http://influxdb2:80
-  tokenSecret: influxdb2-auth
+  url: http://sinusoidal-database-influxdb-influxdb2:8086
+  tokenSecret: sinusoidal-database-influxdb-influxdb2-auth
   tokenKey: admin-token
   org: encabulator
   bucket: sinusoidal
