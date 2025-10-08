@@ -43,10 +43,27 @@ serviceMonitor:
   interval: 30s
   path: /metrics
 
-env: []
+env:
+  - name: NATS_URL
+    value: "nats://logarithmic-casing-service-nats:4222"
 
 nodeSelector: {}
 
 tolerations: []
 
 affinity: {}
+
+# NATS subchart configuration
+nats:
+  nats:
+    jetstream:
+      enabled: true
+      memStorage:
+        enabled: true
+        size: 2Gi
+      fileStorage:
+        enabled: true
+        size: 10Gi
+  cluster:
+    enabled: false
+  replicaCount: 1
