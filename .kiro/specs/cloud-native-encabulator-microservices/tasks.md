@@ -100,7 +100,7 @@
     - Configure monitoring and alerting for data services
     - _Requirements: 1.1, 1.4, 2.1, 4.1, 10.1, 10.5_
 
-  - [ ] 5.2 Deploy Processing Plane services
+  - [x] 5.2 Deploy Processing Plane services
 
     - Deploy development instances of PanametricFamProcessor, LogarithmicCasingService, DingleArmAPIGateway
     - Validate service-to-service communication and message routing
