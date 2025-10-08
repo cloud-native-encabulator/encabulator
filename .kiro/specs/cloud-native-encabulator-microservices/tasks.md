@@ -54,7 +54,7 @@
     - Remove conflicting standalone Grafana deployment
     - _Requirements: 2.1, 2.2, 2.3, 2.4, 2.5_
 
-- [-] 4. Implement service plane infrastructure
+- [x] 4. Implement service plane infrastructure
 
   - [x] 4.1 Create Data Plane service applications
 
@@ -90,9 +90,9 @@
     - Create Helm charts for Control Plane services
     - _Requirements: 11.1, 11.2, 11.3, 12.1, 12.2, 12.3, 12.4, 12.5, 12.6, 4.2, 4.3, 4.4_
 
-- [ ] 5. Deploy and validate service planes
+- [-] 5. Deploy and validate service planes
 
-  - [ ] 5.1 Deploy Data Plane services
+  - [x] 5.1 Deploy Data Plane services
 
     - Deploy development instances of HydrocopticDataStore, SinusoidalDatabase, PrefabulatedCache
     - Validate service connectivity and health endpoints
