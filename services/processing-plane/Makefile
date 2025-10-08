@@ -51,6 +51,13 @@ image-publish: ## Publish container images to ECR for all Processing Plane servi
 	done
 	@echo "✓ All Processing Plane container images published"
 
+image-local-publish: ## Publish local platform images to ECR for all Processing Plane services
+	@echo "Publishing local platform images for all Processing Plane services..."
+	@for service in $(SERVICES); do \
+		$(MAKE) -C $$service image-local-publish ECR_REGISTRY=$(ECR_REGISTRY) ECR_NAMESPACE=$(ECR_NAMESPACE) IMAGE_TAG=$(IMAGE_TAG) || exit 1; \
+	done
+	@echo "✓ All Processing Plane local platform images published"
+
 clean: ## Clean all Processing Plane services
 	@for service in $(SERVICES); do \
 		$(MAKE) -C $$service clean; \

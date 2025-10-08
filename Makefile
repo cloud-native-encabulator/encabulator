@@ -15,6 +15,7 @@ IMAGE_TAG ?= latest
         test test-data-plane test-processing-plane test-support-plane test-control-plane \
         image images image-data-plane image-processing-plane image-support-plane image-control-plane docker-build \
         image-publish image-publish-data-plane image-publish-processing-plane image-publish-support-plane image-publish-control-plane \
+        image-local-publish image-local-publish-data-plane image-local-publish-processing-plane image-local-publish-support-plane image-local-publish-control-plane \
         version version-bump-major version-bump-minor version-bump-patch version-publish \
         helm-lint helm-template \
         clean clean-go clean-node clean-python \
@@ -99,6 +100,24 @@ image-publish-support-plane: ## Publish Support Plane container images to ECR
 
 image-publish-control-plane: ## Publish Control Plane container images to ECR
 	@$(MAKE) -C services/control-plane image-publish ECR_REGISTRY=$(ECR_REGISTRY) ECR_NAMESPACE=$(ECR_NAMESPACE) IMAGE_TAG=$(IMAGE_TAG)
+
+image-local-publish: ## Publish all container images to ECR (local platform only)
+	@$(MAKE) -C services/data-plane image-local-publish ECR_REGISTRY=$(ECR_REGISTRY) ECR_NAMESPACE=$(ECR_NAMESPACE) IMAGE_TAG=$(IMAGE_TAG)
+	@$(MAKE) -C services/processing-plane image-local-publish ECR_REGISTRY=$(ECR_REGISTRY) ECR_NAMESPACE=$(ECR_NAMESPACE) IMAGE_TAG=$(IMAGE_TAG)
+	@$(MAKE) -C services/support-plane image-local-publish ECR_REGISTRY=$(ECR_REGISTRY) ECR_NAMESPACE=$(ECR_NAMESPACE) IMAGE_TAG=$(IMAGE_TAG)
+	@$(MAKE) -C services/control-plane image-local-publish ECR_REGISTRY=$(ECR_REGISTRY) ECR_NAMESPACE=$(ECR_NAMESPACE) IMAGE_TAG=$(IMAGE_TAG)
+
+image-local-publish-data-plane: ## Publish Data Plane container images to ECR (local platform only)
+	@$(MAKE) -C services/data-plane image-local-publish ECR_REGISTRY=$(ECR_REGISTRY) ECR_NAMESPACE=$(ECR_NAMESPACE) IMAGE_TAG=$(IMAGE_TAG)
+
+image-local-publish-processing-plane: ## Publish Processing Plane container images to ECR (local platform only)
+	@$(MAKE) -C services/processing-plane image-local-publish ECR_REGISTRY=$(ECR_REGISTRY) ECR_NAMESPACE=$(ECR_NAMESPACE) IMAGE_TAG=$(IMAGE_TAG)
+
+image-local-publish-support-plane: ## Publish Support Plane container images to ECR (local platform only)
+	@$(MAKE) -C services/support-plane image-local-publish ECR_REGISTRY=$(ECR_REGISTRY) ECR_NAMESPACE=$(ECR_NAMESPACE) IMAGE_TAG=$(IMAGE_TAG)
+
+image-local-publish-control-plane: ## Publish Control Plane container images to ECR (local platform only)
+	@$(MAKE) -C services/control-plane image-local-publish ECR_REGISTRY=$(ECR_REGISTRY) ECR_NAMESPACE=$(ECR_NAMESPACE) IMAGE_TAG=$(IMAGE_TAG)
 
 #############################################################################
 # Version Management Targets
