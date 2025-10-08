@@ -65,6 +65,8 @@ Thumbs.db
 
 # Helm
 *.tgz
+Chart.lock
+charts/
 
 # Temporary files
 tmp/
