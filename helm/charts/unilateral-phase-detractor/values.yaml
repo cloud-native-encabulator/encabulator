@@ -1,9 +1,9 @@
 replicaCount: 3
 
 image:
-  repository: unilateral-phase-detractor
+  repository: 510431938379.dkr.ecr.us-east-2.amazonaws.com/encabulator/unilateral-phase-detractor
   pullPolicy: IfNotPresent
-  tag: "latest"
+  tag: "0.0.1"
 
 service:
   type: ClusterIP

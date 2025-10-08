@@ -1,9 +1,9 @@
 replicaCount: 2
 
 image:
-  repository: hydrocoptic-datastore
+  repository: 510431938379.dkr.ecr.us-east-2.amazonaws.com/encabulator/hydrocoptic-datastore
   pullPolicy: IfNotPresent
-  tag: "latest"
+  tag: "0.0.1"
 
 service:
   type: ClusterIP
@@ -44,12 +44,12 @@ serviceMonitor:
   path: /metrics
 
 database:
-  host: postgres-postgresql
+  host: hydrocoptic-postgresql
   port: 5432
   name: hydrocoptic
   user: postgres
-  passwordSecret: postgres-postgresql
-  passwordKey: postgres-password
+  passwordSecret: hydrocoptic-postgresql
+  passwordKey: POSTGRES_PASSWORD
 
 env: []
 

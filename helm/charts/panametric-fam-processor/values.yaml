@@ -1,9 +1,9 @@
 replicaCount: 3
 
 image:
-  repository: panametric-fam-processor
+  repository: 510431938379.dkr.ecr.us-east-2.amazonaws.com/encabulator/panametric-fam-processor
   pullPolicy: IfNotPresent
-  tag: "latest"
+  tag: "0.0.1"
 
 service:
   type: ClusterIP

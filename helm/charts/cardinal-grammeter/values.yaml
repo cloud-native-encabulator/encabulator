@@ -1,9 +1,9 @@
 replicaCount: 1
 
 image:
-  repository: cardinal-grammeter
+  repository: 510431938379.dkr.ecr.us-east-2.amazonaws.com/encabulator/cardinal-grammeter
   pullPolicy: IfNotPresent
-  tag: "latest"
+  tag: "0.0.1"
 
 imagePullSecrets: []
 nameOverride: ""
