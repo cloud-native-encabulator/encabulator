@@ -94,5 +94,5 @@ redisConfig: |
   # Memory management
   maxmemory-policy allkeys-lru
   
-  # Security
-  protected-mode yes
+  # Security - disabled for demo/dev environment
+  protected-mode no
