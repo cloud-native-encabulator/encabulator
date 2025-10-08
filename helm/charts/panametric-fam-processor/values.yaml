@@ -37,6 +37,7 @@ readinessProbe:
     port: 3000
   initialDelaySeconds: 10
   periodSeconds: 5
+  timeoutSeconds: 10
 
 serviceMonitor:
   enabled: true
@@ -48,6 +49,12 @@ env:
     value: "production"
   - name: LOG_LEVEL
     value: "info"
+  - name: HYDROCOPTIC_URL
+    value: "http://hydrocoptic-datastore.encabulator-data.svc.cluster.local:8080"
+  - name: CACHE_URL
+    value: "http://prefabulated-cache.encabulator-data.svc.cluster.local:8080"
+  - name: SINUSOIDAL_URL
+    value: "http://sinusoidal-database.encabulator-data.svc.cluster.local:8080"
 
 nodeSelector: {}
 
