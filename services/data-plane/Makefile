@@ -2,8 +2,13 @@
 
 SERVICES := hydrocoptic-datastore prefabulated-cache sinusoidal-database
 
+# ECR Configuration (can be overridden from parent Makefile)
+ECR_REGISTRY ?= 510431938379.dkr.ecr.us-east-2.amazonaws.com
+ECR_NAMESPACE ?= encabulator
+IMAGE_TAG ?= latest
+
 # Declare all phony targets
-.PHONY: help targets build test image images docker-build clean fmt
+.PHONY: help targets build test image images docker-build image-publish clean fmt
 help: ## Show this help message
 
 targets: help ## Alias for help
@@ -27,6 +32,11 @@ test: ## Test all Data Plane services
 	@echo "✓ All Data Plane tests complete"
 
 image: ## Build container images for all Data Plane services
+	@echo "Building container images for all Data Plane services..."
+	@for service in $(SERVICES); do \
+		$(MAKE) -C $$service image || exit 1; \
+	done
+	@echo "✓ All Data Plane container images built"
 
 images: image ## Alias for image
 	@echo "Building container images for all Data Plane services..."
@@ -36,6 +46,13 @@ images: image ## Alias for image
 	@echo "✓ All Data Plane container images built"
 
 docker-build: image ## Build Docker images (deprecated, use 'image')
+
+image-publish: ## Publish container images to ECR for all Data Plane services
+	@echo "Publishing container images for all Data Plane services..."
+	@for service in $(SERVICES); do \
+		$(MAKE) -C $$service image-publish ECR_REGISTRY=$(ECR_REGISTRY) ECR_NAMESPACE=$(ECR_NAMESPACE) IMAGE_TAG=$(IMAGE_TAG) || exit 1; \
+	done
+	@echo "✓ All Data Plane container images published"
 
 clean: ## Clean all Data Plane services
 	@for service in $(SERVICES); do \

@@ -2,6 +2,12 @@
 
 SERVICE_NAME := cardinal-grammeter
 
+# ECR Configuration (can be overridden from parent Makefile)
+ECR_REGISTRY ?= 510431938379.dkr.ecr.us-east-2.amazonaws.com
+ECR_NAMESPACE ?= encabulator
+IMAGE_TAG ?= latest
+CONTAINER_RUNTIME ?= finch
+
 .PHONY: help
 help: ## Show this help message
 	@echo "$(SERVICE_NAME) - Available targets:"
@@ -29,10 +35,18 @@ start: build ## Build and start the service
 
 image: ## Build container image (alias for docker-build)
 	@echo "Building container image for $(SERVICE_NAME)..."
-	@finch build -t $(SERVICE_NAME):latest .
+	@$(CONTAINER_RUNTIME) build -t $(SERVICE_NAME):latest .
 	@echo "✓ Container image built: $(SERVICE_NAME):latest"
 
 docker-build: image ## Build Docker image (deprecated, use 'image')
+
+image-publish: image ## Tag and publish container image to ECR
+	@echo "Publishing $(SERVICE_NAME) to ECR..."
+	@echo "  Tagging: $(SERVICE_NAME):latest -> $(ECR_REGISTRY)/$(ECR_NAMESPACE)/$(SERVICE_NAME):$(IMAGE_TAG)"
+	@$(CONTAINER_RUNTIME) tag $(SERVICE_NAME):latest $(ECR_REGISTRY)/$(ECR_NAMESPACE)/$(SERVICE_NAME):$(IMAGE_TAG)
+	@echo "  Pushing: $(ECR_REGISTRY)/$(ECR_NAMESPACE)/$(SERVICE_NAME):$(IMAGE_TAG)"
+	@$(CONTAINER_RUNTIME) push $(ECR_REGISTRY)/$(ECR_NAMESPACE)/$(SERVICE_NAME):$(IMAGE_TAG)
+	@echo "✓ Successfully published $(SERVICE_NAME):$(IMAGE_TAG)"
 
 clean: ## Clean build artifacts
 	@rm -rf dist node_modules

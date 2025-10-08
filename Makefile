@@ -4,11 +4,18 @@
 # Container runtime (docker or finch)
 CONTAINER_RUNTIME ?= finch
 
+# ECR Configuration
+ECR_REGISTRY ?= 510431938379.dkr.ecr.us-east-2.amazonaws.com
+ECR_NAMESPACE ?= encabulator
+IMAGE_TAG ?= latest
+
 # Declare all phony targets
 .PHONY: help targets \
         build build-data-plane build-processing-plane build-support-plane build-control-plane \
         test test-data-plane test-processing-plane test-support-plane test-control-plane \
         image images image-data-plane image-processing-plane image-support-plane image-control-plane docker-build \
+        image-publish image-publish-data-plane image-publish-processing-plane image-publish-support-plane image-publish-control-plane \
+        version version-bump-major version-bump-minor version-bump-patch version-publish \
         helm-lint helm-template \
         clean clean-go clean-node clean-python \
         dev-deps fmt fmt-go fmt-node fmt-python \
@@ -79,7 +86,38 @@ image-control-plane: ## Build container images for Control Plane services
 
 docker-build: image ## Build all Docker images (deprecated, use 'image')
 
+image-publish: image-publish-data-plane image-publish-processing-plane image-publish-support-plane image-publish-control-plane ## Publish all container images to ECR
 
+image-publish-data-plane: ## Publish Data Plane container images to ECR
+	@$(MAKE) -C services/data-plane image-publish ECR_REGISTRY=$(ECR_REGISTRY) ECR_NAMESPACE=$(ECR_NAMESPACE) IMAGE_TAG=$(IMAGE_TAG)
+
+image-publish-processing-plane: ## Publish Processing Plane container images to ECR
+	@$(MAKE) -C services/processing-plane image-publish ECR_REGISTRY=$(ECR_REGISTRY) ECR_NAMESPACE=$(ECR_NAMESPACE) IMAGE_TAG=$(IMAGE_TAG)
+
+image-publish-support-plane: ## Publish Support Plane container images to ECR
+	@$(MAKE) -C services/support-plane image-publish ECR_REGISTRY=$(ECR_REGISTRY) ECR_NAMESPACE=$(ECR_NAMESPACE) IMAGE_TAG=$(IMAGE_TAG)
+
+image-publish-control-plane: ## Publish Control Plane container images to ECR
+	@$(MAKE) -C services/control-plane image-publish ECR_REGISTRY=$(ECR_REGISTRY) ECR_NAMESPACE=$(ECR_NAMESPACE) IMAGE_TAG=$(IMAGE_TAG)
+
+#############################################################################
+# Version Management Targets
+#############################################################################
+
+version: ## Show current version
+	@echo "Current version: $$(cat VERSION)"
+
+version-bump-major: ## Bump major version (X.0.0)
+	@./scripts/version/bump-version.sh major
+
+version-bump-minor: ## Bump minor version (x.X.0)
+	@./scripts/version/bump-version.sh minor
+
+version-bump-patch: ## Bump patch version (x.x.X)
+	@./scripts/version/bump-version.sh patch
+
+version-publish: ## Publish images with current version from VERSION file
+	@./scripts/version/publish-version.sh
 
 #############################################################################
 # Helm Targets
