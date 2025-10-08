@@ -32,8 +32,8 @@ const dataPlane = new DataPlaneClient();
 const processor = new EncabulationProcessor(dataPlane);
 
 // Routes
-app.use('/health', createHealthRouter(dataPlane));
-app.use('/ready', createHealthRouter(dataPlane));
+const healthRouter = createHealthRouter(dataPlane);
+app.use('/', healthRouter);
 app.use('/api/v1/encabulations', createEncabulationRouter(processor));
 
 // Metrics endpoint
