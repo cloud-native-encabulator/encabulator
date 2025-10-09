@@ -152,7 +152,7 @@ Automated demo scenarios can trigger traffic patterns through this service's API
 
 ## Educational Value
 
-The Unilateral Phase Detractor Engine demonstrates:
+The Cardinal Grammeter demonstrates:
 - Load testing and traffic simulation
 - Configurable traffic patterns
 - Real-time metrics collection

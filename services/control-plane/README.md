@@ -161,12 +161,12 @@ curl http://demo-scenario-orchestrator:8080/scenarios/status
 
 ### Control Console → Other Services
 - Sends commands to Malaise Injection Engine for failure injection
-- Sends commands to Unilateral Phase Detractor for traffic generation
+- Sends commands to Cardinal Grammeter for traffic generation
 - Triggers Demo Scenario Orchestrator for automated demos
 - Queries Kubernetes API for system status
 
 ### Demo Scenario Orchestrator → Other Services
-- Calls Unilateral Phase Detractor to generate traffic
+- Calls Cardinal Grammeter to generate traffic
 - Calls Malaise Injection Engine to inject failures
 - Monitors Kubernetes deployments for scaling events
 - Coordinates multi-step demonstrations

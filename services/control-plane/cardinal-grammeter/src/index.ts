@@ -87,5 +87,5 @@ app.post('/traffic/update', (req, res) => {
 })
 
 app.listen(PORT, () => {
-  console.log(`Unilateral Phase Detractor Engine listening on port ${PORT}`)
+  console.log(`Cardinal Grammeter listening on port ${PORT}`)
 })

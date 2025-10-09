@@ -19,14 +19,15 @@ The system is organized into **four distinct planes**:
 - **Dingle Arm API Gateway**: External API facade (Envoy/NGINX)
 
 ### 3. **Support Plane** (`encabulator-system` namespace)
-- **Cardinal Grammeter**: Authentication and authorization (Python/FastAPI)
+- **Unilateral Phase Detractor**: Authentication and authorization (Python/FastAPI)
 - **Differential Girdle**: Configuration management (Go)
-- **Side Fumbling Collector**: Resource optimization and cleanup (Go/Kubernetes Operator)
+- **Side Fumbling Collector**: Resource optimization and cleanup (Python/FastAPI)
 
 ### 4. **Control Plane** (`encabulator-control` namespace) - NEW!
 - **Encabulation Control Console**: Interactive web interface (React/TypeScript)
-- **Malaise Injection Engine**: Chaos engineering and failure injection
-- **Demo Scenario Orchestrator**: Pre-built demonstration workflows
+- **Malaise Injection Engine**: Chaos engineering and failure injection (Go)
+- **Cardinal Grammeter**: Traffic generation and load testing (Node.js/TypeScript)
+- **Demo Scenario Orchestrator**: Pre-built demonstration workflows (Python/FastAPI)
 
 ## Technology Stack
 

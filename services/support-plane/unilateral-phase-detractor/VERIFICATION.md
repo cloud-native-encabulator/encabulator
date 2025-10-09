@@ -1,4 +1,4 @@
-# Cardinal Grammeter Verification
+# Unilateral Phase Detractor Verification
 
 ## Code Quality
 
