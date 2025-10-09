@@ -108,7 +108,7 @@
     - Configure monitoring and alerting for processing services
     - _Requirements: 1.1, 1.3, 2.1, 4.1, 4.2, 4.3, 5.1, 8.1, 10.2_
 
-  - [ ] 5.3 Deploy Support Plane services
+  - [-] 5.3 Deploy Support Plane services
 
     - Deploy development instances of CardinalGrammeter, DifferentialGirdle, SideFumblingCollector
     - Validate authentication and configuration management

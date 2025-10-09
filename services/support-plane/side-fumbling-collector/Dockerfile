@@ -21,17 +21,19 @@ ENV PYTHONUNBUFFERED=1
 
 # Copy application code
 COPY app ./app
+COPY entrypoint.sh /entrypoint.sh
 
 # Create non-root user and copy packages to their home
 RUN useradd -m -u 1000 appuser && \
     cp -r /root/.local /home/appuser/.local && \
-    chown -R appuser:appuser /home/appuser/.local /app
+    chown -R appuser:appuser /home/appuser/.local /app && \
+    chmod +x /entrypoint.sh
 
 USER appuser
 ENV PATH=/home/appuser/.local/bin:$PATH
 
 # Expose port
-EXPOSE 8000
+EXPOSE 8080
 
 # Run the application
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
+ENTRYPOINT ["/entrypoint.sh"]
