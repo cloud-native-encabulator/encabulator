@@ -8,6 +8,11 @@ ECR_REGISTRY ?= 510431938379.dkr.ecr.us-east-2.amazonaws.com
 ECR_NAMESPACE ?= encabulator
 IMAGE_TAG ?= latest
 CONTAINER_RUNTIME ?= finch
+BUMP ?= patch
+
+# Version management
+VERSION_FILE := VERSION
+CURRENT_VERSION := $(shell cat $(VERSION_FILE) 2>/dev/null || echo "0.0.1")
 
 .PHONY: help
 help: ## Show this help message
@@ -48,12 +53,19 @@ image-local-publish: image ## Tag and publish local platform image to ECR
 
 docker-build: image ## Build Docker image (deprecated, use 'image')
 
-image-publish: ## Build and publish multi-platform container image to ECR
-	@echo "Building and publishing multi-platform $(SERVICE_NAME) to ECR..."
-	@echo "  Building for linux/amd64,linux/arm64: $(ECR_REGISTRY)/$(ECR_NAMESPACE)/$(SERVICE_NAME):$(IMAGE_TAG)"
-	@$(CONTAINER_RUNTIME) build --platform linux/amd64,linux/arm64 -t $(ECR_REGISTRY)/$(ECR_NAMESPACE)/$(SERVICE_NAME):$(IMAGE_TAG) .
-	@$(CONTAINER_RUNTIME) push --platform linux/amd64,linux/arm64 $(ECR_REGISTRY)/$(ECR_NAMESPACE)/$(SERVICE_NAME):$(IMAGE_TAG)
-	@echo "✓ Successfully published multi-platform $(SERVICE_NAME):$(IMAGE_TAG)"
+image-publish: ## Build and publish multi-platform container image to ECR (auto-bumps version)
+	@echo "Current version: $(CURRENT_VERSION)"
+	@NEW_VERSION=$$(../../../scripts/version/bump-and-get-version.sh . $(BUMP)); \
+	echo "Bumping version ($(BUMP)): $(CURRENT_VERSION) -> $$NEW_VERSION"; \
+	echo "Building and publishing multi-platform $(SERVICE_NAME) to ECR..."; \
+	echo "  Building for linux/amd64,linux/arm64: $(ECR_REGISTRY)/$(ECR_NAMESPACE)/$(SERVICE_NAME):$$NEW_VERSION"; \
+	$(CONTAINER_RUNTIME) build --platform linux/amd64,linux/arm64 \
+		-t $(ECR_REGISTRY)/$(ECR_NAMESPACE)/$(SERVICE_NAME):$$NEW_VERSION \
+		-t $(ECR_REGISTRY)/$(ECR_NAMESPACE)/$(SERVICE_NAME):latest \
+		.; \
+	$(CONTAINER_RUNTIME) push --platform linux/amd64,linux/arm64 $(ECR_REGISTRY)/$(ECR_NAMESPACE)/$(SERVICE_NAME):$$NEW_VERSION; \
+	$(CONTAINER_RUNTIME) push --platform linux/amd64,linux/arm64 $(ECR_REGISTRY)/$(ECR_NAMESPACE)/$(SERVICE_NAME):latest; \
+	echo "✓ Successfully published multi-platform $(SERVICE_NAME):$$NEW_VERSION"
 
 clean: ## Clean build artifacts
 	@rm -f $(BINARY)
