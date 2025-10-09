@@ -116,7 +116,7 @@
     - Configure monitoring and alerting for support services
     - _Requirements: 1.1, 2.1, 3.1, 3.2, 3.3, 3.4, 4.1, 8.1, 10.2, 10.6_
 
-  - [ ] 5.4 Deploy Control Plane services
+  - [x] 5.4 Deploy Control Plane services
 
     - Deploy development instances of encabulation-control-console, malaise-injection-engine, cardinal-grammeter, demo-scenario-orchestrator
     - Validate real-time visualization and control interfaces
