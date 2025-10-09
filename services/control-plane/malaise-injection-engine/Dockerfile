@@ -27,13 +27,21 @@ FROM public.ecr.aws/docker/library/alpine:latest
 
 RUN apk --no-cache add ca-certificates
 
-WORKDIR /root/
+# Create non-root user
+RUN adduser -D -u 1000 appuser
+
+WORKDIR /app
 
 # Copy the binary from builder
 COPY --from=builder /app/malaise-injection-engine .
+
+# Ensure binary is executable and owned by appuser
+RUN chmod +x malaise-injection-engine && chown appuser:appuser malaise-injection-engine
+
+USER appuser
 
 # Expose port
 EXPOSE 8080
 
 # Run the application
-CMD ["./malaise-injection-engine"]
+CMD ["/app/malaise-injection-engine"]
