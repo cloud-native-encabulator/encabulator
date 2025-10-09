@@ -5,7 +5,7 @@ class Settings(BaseSettings):
     """Application settings"""
     
     app_name: str = "Side Fumbling Collector"
-    port: int = 8000
+    port: int = 8080
     environment: str = "development"
     
     # Kubernetes settings
