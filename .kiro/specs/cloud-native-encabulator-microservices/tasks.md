@@ -137,7 +137,11 @@
   - [ ] 6.2 Migrate to AWS managed services with ACK
 
     - Deploy AWS Controllers for Kubernetes (ACK) via Helm
-    - Configure IRSA (IAM Roles for Service Accounts) for secure AWS API access
+    - Configure EKS Pod Identity for secure AWS API access (service accounts with IAM role associations)
+    - Enhance Helm charts with Pod Identity support (service account annotations and IAM role configuration)
+    - Create per-service IAM roles with least-privilege permissions for AWS resource access
+    - Create separate service accounts for ACK controllers (one per AWS service: S3, DynamoDB, RDS, ElastiCache)
+    - Update RBAC rules to support ACK CRDs (Custom Resource Definitions)
     - Create RDS PostgreSQL database via ACK for Hydrocoptic Data Store
     - Create ElastiCache Redis cluster via ACK for Prefabulated Cache
     - Migrate services from in-cluster databases to AWS managed services
