@@ -5,6 +5,9 @@ image:
   pullPolicy: Always
   tag: "0.0.1"
 
+# Secret key for JWT token signing - should be overridden in production
+secretKey: "change-this-in-production-use-helm-secrets-or-external-secrets"
+
 service:
   type: ClusterIP
   port: 8080
