@@ -2,8 +2,8 @@ apiVersion: v2
 name: dingle-arm-api-gateway
 description: Dingle Arm API Gateway - API gateway with rate limiting and routing
 type: application
-version: 0.1.0
-appVersion: "0.1.0"
+version: 0.0.2
+appVersion: "0.0.1"
 keywords:
   - encabulator
   - processing-plane

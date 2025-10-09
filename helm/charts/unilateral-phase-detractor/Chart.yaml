@@ -2,8 +2,8 @@ apiVersion: v2
 name: unilateral-phase-detractor
 description: Unilateral Phase Detractor - Authentication and authorization service with OAuth2/JWT
 type: application
-version: 0.1.0
-appVersion: "0.1.0"
+version: 0.0.2
+appVersion: "0.0.3"
 keywords:
   - encabulator
   - support-plane
