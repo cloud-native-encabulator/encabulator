@@ -165,5 +165,5 @@ The gateway exposes Prometheus metrics:
 
 - Rate limiting prevents abuse
 - Headers added for traceability
-- No authentication (handled by CardinalGrammeter in future)
+- No authentication (handled by Unilateral Phase Detractor in future)
 - HTTPS termination should be handled by ingress/load balancer

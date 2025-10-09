@@ -36,7 +36,7 @@ graph TD
     end
 
     subgraph "Support Plane"
-        Auth[Cardinal Grammeter]
+        Auth[Unilateral Phase Detractor]
         Config[Differential Girdle]
         ResourceMgr[Side Fumbling Collector]
     end
@@ -105,7 +105,7 @@ graph TD
             Gateway[Dingle Arm API Gateway]
             Processor[Panametric Fam Processor]
             MessageBroker[Logarithmic Casing Service]
-            Auth[Cardinal Grammeter]
+            Auth[Unilateral Phase Detractor]
             Config[Differential Girdle]
             ResourceMgr[Side Fumbling Collector]
         end
@@ -126,7 +126,7 @@ graph TD
             ControlConsole[Encabulation Control Console]
             ChaosEngine[Malaise Injection Engine]
             DemoOrchestrator[Demo Scenario Orchestrator]
-            TrafficEngine[Unilateral Phase Detractor Engine]
+            TrafficEngine[Cardinal Grammeter]
         end
     end
 
@@ -340,7 +340,7 @@ graph TD
 **Implementation**:
 
 - Scenario definition and execution engine
-- Coordination with Unilateral Phase Detractor Engine for traffic simulation
+- Coordination with Cardinal Grammeter for traffic simulation
 - Automated demonstration workflows
 - Integration with monitoring for visual feedback
 
@@ -353,10 +353,10 @@ graph TD
 **Technology Stack**:
 
 - Go-based orchestration service
-- Integration with Unilateral Phase Detractor Engine
+- Integration with Cardinal Grammeter
 - Scenario definitions as Kubernetes ConfigMaps
 
-#### 4. Unilateral Phase Detractor Engine
+#### 4. Cardinal Grammeter Synchronization Engine
 
 **Purpose**: Advanced traffic simulation and load generation with configurable parameters for realistic system testing and educational demonstrations.
 
@@ -376,7 +376,7 @@ graph TD
 
 **Technology Stack**:
 
-- Go-based traffic generation engine with high-performance HTTP client pools
+- Node.js/TypeScript-based traffic generation engine with high-performance HTTP client pools
 - Custom traffic pattern algorithms with configurable parameters
 - Integration with Prometheus for traffic metrics
 - Kubernetes Deployment with HPA for scalable load generation
@@ -538,7 +538,7 @@ graph TD
 
 ### Support Plane Components
 
-#### 1. Cardinal Grammeter
+#### 1. Unilateral Phase Detractor
 
 **Purpose**: Authentication and authorization service.
 
@@ -600,8 +600,8 @@ graph TD
 
 **Technology Stack**:
 
-- Custom Kubernetes operator in Go
-- CronJob for scheduled operations
+- Python with FastAPI
+- Kubernetes client library for resource management
 - Kubernetes Deployment
 
 ## Data Models

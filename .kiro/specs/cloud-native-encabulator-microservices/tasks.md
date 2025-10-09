@@ -75,9 +75,9 @@
 
   - [x] 4.3 Create Support Plane services
 
-    - Implement CardinalGrammeter service (Python/FastAPI - authentication and authorization with OAuth2/JWT)
+    - Implement UnilateralPhaseDetractor service (Python/FastAPI - authentication and authorization with OAuth2/JWT)
     - Implement DifferentialGirdle service (Go - configuration management with feature flags)
-    - Implement SideFumblingCollector service (Python - resource optimization and cleanup with data analysis)
+    - Implement SideFumblingCollector service (Python/FastAPI - resource optimization and cleanup with data analysis)
     - Create Helm charts for Support Plane services
     - _Requirements: 1.1, 2.1, 3.1, 3.2, 3.3, 3.4, 4.1, 8.1, 10.2, 10.6_
 
@@ -85,7 +85,7 @@
 
     - Implement EncabulationControlConsole (React/TypeScript - web UI with real-time visualization and WebSocket)
     - Implement MalaiseInjectionEngine (Go - chaos engineering operator with Kubernetes integration)
-    - Implement UnilateralPhaseDetractorEngine (Node.js/TypeScript - traffic generation and load testing with concurrent HTTP)
+    - Implement CardinalGrammeter (Node.js/TypeScript - traffic generation and load testing with concurrent HTTP)
     - Implement DemoScenarioOrchestrator (Python - scenario management and automation with Kubernetes client)
     - Create Helm charts for Control Plane services
     - _Requirements: 11.1, 11.2, 11.3, 12.1, 12.2, 12.3, 12.4, 12.5, 12.6, 4.2, 4.3, 4.4_
@@ -108,9 +108,9 @@
     - Configure monitoring and alerting for processing services
     - _Requirements: 1.1, 1.3, 2.1, 4.1, 4.2, 4.3, 5.1, 8.1, 10.2_
 
-  - [-] 5.3 Deploy Support Plane services
+  - [x] 5.3 Deploy Support Plane services
 
-    - Deploy development instances of CardinalGrammeter, DifferentialGirdle, SideFumblingCollector
+    - Deploy development instances of unilateral-phase-detractor, differential-girdle, side-fumbling-collector
     - Validate authentication and configuration management
     - Test resource optimization and cleanup operations
     - Configure monitoring and alerting for support services
@@ -118,7 +118,7 @@
 
   - [ ] 5.4 Deploy Control Plane services
 
-    - Deploy development instances of EncabulationControlConsole, MalaiseInjectionEngine, UnilateralPhaseDetractorEngine, DemoScenarioOrchestrator
+    - Deploy development instances of encabulation-control-console, malaise-injection-engine, cardinal-grammeter, demo-scenario-orchestrator
     - Validate real-time visualization and control interfaces
     - Test chaos engineering and traffic generation capabilities
     - Configure monitoring and alerting for control services
