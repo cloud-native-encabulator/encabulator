@@ -2,6 +2,7 @@ import express from 'express'
 import { createServer } from 'http'
 import { Server } from 'socket.io'
 import cors from 'cors'
+import path from 'path'
 import { register } from 'prom-client'
 import { KubernetesService } from './services/kubernetes'
 import { MetricsService } from './services/metrics'
@@ -21,6 +22,9 @@ const metricsService = new MetricsService()
 
 app.use(cors())
 app.use(express.json())
+
+// Serve static files from the React app
+app.use(express.static(path.join(__dirname, '../public')))
 
 // Health endpoint
 app.get('/health', (req, res) => {
