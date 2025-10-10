@@ -155,3 +155,65 @@ The Cloud Native Encabulator Microservices Demo is an educational project design
 4. WHEN monitoring traffic simulation THEN users SHALL see real-time visualization of modial interaction effects on system performance and resource utilization
 5. WHEN combining with chaos engineering THEN the traffic simulation SHALL work alongside failure injection to demonstrate system resilience under realistic load conditions
 6. WHEN creating educational scenarios THEN users SHALL be able to save and replay traffic patterns for consistent demonstration experiences
+
+### Requirement 13: Real-Time Pod Visualization
+
+**User Story:** As a platform operator, I want to see the individual pods running within each service on the topology diagram, so that I can quickly understand the current scale and health of each service.
+
+#### Acceptance Criteria
+
+1. WHEN the topology loads THEN each service node SHALL display visual indicators representing individual pods
+2. WHEN a service scales up or down THEN the pod count visualization SHALL update within 5 seconds to reflect the current number of running pods
+3. WHEN a pod is in a non-ready state THEN it SHALL be visually distinguished from healthy pods (e.g., different color or opacity)
+4. IF a service has multiple replicas THEN each pod SHALL be represented as a distinct visual element within the service node
+5. WHEN hovering over a pod indicator THEN the system SHALL display the pod name and status
+6. WHEN hovering over a pod indicator THEN the tooltip SHALL display p50 and p99 latency metrics for that pod
+7. WHEN a pod has elevated latency or errors THEN the tooltip SHALL display the current error rate percentage
+
+### Requirement 14: Animated Traffic Flow Visualization
+
+**User Story:** As a platform operator, I want to see animated particles flowing along the connection lines between services, so that I can visualize real-time traffic patterns and understand which service interactions are most active.
+
+#### Acceptance Criteria
+
+1. WHEN traffic flows between two services THEN animated particles SHALL move along the connection line from source to destination
+2. WHEN traffic volume increases THEN the frequency or density of particles SHALL increase proportionally
+3. WHEN there is no traffic between services THEN no particles SHALL be displayed on that connection
+4. WHEN the topology is displayed THEN particle animations SHALL run smoothly at 60fps without impacting UI responsiveness
+5. IF traffic is bidirectional THEN particles SHALL flow in both directions along the connection line
+
+### Requirement 15: Health-Based Traffic Color Coding
+
+**User Story:** As a platform operator, I want traffic flow particles to be color-coded based on latency and error rates, so that I can immediately identify problematic service interactions without reading metrics.
+
+#### Acceptance Criteria
+
+1. WHEN traffic has normal latency (< 100ms) and no errors THEN particles SHALL be displayed in green
+2. WHEN traffic has elevated latency (100ms - 500ms) THEN particles SHALL be displayed in yellow
+3. WHEN traffic has high latency (> 500ms) OR error rate > 1% THEN particles SHALL be displayed in red
+4. WHEN traffic metrics are unavailable THEN particles SHALL be displayed in a neutral color (gray)
+5. WHEN hovering over a connection line THEN the system SHALL display current latency and error rate metrics
+
+### Requirement 16: Real-Time Metrics Integration for Visualization
+
+**User Story:** As a platform operator, I want the visualization to pull real-time metrics from the observability stack, so that the traffic flow and health indicators reflect actual system behavior.
+
+#### Acceptance Criteria
+
+1. WHEN the topology is displayed THEN the system SHALL query metrics for traffic volume, latency, and error rates every 5 seconds
+2. WHEN metrics data is received THEN the visualization SHALL update particle flow and colors within 1 second
+3. IF metrics are unavailable for a service connection THEN the system SHALL display a visual indicator that data is missing
+4. WHEN the user navigates away from the topology THEN metric polling SHALL stop to conserve resources
+5. WHEN metrics queries fail THEN the system SHALL log errors and continue displaying the last known state
+
+### Requirement 17: Visualization Performance and Scalability
+
+**User Story:** As a platform operator, I want the enhanced visualization to perform well even with many services and high traffic volumes, so that the dashboard remains usable under all conditions.
+
+#### Acceptance Criteria
+
+1. WHEN displaying up to 20 services with 50 connections THEN the visualization SHALL maintain 60fps animation performance
+2. WHEN rendering particle animations THEN CPU usage SHALL not exceed 25% on a modern browser
+3. WHEN the number of particles exceeds 100 THEN the system SHALL cap particle count and scale particle size or opacity to represent volume
+4. WHEN services have more than 10 pods THEN the visualization SHALL use a compact representation (e.g., grouped indicators with count)
+5. WHEN the browser tab is not visible THEN animations SHALL pause to conserve resources

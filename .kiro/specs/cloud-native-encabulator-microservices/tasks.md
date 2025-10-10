@@ -213,6 +213,78 @@
     - Create API endpoints for action history (/api/actions/history)
     - _Requirements: 11.1, 11.2, 3.1_
 
+  - [ ] 6.7 Implement pod visualization within service nodes
+    - Extend KubernetesService to fetch individual pod data with status and metrics
+    - Add pod indicator rendering logic to SystemTopology.vue
+    - Implement grid layout positioning for pod circles within service nodes
+    - Add color coding for pod health status (ready, not ready, failed)
+    - Implement grouped representation for services with > 5 pods
+    - _Requirements: 13.1, 13.2, 13.3, 13.4_
+
+  - [ ] 6.8 Implement pod tooltip with detailed metrics
+    - Add hover detection for individual pod indicators
+    - Create pod tooltip component with pod name, status, CPU, and memory
+    - Integrate p50 and p99 latency metrics into pod tooltips
+    - Add error rate display for pods with elevated errors
+    - Implement smart tooltip positioning to avoid viewport edges
+    - _Requirements: 13.5, 13.6, 13.7_
+
+  - [ ] 6.9 Implement canvas-based particle animation system
+    - Add canvas overlay to SystemTopology component
+    - Implement particle data structure and lifecycle management
+    - Create particle spawn logic based on traffic volume
+    - Implement particle movement along curved connection paths
+    - Add particle despawn logic at target nodes
+    - _Requirements: 14.1, 14.2, 14.3, 14.4_
+
+  - [ ] 6.10 Implement traffic metrics collection and simulation
+    - Create TrafficMetrics interface and data structures
+    - Implement simulated traffic metrics generation based on service topology
+    - Add traffic metrics to API response structure
+    - Implement 5-second polling for traffic metrics updates
+    - Add error handling for metrics collection failures
+    - _Requirements: 16.1, 16.2, 16.3, 16.5_
+
+  - [ ] 6.11 Implement health-based traffic color coding
+    - Create color determination logic based on latency and error rates
+    - Implement green particles for healthy traffic (< 100ms, no errors)
+    - Implement yellow particles for elevated latency (100-500ms)
+    - Implement red particles for high latency (> 500ms) or errors (> 1%)
+    - Add gray particles for unavailable metrics
+    - _Requirements: 15.1, 15.2, 15.3, 15.4_
+
+  - [ ] 6.12 Implement connection tooltip with traffic metrics
+    - Add hover detection for connection lines
+    - Create connection tooltip component with source/target display
+    - Display traffic volume (requests per second) in tooltip
+    - Add latency metrics (avg, p50, p99) to connection tooltip
+    - Display error rate percentage in connection tooltip
+    - _Requirements: 15.5_
+
+  - [ ] 6.13 Implement performance optimizations for visualization
+    - Add particle count cap at 100 particles maximum
+    - Implement frame rate monitoring and adaptive particle reduction
+    - Add Page Visibility API integration to pause animations when tab hidden
+    - Optimize canvas rendering with requestAnimationFrame
+    - Add CPU usage monitoring and throttling if needed
+    - _Requirements: 17.1, 17.2, 17.3, 17.4, 17.5_
+
+  - [ ]* 6.14 Write unit tests for visualization components
+    - Write tests for pod position calculation logic
+    - Write tests for pod color determination based on status
+    - Write tests for particle spawn logic based on traffic volume
+    - Write tests for traffic color determination based on health metrics
+    - Write tests for tooltip positioning logic
+    - _Requirements: 13.1, 13.2, 13.3, 14.1, 14.2, 15.1, 15.2, 15.3_
+
+  - [ ]* 6.15 Write integration tests for real-time features
+    - Write tests for pod visualization updates on scaling events
+    - Write tests for traffic particle rendering with metrics
+    - Write tests for tooltip display on hover interactions
+    - Write tests for metrics polling and state updates
+    - Write performance tests for 60fps with 20 services and 50 connections
+    - _Requirements: 13.2, 14.4, 16.1, 16.2, 17.1_
+
 - [ ] 7. Architecture Evolution on Main Branch
 
   - [ ] 7.1 Migrate to GitOps on main branch
@@ -329,3 +401,4 @@
     - Document local development environment setup
     - Add contribution guidelines and platform extension patterns
     - _Requirements: 6.2, 9.3, 9.4_
+

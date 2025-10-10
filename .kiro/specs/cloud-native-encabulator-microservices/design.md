@@ -815,3 +815,531 @@ The project will implement the following license management practices:
    - Developer Certificate of Origin (DCO) for contributions
    - Automated license compliance checking in CI
    - Contribution guidelines documentation
+
+## Real-Time Topology Visualization Enhancements
+
+### Overview
+
+This section describes enhancements to the existing SystemTopology.vue component to display real-time operational state through two primary visualizations:
+
+1. **Pod Visualization**: Individual pod indicators within each service node showing replica count, health status, and per-pod metrics
+2. **Animated Traffic Flow**: Particle animations along connection lines representing real-time traffic with health-based color coding
+
+The design leverages the existing D3.js-based topology visualization and extends the Kubernetes service integration to fetch pod-level metrics and service mesh traffic data.
+
+### Component Architecture
+
+```
+SystemTopology.vue (enhanced)
+├── Existing: Static hierarchical layout with service nodes
+├── New: Pod visualization layer within service nodes
+├── New: Particle animation system on connection links
+└── New: Enhanced tooltip system with detailed metrics
+
+KubernetesService (enhanced)
+├── Existing: Deployment and pod status queries
+├── New: Per-pod metrics collection
+├── New: Service mesh traffic metrics
+└── New: Latency and error rate aggregation
+```
+
+### Data Flow
+
+```mermaid
+graph TD
+    A[SystemTopology Component] -->|Poll every 5s| B[API Endpoint]
+    B -->|Query| C[KubernetesService]
+    C -->|Fetch| D[K8s Metrics API]
+    C -->|Fetch| E[Pod Status]
+    C -->|Query| F[Service Mesh Metrics]
+    D -->|CPU/Memory per pod| C
+    E -->|Pod health status| C
+    F -->|Traffic/Latency/Errors| C
+    C -->|Aggregated data| B
+    B -->|JSON response| A
+    A -->|Render| G[D3 Visualization]
+    G -->|Update| H[Pod Indicators]
+    G -->|Animate| I[Traffic Particles]
+```
+
+### Pod Visualization System
+
+#### Data Model
+
+```typescript
+interface PodInfo {
+  name: string
+  status: 'Running' | 'Pending' | 'Failed' | 'Unknown'
+  ready: boolean
+  cpu: string
+  memory: string
+  p50Latency?: number  // milliseconds
+  p99Latency?: number  // milliseconds
+  errorRate?: number   // percentage
+}
+
+interface ServiceNodeExtended extends ServiceNode {
+  pods: PodInfo[]
+}
+```
+
+#### Visual Representation
+
+- **Layout**: Small circles arranged in a grid pattern within the service node
+- **Sizing**: Service node radius scales with pod count (existing behavior)
+- **Pod indicators**: 
+  - 8px circles for services with ≤ 5 pods
+  - Grouped representation with count badge for > 5 pods
+- **Colors**:
+  - Ready pods: Match service plane color at 100% opacity
+  - Not ready pods: Gray at 50% opacity
+  - Failed pods: Red at 80% opacity
+
+#### Implementation Approach
+
+```typescript
+// In initializeVisualization(), after drawing service nodes:
+
+// Pod container group
+const podGroup = node.append('g')
+  .attr('class', 'pod-indicators')
+
+// For each service, draw pod indicators
+podGroup.each(function(d: ServiceNodeExtended) {
+  const podCount = d.pods.length
+  
+  if (podCount <= 5) {
+    // Draw individual pod circles in a grid
+    const positions = calculatePodPositions(podCount)
+    d3.select(this)
+      .selectAll('circle.pod')
+      .data(d.pods)
+      .join('circle')
+      .attr('class', 'pod')
+      .attr('r', 4)
+      .attr('cx', (_, i) => positions[i].x)
+      .attr('cy', (_, i) => positions[i].y)
+      .attr('fill', pod => getPodColor(pod))
+      .on('mouseenter', showPodTooltip)
+      .on('mouseleave', hidePodTooltip)
+  } else {
+    // Grouped representation with count
+    d3.select(this)
+      .append('text')
+      .attr('class', 'pod-count-badge')
+      .text(`${podCount} pods`)
+      .attr('font-size', '8px')
+      .attr('dy', -15)
+  }
+})
+```
+
+### Traffic Flow Animation System
+
+#### Data Model
+
+```typescript
+interface TrafficMetrics {
+  source: string
+  target: string
+  requestsPerSecond: number
+  avgLatency: number
+  p50Latency: number
+  p99Latency: number
+  errorRate: number
+  healthStatus: 'healthy' | 'warning' | 'error'
+}
+
+interface Particle {
+  id: string
+  linkIndex: number
+  progress: number  // 0 to 1
+  color: string
+  speed: number
+}
+```
+
+#### Animation Strategy
+
+- **Rendering**: Canvas overlay for particle animations (better performance than SVG)
+- **Frame rate**: RequestAnimationFrame for smooth 60fps
+- **Particle lifecycle**:
+  - Spawn at source node based on traffic volume
+  - Move along curved path (matching link geometry)
+  - Despawn at target node
+- **Performance optimization**:
+  - Cap at 100 visible particles
+  - Pause animations when tab not visible
+  - Use object pooling for particle instances
+
+#### Implementation Approach
+
+```typescript
+// Add canvas overlay
+const canvas = d3.select(containerRef.value)
+  .append('canvas')
+  .attr('class', 'traffic-overlay')
+  .style('position', 'absolute')
+  .style('top', 0)
+  .style('left', 0)
+  .style('pointer-events', 'none')
+
+const ctx = canvas.node()?.getContext('2d')
+
+// Particle system
+const particles: Particle[] = []
+let animationFrameId: number
+
+function animateParticles() {
+  if (!ctx) return
+  
+  // Clear canvas
+  ctx.clearRect(0, 0, width, height)
+  
+  // Update and draw each particle
+  particles.forEach((particle, index) => {
+    particle.progress += particle.speed
+    
+    if (particle.progress >= 1) {
+      // Remove completed particles
+      particles.splice(index, 1)
+      return
+    }
+    
+    // Calculate position along curved path
+    const link = links.value[particle.linkIndex]
+    const pos = getPointOnCurve(link, particle.progress)
+    
+    // Draw particle
+    ctx.fillStyle = particle.color
+    ctx.beginPath()
+    ctx.arc(pos.x, pos.y, 3, 0, Math.PI * 2)
+    ctx.fill()
+  })
+  
+  // Spawn new particles based on traffic volume
+  spawnParticles()
+  
+  animationFrameId = requestAnimationFrame(animateParticles)
+}
+
+function spawnParticles() {
+  trafficMetrics.value.forEach((metric, linkIndex) => {
+    // Spawn rate based on requests per second
+    const spawnProbability = Math.min(metric.requestsPerSecond / 100, 1)
+    
+    if (Math.random() < spawnProbability && particles.length < 100) {
+      particles.push({
+        id: `${Date.now()}-${Math.random()}`,
+        linkIndex,
+        progress: 0,
+        color: getTrafficColor(metric),
+        speed: 0.01 // Adjust for desired animation speed
+      })
+    }
+  })
+}
+
+function getTrafficColor(metric: TrafficMetrics): string {
+  if (metric.errorRate > 0.01) return '#ff0055' // Red for > 1% errors
+  if (metric.avgLatency > 500) return '#ff0055'  // Red for > 500ms
+  if (metric.avgLatency > 100) return '#ffaa00'  // Yellow for 100-500ms
+  return '#00ff88' // Green for healthy
+}
+```
+
+### Enhanced Tooltip System
+
+#### Pod Tooltip
+
+```typescript
+interface PodTooltipData {
+  podName: string
+  status: string
+  cpu: string
+  memory: string
+  p50Latency?: number
+  p99Latency?: number
+  errorRate?: number
+}
+
+// Template in Vue component
+<div v-if="hoveredPod" class="pod-tooltip">
+  <div class="font-bold">{{ hoveredPod.podName }}</div>
+  <div>Status: {{ hoveredPod.status }}</div>
+  <div>CPU: {{ hoveredPod.cpu }}</div>
+  <div>Memory: {{ hoveredPod.memory }}</div>
+  <div v-if="hoveredPod.p50Latency" class="border-t mt-2 pt-2">
+    <div>P50 Latency: {{ hoveredPod.p50Latency }}ms</div>
+    <div>P99 Latency: {{ hoveredPod.p99Latency }}ms</div>
+  </div>
+  <div v-if="hoveredPod.errorRate">
+    Error Rate: {{ (hoveredPod.errorRate * 100).toFixed(2) }}%
+  </div>
+</div>
+```
+
+#### Connection Tooltip
+
+```typescript
+// On link hover, show traffic metrics
+<div v-if="hoveredLink" class="link-tooltip">
+  <div class="font-bold">
+    {{ hoveredLink.source }} → {{ hoveredLink.target }}
+  </div>
+  <div>Traffic: {{ hoveredLink.requestsPerSecond }} req/s</div>
+  <div>Avg Latency: {{ hoveredLink.avgLatency }}ms</div>
+  <div>P50: {{ hoveredLink.p50Latency }}ms</div>
+  <div>P99: {{ hoveredLink.p99Latency }}ms</div>
+  <div>Error Rate: {{ (hoveredLink.errorRate * 100).toFixed(2) }}%</div>
+</div>
+```
+
+### API Response Structure
+
+```typescript
+interface SystemStatusResponse {
+  services: Record<string, ServiceStatus>
+  trafficMetrics: TrafficMetrics[]
+  timestamp: number
+}
+
+interface ServiceStatus {
+  status: 'healthy' | 'degraded' | 'unhealthy'
+  replicas: number
+  cpu: string
+  memory: string
+  pods: PodInfo[]
+}
+```
+
+### Metrics Collection Strategy
+
+Since the system doesn't currently have Prometheus or a service mesh, we'll use:
+
+1. **Pod Metrics**: Kubernetes Metrics API (already integrated)
+2. **Traffic Metrics**: Simulated based on service relationships
+   - For MVP: Generate realistic traffic patterns based on service topology
+   - For production: Integrate with service mesh (Istio/Linkerd) or application metrics
+
+#### Simulated Traffic Metrics (MVP)
+
+```typescript
+function generateTrafficMetrics(links: ServiceLink[]): TrafficMetrics[] {
+  return links.map(link => {
+    // Base traffic on link weight
+    const baseTraffic = link.value * 10
+    
+    // Add some randomness for realism
+    const requestsPerSecond = baseTraffic + (Math.random() * 20 - 10)
+    
+    // Simulate latency with occasional spikes
+    const baseLatency = 50 + Math.random() * 50
+    const latencySpike = Math.random() < 0.1 ? 200 : 0
+    const avgLatency = baseLatency + latencySpike
+    
+    // Simulate occasional errors
+    const errorRate = Math.random() < 0.05 ? Math.random() * 0.02 : 0
+    
+    return {
+      source: typeof link.source === 'string' ? link.source : link.source.id,
+      target: typeof link.target === 'string' ? link.target : link.target.id,
+      requestsPerSecond,
+      avgLatency,
+      p50Latency: avgLatency * 0.8,
+      p99Latency: avgLatency * 1.5,
+      errorRate,
+      healthStatus: errorRate > 0.01 || avgLatency > 500 ? 'error' :
+                    avgLatency > 100 ? 'warning' : 'healthy'
+    }
+  })
+}
+```
+
+### Error Handling
+
+#### Metrics API Failures
+
+```typescript
+try {
+  const metrics = await fetchTrafficMetrics()
+  trafficMetrics.value = metrics
+} catch (error) {
+  console.error('Failed to fetch traffic metrics:', error)
+  // Continue with last known state
+  // Show warning indicator in UI
+  metricsAvailable.value = false
+}
+```
+
+#### Animation Performance Issues
+
+```typescript
+// Monitor frame rate
+let lastFrameTime = Date.now()
+let frameCount = 0
+
+function checkPerformance() {
+  frameCount++
+  const now = Date.now()
+  
+  if (now - lastFrameTime > 1000) {
+    const fps = frameCount
+    frameCount = 0
+    lastFrameTime = now
+    
+    // If FPS drops below 30, reduce particle count
+    if (fps < 30) {
+      maxParticles = Math.max(20, maxParticles - 10)
+    }
+  }
+}
+```
+
+#### Pod Data Unavailable
+
+```typescript
+// Graceful degradation when pod metrics aren't available
+if (!pod.p50Latency) {
+  // Don't show latency section in tooltip
+  // Still show pod status and resource usage
+}
+```
+
+### Testing Strategy for Visualization Enhancements
+
+#### Unit Tests
+
+```typescript
+describe('Pod Visualization', () => {
+  it('should calculate correct pod positions for grid layout', () => {
+    const positions = calculatePodPositions(4)
+    expect(positions).toHaveLength(4)
+    expect(positions[0]).toEqual({ x: -6, y: -6 })
+  })
+  
+  it('should determine pod color based on status', () => {
+    const readyPod = { status: 'Running', ready: true }
+    expect(getPodColor(readyPod)).toBe(planeColors.processing)
+    
+    const failedPod = { status: 'Failed', ready: false }
+    expect(getPodColor(failedPod)).toBe('#ff0055')
+  })
+})
+
+describe('Traffic Animation', () => {
+  it('should spawn particles based on traffic volume', () => {
+    const metric = { requestsPerSecond: 50, avgLatency: 100, errorRate: 0 }
+    const initialCount = particles.length
+    
+    spawnParticles([metric])
+    
+    expect(particles.length).toBeGreaterThan(initialCount)
+  })
+  
+  it('should color particles based on health status', () => {
+    const healthyMetric = { avgLatency: 50, errorRate: 0 }
+    expect(getTrafficColor(healthyMetric)).toBe('#00ff88')
+    
+    const slowMetric = { avgLatency: 300, errorRate: 0 }
+    expect(getTrafficColor(slowMetric)).toBe('#ffaa00')
+    
+    const errorMetric = { avgLatency: 100, errorRate: 0.02 }
+    expect(getTrafficColor(errorMetric)).toBe('#ff0055')
+  })
+})
+```
+
+#### Integration Tests
+
+```typescript
+describe('SystemTopology with real-time features', () => {
+  it('should update pod visualization when pods scale', async () => {
+    const { container } = render(SystemTopology)
+    
+    // Initial state: 2 pods
+    expect(container.querySelectorAll('.pod')).toHaveLength(2)
+    
+    // Simulate scaling event
+    await systemStore.scaleService('test-service', 'up')
+    await waitFor(() => {
+      expect(container.querySelectorAll('.pod')).toHaveLength(3)
+    })
+  })
+  
+  it('should display traffic particles when metrics are available', async () => {
+    const { container } = render(SystemTopology)
+    
+    // Wait for initial render
+    await waitFor(() => {
+      const canvas = container.querySelector('canvas.traffic-overlay')
+      expect(canvas).toBeInTheDocument()
+    })
+    
+    // Verify particles are being drawn
+    // (Would need to mock canvas context and verify draw calls)
+  })
+})
+```
+
+#### Performance Tests
+
+```typescript
+describe('Performance', () => {
+  it('should maintain 60fps with 20 services and 50 connections', () => {
+    const largeTopology = generateLargeTopology(20, 50)
+    const fps = measureFrameRate(() => {
+      renderTopology(largeTopology)
+    })
+    
+    expect(fps).toBeGreaterThanOrEqual(60)
+  })
+  
+  it('should cap particle count at 100', () => {
+    // Simulate very high traffic
+    const highTrafficMetrics = links.map(link => ({
+      ...link,
+      requestsPerSecond: 1000
+    }))
+    
+    for (let i = 0; i < 100; i++) {
+      spawnParticles(highTrafficMetrics)
+    }
+    
+    expect(particles.length).toBeLessThanOrEqual(100)
+  })
+})
+```
+
+### Implementation Phases
+
+#### Phase 1: Pod Visualization
+- Extend KubernetesService to fetch individual pod data
+- Add pod indicators to service nodes
+- Implement pod tooltips with metrics
+- Update polling to refresh pod data every 5 seconds
+
+#### Phase 2: Traffic Animation
+- Add canvas overlay for particle rendering
+- Implement particle system with spawn/update/despawn logic
+- Add simulated traffic metrics generation
+- Implement color coding based on health status
+
+#### Phase 3: Enhanced Tooltips
+- Add connection hover detection
+- Display traffic metrics on link hover
+- Add p50/p99 latency to pod tooltips
+- Implement smart tooltip positioning for all tooltip types
+
+#### Phase 4: Performance Optimization
+- Add frame rate monitoring
+- Implement adaptive particle count
+- Add visibility API integration to pause when tab hidden
+- Optimize canvas rendering with dirty rectangles
+
+### Future Enhancements
+- Integration with actual service mesh metrics (Istio/Linkerd)
+- Historical traffic patterns and trends
+- Anomaly detection and alerting
+- Customizable health thresholds
+- Export/screenshot functionality
