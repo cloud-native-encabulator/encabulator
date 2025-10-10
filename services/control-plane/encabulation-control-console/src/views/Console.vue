@@ -3,6 +3,9 @@ import { computed } from 'vue'
 import { useSystemStore } from '@/stores/system'
 import { useAuthStore } from '@/stores/auth'
 import { useWebSocket } from '@/composables/useWebSocket'
+import SystemTopology from '@/components/SystemTopology.vue'
+import ControlPanel from '@/components/ControlPanel.vue'
+import MetricsPanel from '@/components/MetricsPanel.vue'
 
 const systemStore = useSystemStore()
 const authStore = useAuthStore()
@@ -117,28 +120,19 @@ const guestTimeRemaining = computed(() => {
           </div>
         </div>
 
-        <!-- Placeholder for topology and controls -->
+        <!-- System Topology and Controls -->
         <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
           <div class="lg:col-span-2 card">
-            <h2 class="text-xl font-bold mb-4">System Topology</h2>
-            <div class="h-96 flex items-center justify-center text-text-muted">
-              Topology visualization will be implemented in Task 6.2
-            </div>
+            <SystemTopology />
           </div>
           
           <div class="space-y-6">
             <div class="card">
-              <h3 class="text-lg font-bold mb-4">Control Panel</h3>
-              <div class="text-text-muted text-sm">
-                Control actions will be implemented in Task 6.3
-              </div>
+              <ControlPanel />
             </div>
             
             <div class="card">
-              <h3 class="text-lg font-bold mb-4">Metrics</h3>
-              <div class="text-text-muted text-sm">
-                Real-time metrics will be implemented in Task 6.2
-              </div>
+              <MetricsPanel />
             </div>
           </div>
         </div>
