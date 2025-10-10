@@ -3,7 +3,7 @@ replicaCount: 1
 image:
   repository: 510431938379.dkr.ecr.us-east-2.amazonaws.com/encabulator/encabulation-control-console
   pullPolicy: Always
-  tag: "0.2.0"
+  tag: "0.2.6"
 
 imagePullSecrets: []
 nameOverride: ""
@@ -28,7 +28,7 @@ securityContext:
   allowPrivilegeEscalation: false
   capabilities:
     drop:
-    - ALL
+      - ALL
   readOnlyRootFilesystem: false
 
 service:
@@ -107,3 +107,6 @@ rbac:
     - apiGroups: ["apps"]
       resources: ["deployments", "replicasets"]
       verbs: ["get", "list", "watch", "patch"]
+    - apiGroups: ["metrics.k8s.io"]
+      resources: ["pods", "nodes"]
+      verbs: ["get", "list"]

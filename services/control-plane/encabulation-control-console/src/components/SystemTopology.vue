@@ -8,6 +8,9 @@ const systemStore = useSystemStore()
 const svgRef = ref<SVGSVGElement | null>(null)
 const containerRef = ref<HTMLDivElement | null>(null)
 const selectedNode = ref<ServiceNode | null>(null)
+const hoveredNode = ref<ServiceNode | null>(null)
+const tooltipPosition = ref({ x: 0, y: 0 })
+const tooltipVisible = ref(false)
 
 // Service plane definitions
 const servicePlanes = {
@@ -110,30 +113,65 @@ function initializeVisualization() {
     .attr('height', height)
     .attr('viewBox', [0, 0, width, height])
   
-  // Add zoom behavior
   const g = svg.append('g')
   
+  // Add zoom behavior
   const zoom = d3.zoom<SVGSVGElement, unknown>()
-    .scaleExtent([0.5, 3])
+    .scaleExtent([0.5, 2])
     .on('zoom', (event) => {
       g.attr('transform', event.transform)
     })
   
   svg.call(zoom as any)
   
-  // Create force simulation with better parameters
-  const simulation = d3.forceSimulation(nodes.value as any)
-    .force('link', d3.forceLink(links.value)
-      .id((d: any) => d.id)
-      .distance(200)
-      .strength(0.5))
-    .force('charge', d3.forceManyBody().strength(-500))
-    .force('center', d3.forceCenter(width / 2, height / 2))
-    .force('collision', d3.forceCollide().radius(60))
-    .force('x', d3.forceX(width / 2).strength(0.05))
-    .force('y', d3.forceY(height / 2).strength(0.05))
+  // Fixed hierarchical layout - 4 layers (planes)
+  const layerHeight = height / 5
+  const padding = 80
   
-  // Define arrow markers for directed edges
+  // Calculate fixed positions for each node
+  const nodePositions = new Map<string, { x: number, y: number }>()
+  
+  // Control Plane (top)
+  const controlServices = nodes.value.filter(n => n.plane === 'control')
+  const controlSpacing = (width - 2 * padding) / (controlServices.length + 1)
+  controlServices.forEach((node, i) => {
+    nodePositions.set(node.id, {
+      x: padding + controlSpacing * (i + 1),
+      y: layerHeight
+    })
+  })
+  
+  // Processing Plane
+  const processingServices = nodes.value.filter(n => n.plane === 'processing')
+  const processingSpacing = (width - 2 * padding) / (processingServices.length + 1)
+  processingServices.forEach((node, i) => {
+    nodePositions.set(node.id, {
+      x: padding + processingSpacing * (i + 1),
+      y: layerHeight * 2.5
+    })
+  })
+  
+  // Support Plane (left side, vertical)
+  const supportServices = nodes.value.filter(n => n.plane === 'support')
+  const supportSpacing = (height - 2 * padding) / (supportServices.length + 1)
+  supportServices.forEach((node, i) => {
+    nodePositions.set(node.id, {
+      x: padding,
+      y: padding + supportSpacing * (i + 1)
+    })
+  })
+  
+  // Data Plane (bottom)
+  const dataServices = nodes.value.filter(n => n.plane === 'data')
+  const dataSpacing = (width - 2 * padding) / (dataServices.length + 1)
+  dataServices.forEach((node, i) => {
+    nodePositions.set(node.id, {
+      x: padding + dataSpacing * (i + 1),
+      y: layerHeight * 4
+    })
+  })
+  
+  // Define arrow markers
   svg.append('defs').selectAll('marker')
     .data(['arrow'])
     .join('marker')
@@ -148,42 +186,150 @@ function initializeVisualization() {
     .attr('d', 'M0,-5L10,0L0,5')
     .attr('fill', '#666')
   
-  // Draw links with arrows
-  const link = g.append('g')
-    .selectAll('line')
+  // Draw plane labels
+  const planeLabels = [
+    { name: 'Control Plane', y: layerHeight - 30, color: planeColors.control },
+    { name: 'Processing Plane', y: layerHeight * 2.5 - 30, color: planeColors.processing },
+    { name: 'Data Plane', y: layerHeight * 4 - 30, color: planeColors.data }
+  ]
+  
+  g.selectAll('.plane-label')
+    .data(planeLabels)
+    .join('text')
+    .attr('class', 'plane-label')
+    .attr('x', width / 2)
+    .attr('y', d => d.y)
+    .attr('text-anchor', 'middle')
+    .attr('font-size', '14px')
+    .attr('font-weight', 'bold')
+    .attr('fill', d => d.color)
+    .attr('opacity', 0.6)
+    .text(d => d.name)
+  
+  // Support plane label (vertical)
+  g.append('text')
+    .attr('class', 'plane-label')
+    .attr('x', padding - 50)
+    .attr('y', height / 2)
+    .attr('text-anchor', 'middle')
+    .attr('font-size', '14px')
+    .attr('font-weight', 'bold')
+    .attr('fill', planeColors.support)
+    .attr('opacity', 0.6)
+    .attr('transform', `rotate(-90, ${padding - 50}, ${height / 2})`)
+    .text('Support Plane')
+  
+  // Draw links with curved paths
+  g.append('g')
+    .selectAll('path')
     .data(links.value)
-    .join('line')
+    .join('path')
+    .attr('d', (d: any) => {
+      const sourcePos = nodePositions.get(d.source)
+      const targetPos = nodePositions.get(d.target)
+      if (!sourcePos || !targetPos) return ''
+      
+      // Create curved path
+      const dx = targetPos.x - sourcePos.x
+      const dy = targetPos.y - sourcePos.y
+      const dr = Math.sqrt(dx * dx + dy * dy) * 0.5
+      
+      return `M${sourcePos.x},${sourcePos.y}A${dr},${dr} 0 0,1 ${targetPos.x},${targetPos.y}`
+    })
     .attr('stroke', '#666')
-    .attr('stroke-opacity', 0.6)
-    .attr('stroke-width', (d: any) => Math.sqrt(d.value) * 2)
+    .attr('stroke-opacity', 0.4)
+    .attr('stroke-width', (d: any) => Math.sqrt(d.value) * 1.5)
+    .attr('fill', 'none')
     .attr('marker-end', 'url(#arrow)')
+  
+  // Get connected node IDs for a given node
+  const getConnectedNodes = (nodeId: string): Set<string> => {
+    const connected = new Set<string>()
+    links.value.forEach(link => {
+      const sourceId = typeof link.source === 'string' ? link.source : link.source.id
+      const targetId = typeof link.target === 'string' ? link.target : link.target.id
+      if (sourceId === nodeId) connected.add(targetId)
+      if (targetId === nodeId) connected.add(sourceId)
+    })
+    return connected
+  }
   
   // Draw nodes
   const node = g.append('g')
     .selectAll('g')
     .data(nodes.value)
     .join('g')
-    .call(d3.drag<any, ServiceNode>()
-      .on('start', dragstarted)
-      .on('drag', dragged)
-      .on('end', dragended) as any)
+    .attr('class', 'service-node')
+    .attr('transform', (d: ServiceNode) => {
+      const pos = nodePositions.get(d.id)
+      return pos ? `translate(${pos.x},${pos.y})` : ''
+    })
     .on('click', (event, d) => {
       event.stopPropagation()
       selectedNode.value = d
     })
+    .on('mouseenter', (_event, d) => {
+      hoveredNode.value = d
+      const pos = nodePositions.get(d.id)
+      if (pos) {
+        tooltipPosition.value = { x: pos.x, y: pos.y - 50 }
+        tooltipVisible.value = true
+      }
+      
+      // Highlight connected nodes and links
+      const connectedIds = getConnectedNodes(d.id)
+      
+      // Dim all nodes except hovered and connected
+      g.selectAll('.service-node')
+        .transition()
+        .duration(200)
+        .style('opacity', (n: any) => {
+          return n.id === d.id || connectedIds.has(n.id) ? 1 : 0.2
+        })
+      
+      // Highlight connected links
+      g.selectAll('path')
+        .transition()
+        .duration(200)
+        .style('opacity', (l: any) => {
+          return l.source === d.id || l.target === d.id ? 0.8 : 0.1
+        })
+        .attr('stroke-width', (l: any) => {
+          return l.source === d.id || l.target === d.id ? Math.sqrt(l.value) * 2.5 : Math.sqrt(l.value) * 1.5
+        })
+    })
+    .on('mouseleave', () => {
+      hoveredNode.value = null
+      tooltipVisible.value = false
+      
+      // Reset all opacities
+      g.selectAll('.service-node')
+        .transition()
+        .duration(200)
+        .style('opacity', 1)
+      
+      g.selectAll('path')
+        .transition()
+        .duration(200)
+        .style('opacity', 0.4)
+        .attr('stroke-width', (l: any) => Math.sqrt(l.value) * 1.5)
+    })
+    .style('cursor', 'pointer')
   
-  // Node circles - size based on replica count
+  // Node circles
   node.append('circle')
     .attr('r', (d: ServiceNode) => Math.max(20, 15 + (d.replicas * 5)))
     .attr('fill', (d: ServiceNode) => planeColors[d.plane])
     .attr('stroke', (d: ServiceNode) => statusColors[d.status])
     .attr('stroke-width', 3)
-    .style('cursor', 'pointer')
-    .style('transition', 'r 0.3s ease')
+    .style('transition', 'all 0.3s ease')
   
   // Node labels
   node.append('text')
-    .text((d: ServiceNode) => d.name.split('-').slice(0, 2).join(' '))
+    .text((d: ServiceNode) => {
+      const parts = d.name.split('-')
+      return parts.slice(0, 2).join(' ')
+    })
     .attr('text-anchor', 'middle')
     .attr('dy', 40)
     .attr('font-size', '10px')
@@ -199,34 +345,6 @@ function initializeVisualization() {
     .attr('font-weight', 'bold')
     .attr('fill', '#0a0a0a')
     .style('pointer-events', 'none')
-  
-  // Update positions on tick
-  simulation.on('tick', () => {
-    link
-      .attr('x1', (d: any) => d.source.x)
-      .attr('y1', (d: any) => d.source.y)
-      .attr('x2', (d: any) => d.target.x)
-      .attr('y2', (d: any) => d.target.y)
-    
-    node.attr('transform', (d: any) => `translate(${d.x},${d.y})`)
-  })
-  
-  function dragstarted(event: any) {
-    if (!event.active) simulation.alphaTarget(0.3).restart()
-    event.subject.fx = event.subject.x
-    event.subject.fy = event.subject.y
-  }
-  
-  function dragged(event: any) {
-    event.subject.fx = event.x
-    event.subject.fy = event.y
-  }
-  
-  function dragended(event: any) {
-    if (!event.active) simulation.alphaTarget(0)
-    event.subject.fx = null
-    event.subject.fy = null
-  }
   
   // Click outside to deselect
   svg.on('click', () => {
@@ -273,10 +391,60 @@ watch(() => systemStore.services, () => {
     <div ref="containerRef" class="relative bg-background rounded-lg border border-text-muted/20 overflow-hidden">
       <svg ref="svgRef"></svg>
       
-      <!-- Node details panel -->
+      <!-- Hover tooltip -->
+      <div 
+        v-if="tooltipVisible && hoveredNode" 
+        class="absolute pointer-events-none bg-surface/95 backdrop-blur-sm border border-primary/50 rounded-lg p-3 shadow-lg transition-opacity duration-200"
+        :style="{ 
+          left: `${tooltipPosition.x}px`, 
+          top: `${tooltipPosition.y}px`,
+          transform: 'translate(-50%, -100%)',
+          zIndex: 50
+        }"
+      >
+        <div class="text-sm space-y-1.5 min-w-48">
+          <div class="font-bold text-primary border-b border-primary/30 pb-1 mb-2">
+            {{ hoveredNode.name }}
+          </div>
+          <div class="flex justify-between items-center">
+            <span class="text-text-secondary text-xs">Status:</span>
+            <span 
+              class="capitalize font-medium text-xs px-2 py-0.5 rounded"
+              :style="{ 
+                color: statusColors[hoveredNode.status],
+                backgroundColor: statusColors[hoveredNode.status] + '20'
+              }"
+            >
+              {{ hoveredNode.status }}
+            </span>
+          </div>
+          <div class="flex justify-between">
+            <span class="text-text-secondary text-xs">Plane:</span>
+            <span class="capitalize text-xs" :style="{ color: planeColors[hoveredNode.plane] }">
+              {{ hoveredNode.plane }}
+            </span>
+          </div>
+          <div class="flex justify-between">
+            <span class="text-text-secondary text-xs">Replicas:</span>
+            <span class="font-mono text-xs">{{ hoveredNode.replicas }}</span>
+          </div>
+          <div v-if="systemStore.services[hoveredNode.id]" class="pt-1 border-t border-text-muted/20 mt-2">
+            <div class="flex justify-between">
+              <span class="text-text-secondary text-xs">CPU:</span>
+              <span class="font-mono text-xs">{{ systemStore.services[hoveredNode.id].cpu || 'N/A' }}</span>
+            </div>
+            <div class="flex justify-between">
+              <span class="text-text-secondary text-xs">Memory:</span>
+              <span class="font-mono text-xs">{{ systemStore.services[hoveredNode.id].memory || 'N/A' }}</span>
+            </div>
+          </div>
+        </div>
+      </div>
+      
+      <!-- Node details panel (click) -->
       <div 
         v-if="selectedNode" 
-        class="absolute top-4 right-4 bg-surface border border-primary rounded-lg p-4 min-w-64"
+        class="absolute top-4 right-4 bg-surface border border-primary rounded-lg p-4 min-w-64 shadow-xl"
       >
         <div class="flex items-center justify-between mb-2">
           <h3 class="font-bold text-primary">{{ selectedNode.name }}</h3>
@@ -305,7 +473,7 @@ watch(() => systemStore.services, () => {
     </div>
     
     <div class="mt-2 text-xs text-text-muted text-center">
-      Drag nodes to reposition • Scroll to zoom • Click node for details
+      Hover for quick info • Click for details • Scroll to zoom
     </div>
   </div>
 </template>

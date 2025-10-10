@@ -25,7 +25,13 @@ export class KubernetesService {
 
   async getSystemStatus(): Promise<any> {
     try {
-      const namespaces = ['encabulator-system', 'encabulator-data', 'encabulator-control']
+      const namespaces = [
+        'encabulator-system', 
+        'encabulator-data', 
+        'encabulator-control',
+        'encabulator-processing',
+        'encabulator-support'
+      ]
       const services: Record<string, any> = {}
 
       for (const namespace of namespaces) {
@@ -37,9 +43,15 @@ export class KubernetesService {
             const replicas = deployment.status?.replicas || 0
             const readyReplicas = deployment.status?.readyReplicas || 0
             
+            // Fetch pod metrics for this deployment
+            const metrics = await this.getPodMetrics(namespace, name)
+            
             services[name] = {
-              status: readyReplicas === replicas && replicas > 0 ? 'healthy' : 'degraded',
+              status: readyReplicas === replicas && replicas > 0 ? 'healthy' : 
+                      replicas > 0 ? 'degraded' : 'unhealthy',
               replicas: replicas,
+              cpu: metrics.cpu,
+              memory: metrics.memory,
             }
           }
         } catch (error) {
@@ -52,6 +64,79 @@ export class KubernetesService {
       console.error('Error getting system status:', error)
       return { services: {} }
     }
+  }
+
+  private async getPodMetrics(namespace: string, deploymentName: string): Promise<{ cpu: string, memory: string }> {
+    try {
+      // Get pods for this deployment
+      const pods = await this.coreApi.listNamespacedPod(
+        namespace,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        `app.kubernetes.io/name=${deploymentName}`
+      )
+
+      if (pods.body.items.length === 0) {
+        return { cpu: 'N/A', memory: 'N/A' }
+      }
+
+      // Try to get metrics from metrics API
+      try {
+        const metricsApi = this.kc.makeApiClient(k8s.CustomObjectsApi)
+        const podName = pods.body.items[0].metadata?.name || ''
+        
+        const response = await metricsApi.getNamespacedCustomObject(
+          'metrics.k8s.io',
+          'v1beta1',
+          namespace,
+          'pods',
+          podName
+        )
+
+        const metricsData = response.body as any
+        const containers = metricsData.containers || []
+        
+        if (containers.length > 0) {
+          const cpuUsage = containers[0].usage?.cpu || '0'
+          const memUsage = containers[0].usage?.memory || '0'
+          
+          // Convert to readable format
+          const cpu = this.formatCpu(cpuUsage)
+          const memory = this.formatMemory(memUsage)
+          
+          return { cpu, memory }
+        }
+      } catch (metricsError: any) {
+        // Metrics API might not be available
+        console.debug(`Metrics not available for ${deploymentName}: ${metricsError.message}`)
+      }
+
+      return { cpu: 'N/A', memory: 'N/A' }
+    } catch (error) {
+      return { cpu: 'N/A', memory: 'N/A' }
+    }
+  }
+
+  private formatCpu(cpuString: string): string {
+    // CPU is in nanocores (n) or millicores (m)
+    if (cpuString.endsWith('n')) {
+      const nanocores = parseInt(cpuString.slice(0, -1))
+      const millicores = Math.round(nanocores / 1000000)
+      return `${millicores}m`
+    }
+    return cpuString
+  }
+
+  private formatMemory(memString: string): string {
+    // Memory is in Ki, Mi, Gi, etc.
+    if (memString.endsWith('Ki')) {
+      const kb = parseInt(memString.slice(0, -2))
+      const mb = Math.round(kb / 1024)
+      return `${mb}Mi`
+    }
+    return memString
   }
 
   async scaleService(serviceName: string, direction: 'up' | 'down'): Promise<void> {
