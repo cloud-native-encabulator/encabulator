@@ -5,17 +5,23 @@ Interactive web interface for controlling and monitoring the Cloud Native Encabu
 ## Overview
 
 The Encabulation Control Console provides a real-time visual interface for:
-- System topology visualization
-- Service scaling and control
+- System topology visualization with interactive D3.js graphs
+- Service scaling and control with encabulator-themed actions
 - Failure injection for chaos engineering
 - Demo scenario execution
 - Real-time metrics and monitoring
+- Admin portal for user management and system configuration
 
 ## Architecture
 
-- **Frontend**: React with TypeScript, D3.js for visualizations
+- **Frontend**: Vue 3 with TypeScript, Composition API, Tailwind CSS
+- **State Management**: Pinia for reactive state management
+- **Routing**: Vue Router with authentication guards
+- **Visualizations**: D3.js for interactive topology graphs
+- **Real-time**: Socket.io-client for WebSocket communication
 - **Backend**: Node.js with Express and Socket.io for real-time communication
 - **Kubernetes Integration**: Official Kubernetes client for cluster operations
+- **Testing**: Vitest for unit and component testing
 
 ## Features
 
@@ -44,24 +50,46 @@ The Encabulation Control Console provides a real-time visual interface for:
 ### Frontend Development
 ```bash
 npm install
-npm run dev
+npm run dev          # Starts Vite dev server on port 3000
 ```
 
 ### Backend Development
 ```bash
 cd server
 npm install
-npm run dev
+npm run dev          # Starts Express server on port 8080
+```
+
+### Testing
+```bash
+# Run all tests
+npm test
+
+# Run tests with UI
+npm run test:ui
+
+# Run tests in watch mode
+npm run test -- --watch
 ```
 
 ### Build
 ```bash
-# Frontend
+# Frontend (Vue 3 + Vite)
 npm run build
 
 # Backend
 cd server
 npm run build
+```
+
+### Using Makefile
+```bash
+make help            # Show all available commands
+make build           # Build frontend and backend
+make test            # Run all tests
+make test-frontend-ui # Run tests with Vitest UI
+make run-frontend    # Run frontend dev server
+make run-backend     # Run backend dev server
 ```
 
 ## Configuration

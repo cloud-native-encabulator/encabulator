@@ -1,26 +1,41 @@
-:root {
-  font-family: Inter, system-ui, Avenir, Helvetica, Arial, sans-serif;
-  line-height: 1.5;
-  font-weight: 400;
-  color-scheme: dark;
-  color: rgba(255, 255, 255, 0.87);
-  background-color: #242424;
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  body {
+    @apply bg-background text-text-primary font-sans antialiased;
+  }
+  
+  * {
+    @apply border-text-muted;
+  }
 }
 
-* {
-  margin: 0;
-  padding: 0;
-  box-sizing: border-box;
-}
-
-body {
-  margin: 0;
-  display: flex;
-  min-width: 320px;
-  min-height: 100vh;
-}
-
-#root {
-  width: 100%;
-  height: 100vh;
+@layer components {
+  .btn {
+    @apply px-4 py-2 rounded-lg font-medium transition-all duration-200;
+    @apply hover:scale-105 active:scale-95;
+  }
+  
+  .btn-primary {
+    @apply bg-primary text-background hover:bg-primary/90;
+  }
+  
+  .btn-secondary {
+    @apply bg-surface text-text-primary border border-text-muted hover:border-primary;
+  }
+  
+  .btn-danger {
+    @apply bg-danger text-white hover:bg-danger/90;
+  }
+  
+  .card {
+    @apply bg-surface rounded-lg p-6 border border-text-muted/20;
+  }
+  
+  .input {
+    @apply bg-background border border-text-muted rounded-lg px-4 py-2;
+    @apply focus:outline-none focus:border-primary transition-colors;
+  }
 }

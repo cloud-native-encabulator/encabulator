@@ -126,34 +126,54 @@
 
 - [ ] 6. Enhance Encabulation Control Console
 
-  - [ ] 6.1 Modernize UI with interactive visualizations
+  - [x] 6.1 Migrate frontend to Vue 3 and set up modern tooling
 
-    - Replace static topology view with force-directed graph using D3.js
+    - Create new Vue 3 project with Vite in the frontend directory
+    - Install core dependencies (Vue 3, Vue Router, Pinia, TypeScript)
+    - Install UI dependencies (Tailwind CSS, Headless UI, VueUse)
+    - Install visualization dependencies (D3.js, Socket.io-client, Axios)
+    - Configure Tailwind CSS with dark theme and custom design tokens
+    - Set up Pinia stores for state management (system, auth, actions)
+    - Configure Vue Router with routes for main console and admin portal
+    - Set up TypeScript configuration for Vue 3
+    - Create composables for WebSocket connection and system data
+    - Configure Vitest for component testing
+    - Update Dockerfile to build Vue 3 app
+    - _Requirements: 11.1, 11.2_
+
+  - [ ] 6.2 Migrate and enhance core components to Vue 3
+
+    - Create SystemTopology.vue component with force-directed graph using D3.js
     - Implement animated data flows between services (particle effects)
     - Add real-time metrics overlay on service nodes (CPU, memory, requests/sec)
     - Implement click-to-drill-down functionality for service details
     - Add zoom and pan controls for large topologies
-    - Implement dark theme with modern styling (consider Tailwind CSS or enhanced custom CSS)
-    - Add smooth animations using Framer Motion
-    - Implement toast notifications for action feedback
+    - Create ControlPanel.vue component with enhanced action buttons
+    - Create MetricsPanel.vue component with real-time charts
+    - Implement dark theme with modern styling using Tailwind CSS
+    - Add smooth transitions and animations using Vue transitions
+    - Implement toast notifications for action feedback (using Headless UI)
     - Add loading states with skeleton screens
     - Make UI responsive for mobile and tablet devices
+    - Test all components work on mobile browsers (iOS Safari, Chrome Android)
     - _Requirements: 11.1, 11.2, 11.3_
 
-  - [ ] 6.2 Implement encabulator-themed control actions
+  - [ ] 6.3 Implement encabulator-themed control actions
 
+    - Create ActionsPanel.vue component with themed action buttons
     - Add "Synchronize Cardinal Grammeters" action (trigger load test via cardinal-grammeter API)
     - Add "Induce Side Fumbling" action (inject controlled chaos via malaise-injection-engine)
     - Add "Flex the Dingle Arm" action (scale dingle-arm-api-gateway up/down)
     - Add "Recalibrate Panametric Fam" action (restart panametric-fam-processor)
     - Add "Engage Malaise Dampeners" action (stop active chaos experiments)
     - Add "Purge Hydrocoptic Marzelvanes" action (clear prefabulated-cache)
-    - Implement action confirmation dialogs with impact warnings
-    - Add action history log showing recent operations
+    - Implement action confirmation dialogs with impact warnings (using Headless UI Dialog)
+    - Add action history log showing recent operations with timestamps
     - Display real-time action status and progress indicators
+    - Add action icons and visual feedback for each operation
     - _Requirements: 12.1, 12.2, 12.3, 12.4_
 
-  - [ ] 6.3 Add user management API to unilateral-phase-detractor
+  - [ ] 6.4 Add user management API to unilateral-phase-detractor
 
     - Implement user CRUD endpoints (GET /users, POST /users, PUT /users/:id, DELETE /users/:id)
     - Add role management (admin, operator, viewer)
@@ -163,30 +183,34 @@
     - Add API documentation for user management endpoints
     - _Requirements: 3.1, 3.2_
 
-  - [ ] 6.4 Implement admin portal
+  - [ ] 6.5 Implement admin portal with Vue Router
 
-    - Add React Router for multi-page navigation
-    - Create /admin route with authentication guard
-    - Implement user management page (list users, view details, manage roles)
+    - Create /admin routes with Vue Router navigation guards
+    - Implement AdminLayout.vue component with sidebar navigation
+    - Create UserManagement.vue page (list users, view details, manage roles)
     - Add user activity log viewer with filtering and search
-    - Create Grafana integration page with embedded dashboards (use iframe with proxy)
+    - Create GrafanaIntegration.vue page with embedded dashboards (use iframe with proxy)
     - Add quick links to external Grafana dashboards
-    - Implement system configuration page (feature flags, resource limits)
-    - Add audit log viewer for compliance tracking
-    - Implement JWT-based authentication for admin routes
+    - Implement SystemConfig.vue page (feature flags, resource limits)
+    - Create AuditLog.vue page for compliance tracking
+    - Implement JWT-based authentication for admin routes using Pinia auth store
     - Add role-based access control (RBAC) for admin features
+    - Create login page (Login.vue) with authentication flow
+    - Add mobile-responsive admin interface
     - _Requirements: 3.1, 3.2, 11.1, 2.1_
 
-  - [ ] 6.5 Enhance backend for new features
+  - [ ] 6.6 Enhance backend for new features
 
-    - Add Grafana proxy endpoint for secure dashboard embedding
-    - Implement JWT authentication middleware
+    - Add Grafana proxy endpoint for secure dashboard embedding (/api/grafana/\*)
+    - Implement JWT authentication middleware for protected routes
     - Add user service integration (connect to unilateral-phase-detractor API)
-    - Create new WebSocket events for enhanced actions
+    - Create new WebSocket events for enhanced actions (synchronize_grammeters, induce_fumbling, etc.)
     - Add action validation and authorization checks
-    - Implement rate limiting for control actions
+    - Implement rate limiting for control actions (using express-rate-limit)
     - Add comprehensive error handling and logging
     - Update Prometheus metrics for new endpoints
+    - Add CORS configuration for admin portal
+    - Create API endpoints for action history (/api/actions/history)
     - _Requirements: 11.1, 11.2, 3.1_
 
 - [ ] 7. Architecture Evolution on Main Branch

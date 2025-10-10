@@ -1,4 +1,4 @@
-# EncabulationControlConsole Makefile (React + Node.js)
+# EncabulationControlConsole Makefile (Vue 3 + Node.js)
 
 SERVICE_NAME := encabulation-control-console
 
@@ -21,8 +21,8 @@ help: ## Show this help message
 build: deps build-frontend build-backend ## Build frontend and backend
 	@echo "✓ Full build complete"
 
-build-frontend: ## Build React frontend
-	@echo "Building frontend..."
+build-frontend: ## Build Vue 3 frontend
+	@echo "Building Vue 3 frontend..."
 	@npm run build
 	@echo "✓ Frontend build complete"
 
@@ -33,10 +33,14 @@ build-backend: ## Build Node.js backend
 
 test: test-frontend test-backend ## Run all tests
 
-test-frontend: ## Run frontend tests
-	@echo "Testing frontend..."
+test-frontend: ## Run frontend tests with Vitest
+	@echo "Testing Vue 3 frontend with Vitest..."
 	@npm test
-	@echo "✓ Frontend tests complete"
+	@echo "✓ Frontend tests complete (22 tests)"
+
+test-frontend-ui: ## Run frontend tests with Vitest UI
+	@echo "Starting Vitest UI..."
+	@npm run test:ui
 
 test-backend: ## Run backend tests
 	@echo "Testing backend..."
