@@ -4,6 +4,8 @@ description: Interactive web interface for Cloud Native Encabulator system contr
 type: application
 version: 0.1.0
 appVersion: "0.2.0"
+annotations:
+  platform.version: "0.1.0"
 keywords:
   - encabulator
   - control-plane
