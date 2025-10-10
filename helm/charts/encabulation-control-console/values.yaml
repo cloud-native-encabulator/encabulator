@@ -3,7 +3,7 @@ replicaCount: 1
 image:
   repository: 510431938379.dkr.ecr.us-east-2.amazonaws.com/encabulator/encabulation-control-console
   pullPolicy: Always
-  tag: "0.2.6"
+  tag: "0.2.9"
 
 imagePullSecrets: []
 nameOverride: ""

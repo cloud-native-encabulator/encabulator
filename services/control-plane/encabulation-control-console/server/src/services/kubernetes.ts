@@ -82,21 +82,13 @@ export class KubernetesService {
         return { cpu: 'N/A', memory: 'N/A' }
       }
 
-      // Try to get metrics from metrics API
+      // Try to get metrics from metrics API using Metrics client
       try {
-        const metricsApi = this.kc.makeApiClient(k8s.CustomObjectsApi)
         const podName = pods.body.items[0].metadata?.name || ''
+        const metricsClient = new k8s.Metrics(this.kc)
         
-        const response = await metricsApi.getNamespacedCustomObject(
-          'metrics.k8s.io',
-          'v1beta1',
-          namespace,
-          'pods',
-          podName
-        )
-
-        const metricsData = response.body as any
-        const containers = metricsData.containers || []
+        const metricsResponse = await metricsClient.getPodMetrics(namespace, podName)
+        const containers = metricsResponse.containers || []
         
         if (containers.length > 0) {
           const cpuUsage = containers[0].usage?.cpu || '0'
@@ -110,7 +102,7 @@ export class KubernetesService {
         }
       } catch (metricsError: any) {
         // Metrics API might not be available
-        console.debug(`Metrics not available for ${deploymentName}: ${metricsError.message}`)
+        console.debug(`Metrics not available for ${deploymentName}`)
       }
 
       return { cpu: 'N/A', memory: 'N/A' }
