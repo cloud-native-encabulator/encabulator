@@ -37,27 +37,47 @@ const nodes = computed<ServiceNode[]>(() => {
 })
 
 const links = computed<ServiceLink[]>(() => {
-  // Define service relationships
+  // Define actual service relationships based on architecture
   return [
-    // Processing → Data
-    { source: 'panametric-fam-processor', target: 'hydrocoptic-datastore', value: 1 },
-    { source: 'panametric-fam-processor', target: 'prefabulated-cache', value: 1 },
-    { source: 'logarithmic-casing-service', target: 'sinusoidal-database', value: 1 },
+    // Traffic Generation: Cardinal Grammeter → API Gateway
+    { source: 'cardinal-grammeter', target: 'dingle-arm-api-gateway', value: 3 },
     
-    // API Gateway → Processing
-    { source: 'dingle-arm-api-gateway', target: 'panametric-fam-processor', value: 2 },
-    { source: 'dingle-arm-api-gateway', target: 'logarithmic-casing-service', value: 1 },
+    // API Gateway → Auth & Processing
+    { source: 'dingle-arm-api-gateway', target: 'unilateral-phase-detractor', value: 2 },
+    { source: 'dingle-arm-api-gateway', target: 'panametric-fam-processor', value: 3 },
     
-    // Support → Processing
-    { source: 'unilateral-phase-detractor', target: 'dingle-arm-api-gateway', value: 1 },
+    // Processing → Data Stores
+    { source: 'panametric-fam-processor', target: 'hydrocoptic-datastore', value: 2 },
+    { source: 'panametric-fam-processor', target: 'prefabulated-cache', value: 2 },
+    { source: 'panametric-fam-processor', target: 'sinusoidal-database', value: 2 },
+    
+    // Processing → Message Broker
+    { source: 'panametric-fam-processor', target: 'logarithmic-casing-service', value: 2 },
+    { source: 'logarithmic-casing-service', target: 'panametric-fam-processor', value: 1 },
+    
+    // Configuration → Services
     { source: 'differential-girdle', target: 'panametric-fam-processor', value: 1 },
-    { source: 'side-fumbling-collector', target: 'hydrocoptic-datastore', value: 1 },
+    { source: 'differential-girdle', target: 'dingle-arm-api-gateway', value: 1 },
+    { source: 'differential-girdle', target: 'logarithmic-casing-service', value: 1 },
     
-    // Control → Everything
-    { source: 'encabulation-control-console', target: 'dingle-arm-api-gateway', value: 1 },
+    // Resource Management → Data Stores
+    { source: 'side-fumbling-collector', target: 'hydrocoptic-datastore', value: 1 },
+    { source: 'side-fumbling-collector', target: 'sinusoidal-database', value: 1 },
+    { source: 'side-fumbling-collector', target: 'prefabulated-cache', value: 1 },
+    
+    // Chaos Engineering → Services
     { source: 'malaise-injection-engine', target: 'panametric-fam-processor', value: 1 },
-    { source: 'cardinal-grammeter', target: 'dingle-arm-api-gateway', value: 2 },
-    { source: 'demo-scenario-orchestrator', target: 'encabulation-control-console', value: 1 }
+    { source: 'malaise-injection-engine', target: 'hydrocoptic-datastore', value: 1 },
+    { source: 'malaise-injection-engine', target: 'prefabulated-cache', value: 1 },
+    
+    // Control Console → Monitoring
+    { source: 'encabulation-control-console', target: 'dingle-arm-api-gateway', value: 1 },
+    { source: 'encabulation-control-console', target: 'panametric-fam-processor', value: 1 },
+    
+    // Demo Orchestrator → Control
+    { source: 'demo-scenario-orchestrator', target: 'encabulation-control-console', value: 1 },
+    { source: 'demo-scenario-orchestrator', target: 'cardinal-grammeter', value: 1 },
+    { source: 'demo-scenario-orchestrator', target: 'malaise-injection-engine', value: 1 }
   ]
 })
 
@@ -101,16 +121,34 @@ function initializeVisualization() {
   
   svg.call(zoom as any)
   
-  // Create force simulation
+  // Create force simulation with better parameters
   const simulation = d3.forceSimulation(nodes.value as any)
     .force('link', d3.forceLink(links.value)
       .id((d: any) => d.id)
-      .distance(150))
-    .force('charge', d3.forceManyBody().strength(-300))
+      .distance(200)
+      .strength(0.5))
+    .force('charge', d3.forceManyBody().strength(-500))
     .force('center', d3.forceCenter(width / 2, height / 2))
-    .force('collision', d3.forceCollide().radius(50))
+    .force('collision', d3.forceCollide().radius(60))
+    .force('x', d3.forceX(width / 2).strength(0.05))
+    .force('y', d3.forceY(height / 2).strength(0.05))
   
-  // Draw links
+  // Define arrow markers for directed edges
+  svg.append('defs').selectAll('marker')
+    .data(['arrow'])
+    .join('marker')
+    .attr('id', 'arrow')
+    .attr('viewBox', '0 -5 10 10')
+    .attr('refX', 35)
+    .attr('refY', 0)
+    .attr('markerWidth', 6)
+    .attr('markerHeight', 6)
+    .attr('orient', 'auto')
+    .append('path')
+    .attr('d', 'M0,-5L10,0L0,5')
+    .attr('fill', '#666')
+  
+  // Draw links with arrows
   const link = g.append('g')
     .selectAll('line')
     .data(links.value)
@@ -118,6 +156,7 @@ function initializeVisualization() {
     .attr('stroke', '#666')
     .attr('stroke-opacity', 0.6)
     .attr('stroke-width', (d: any) => Math.sqrt(d.value) * 2)
+    .attr('marker-end', 'url(#arrow)')
   
   // Draw nodes
   const node = g.append('g')
@@ -133,13 +172,14 @@ function initializeVisualization() {
       selectedNode.value = d
     })
   
-  // Node circles
+  // Node circles - size based on replica count
   node.append('circle')
-    .attr('r', 25)
+    .attr('r', (d: ServiceNode) => Math.max(20, 15 + (d.replicas * 5)))
     .attr('fill', (d: ServiceNode) => planeColors[d.plane])
     .attr('stroke', (d: ServiceNode) => statusColors[d.status])
     .attr('stroke-width', 3)
     .style('cursor', 'pointer')
+    .style('transition', 'r 0.3s ease')
   
   // Node labels
   node.append('text')
