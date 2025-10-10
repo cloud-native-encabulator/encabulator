@@ -124,9 +124,74 @@
     - Configure monitoring and alerting for control services
     - _Requirements: 11.1, 11.2, 11.3, 12.1, 12.2, 12.3, 12.4, 12.5, 12.6, 4.2, 4.3, 4.4_
 
-- [ ] 6. Architecture Evolution on Main Branch
+- [ ] 6. Enhance Encabulation Control Console
 
-  - [ ] 6.1 Migrate to GitOps on main branch
+  - [ ] 6.1 Modernize UI with interactive visualizations
+
+    - Replace static topology view with force-directed graph using D3.js
+    - Implement animated data flows between services (particle effects)
+    - Add real-time metrics overlay on service nodes (CPU, memory, requests/sec)
+    - Implement click-to-drill-down functionality for service details
+    - Add zoom and pan controls for large topologies
+    - Implement dark theme with modern styling (consider Tailwind CSS or enhanced custom CSS)
+    - Add smooth animations using Framer Motion
+    - Implement toast notifications for action feedback
+    - Add loading states with skeleton screens
+    - Make UI responsive for mobile and tablet devices
+    - _Requirements: 11.1, 11.2, 11.3_
+
+  - [ ] 6.2 Implement encabulator-themed control actions
+
+    - Add "Synchronize Cardinal Grammeters" action (trigger load test via cardinal-grammeter API)
+    - Add "Induce Side Fumbling" action (inject controlled chaos via malaise-injection-engine)
+    - Add "Flex the Dingle Arm" action (scale dingle-arm-api-gateway up/down)
+    - Add "Recalibrate Panametric Fam" action (restart panametric-fam-processor)
+    - Add "Engage Malaise Dampeners" action (stop active chaos experiments)
+    - Add "Purge Hydrocoptic Marzelvanes" action (clear prefabulated-cache)
+    - Implement action confirmation dialogs with impact warnings
+    - Add action history log showing recent operations
+    - Display real-time action status and progress indicators
+    - _Requirements: 12.1, 12.2, 12.3, 12.4_
+
+  - [ ] 6.3 Add user management API to unilateral-phase-detractor
+
+    - Implement user CRUD endpoints (GET /users, POST /users, PUT /users/:id, DELETE /users/:id)
+    - Add role management (admin, operator, viewer)
+    - Implement user activity logging
+    - Add user authentication status tracking
+    - Create database schema for user management (if not already present)
+    - Add API documentation for user management endpoints
+    - _Requirements: 3.1, 3.2_
+
+  - [ ] 6.4 Implement admin portal
+
+    - Add React Router for multi-page navigation
+    - Create /admin route with authentication guard
+    - Implement user management page (list users, view details, manage roles)
+    - Add user activity log viewer with filtering and search
+    - Create Grafana integration page with embedded dashboards (use iframe with proxy)
+    - Add quick links to external Grafana dashboards
+    - Implement system configuration page (feature flags, resource limits)
+    - Add audit log viewer for compliance tracking
+    - Implement JWT-based authentication for admin routes
+    - Add role-based access control (RBAC) for admin features
+    - _Requirements: 3.1, 3.2, 11.1, 2.1_
+
+  - [ ] 6.5 Enhance backend for new features
+
+    - Add Grafana proxy endpoint for secure dashboard embedding
+    - Implement JWT authentication middleware
+    - Add user service integration (connect to unilateral-phase-detractor API)
+    - Create new WebSocket events for enhanced actions
+    - Add action validation and authorization checks
+    - Implement rate limiting for control actions
+    - Add comprehensive error handling and logging
+    - Update Prometheus metrics for new endpoints
+    - _Requirements: 11.1, 11.2, 3.1_
+
+- [ ] 7. Architecture Evolution on Main Branch
+
+  - [ ] 7.1 Migrate to GitOps on main branch
 
     - Create `helm-first` branch to preserve current Helm-only implementation
     - Implement ArgoCD GitOps workflow on main branch
@@ -134,7 +199,7 @@
     - Migrate from direct Helm commands to ArgoCD Applications
     - _Requirements: 9.1, 9.2, 9.3, 9.4_
 
-  - [ ] 6.2 Migrate to AWS managed services with ACK
+  - [ ] 7.2 Migrate to AWS managed services with ACK
 
     - Deploy AWS Controllers for Kubernetes (ACK) via Helm
     - Configure EKS Pod Identity for secure AWS API access (service accounts with IAM role associations)
@@ -148,7 +213,7 @@
     - Configure proper security groups and networking
     - _Requirements: 10.1, 10.2, 10.3, 10.4, 10.5, 10.6_
 
-  - [ ] 6.3 Implement KRO on main branch
+  - [ ] 7.3 Implement KRO on main branch
 
     - Create `argo-first` branch to preserve GitOps implementation
     - Implement KRO ResourceGraphDefinitions on main branch
@@ -156,7 +221,7 @@
     - Demonstrate platform engineering patterns with KRO + ArgoCD
     - _Requirements: 8.8, 10.2, 10.6_
 
-  - [ ] 6.4 Document architectural evolution
+  - [ ] 7.4 Document architectural evolution
 
     - Create comparison documentation between preserved branches
     - Document migration paths between deployment strategies
@@ -164,9 +229,9 @@
     - Create branch-specific README files with approach explanations
     - _Requirements: 6.1, 6.2, 6.3, 6.4, 6.5_
 
-- [ ] 7. Implement platform resilience and scaling
+- [ ] 8. Implement platform resilience and scaling
 
-  - [ ] 7.1 Implement resilience patterns
+  - [ ] 8.1 Implement resilience patterns
 
     - Create resilience patterns (probes, circuit breakers, retries, graceful degradation)
     - Integrate resilience patterns into all service deployments
@@ -174,7 +239,7 @@
     - Test resilience behavior under various failure conditions
     - _Requirements: 4.1, 4.2, 4.3, 4.4_
 
-  - [ ] 7.2 Implement auto-scaling
+  - [ ] 8.2 Implement auto-scaling
 
     - Create HPA and VPA configurations for all services
     - Implement custom metrics for scaling decisions
@@ -182,7 +247,7 @@
     - Test scaling behavior under load
     - _Requirements: 5.1, 5.2, 5.3_
 
-  - [ ] 7.3 Implement platform-wide configuration management
+  - [ ] 8.3 Implement platform-wide configuration management
 
     - Enhance DifferentialGirdle service for dynamic configuration updates
     - Implement configuration propagation during scaling events
@@ -190,16 +255,16 @@
     - Test configuration updates across scaled service instances
     - _Requirements: 5.3, 3.5_
 
-  - [ ] 7.4 Create scaling and resilience visualizations
+  - [ ] 8.4 Create scaling and resilience visualizations
     - Enhance EncabulationControlConsole with scaling and resilience dashboards
     - Implement real-time visualization of scaling events and failure recovery
     - Create interactive controls for testing resilience patterns
     - Add metrics and alerts for platform health and performance
     - _Requirements: 5.4, 7.4_
 
-- [ ] 8. Create comprehensive demo scenarios
+- [ ] 9. Create comprehensive demo scenarios
 
-  - [ ] 8.1 Implement platform demonstration scenarios
+  - [ ] 9.1 Implement platform demonstration scenarios
 
     - Create DemoScenarioOrchestrator instances for basic operations, failure modes, and scaling
     - Implement automated demo workflows (startup sequence, data flow, configuration changes)
@@ -207,7 +272,7 @@
     - Add real-time visualization of system behavior during demos
     - _Requirements: 7.1, 7.2, 7.3, 7.4, 7.5, 5.1, 5.2, 5.3, 5.4_
 
-  - [ ] 8.2 Create production-ready deployment examples
+  - [ ] 9.2 Create production-ready deployment examples
 
     - Create production configurations for all services with enterprise settings
     - Implement multi-environment promotion workflows (dev → staging → prod)
@@ -215,9 +280,9 @@
     - Document production deployment best practices
     - _Requirements: 6.3, 10.7_
 
-- [ ] 9. Complete platform documentation
+- [ ] 10. Complete platform documentation
 
-  - [ ] 9.1 Create infrastructure and service documentation
+  - [ ] 10.1 Create infrastructure and service documentation
 
     - Document in-cluster service deployment and management
     - Create usage examples and best practices for each service
@@ -225,7 +290,7 @@
     - Add API reference documentation
     - _Requirements: 6.1, 6.2, 6.4_
 
-  - [ ] 9.2 Create platform operator guides
+  - [ ] 10.2 Create platform operator guides
 
     - Write comprehensive deployment guides for different environments
     - Create platform administration and maintenance procedures
@@ -233,7 +298,7 @@
     - Create Cloud Native Encabulator glossary and concept mapping
     - _Requirements: 6.3, 6.5_
 
-  - [ ] 9.3 Create developer experience documentation
+  - [ ] 10.3 Create developer experience documentation
 
     - Write service development guides using the platform
     - Create integration examples and SDK documentation
