@@ -11,6 +11,7 @@ const selectedNode = ref<ServiceNode | null>(null)
 const hoveredNode = ref<ServiceNode | null>(null)
 const tooltipPosition = ref({ x: 0, y: 0 })
 const tooltipVisible = ref(false)
+const tooltipFlipped = ref(false)
 
 // Service plane definitions
 const servicePlanes = {
@@ -272,7 +273,19 @@ function initializeVisualization() {
       hoveredNode.value = d
       const pos = nodePositions.get(d.id)
       if (pos) {
-        tooltipPosition.value = { x: pos.x, y: pos.y - 50 }
+        // Smart positioning: flip tooltip below if near top
+        const flipThreshold = 120
+        
+        if (pos.y < flipThreshold) {
+          // Near top: show below
+          tooltipPosition.value = { x: pos.x, y: pos.y + 50 }
+          tooltipFlipped.value = true
+        } else {
+          // Normal: show above
+          tooltipPosition.value = { x: pos.x, y: pos.y - 50 }
+          tooltipFlipped.value = false
+        }
+        
         tooltipVisible.value = true
       }
       
@@ -388,7 +401,7 @@ watch(() => systemStore.services, () => {
       </div>
     </div>
     
-    <div ref="containerRef" class="relative bg-background rounded-lg border border-text-muted/20 overflow-hidden">
+    <div ref="containerRef" class="relative bg-background rounded-lg border border-text-muted/20 overflow-visible">
       <svg ref="svgRef"></svg>
       
       <!-- Hover tooltip -->
@@ -398,7 +411,7 @@ watch(() => systemStore.services, () => {
         :style="{ 
           left: `${tooltipPosition.x}px`, 
           top: `${tooltipPosition.y}px`,
-          transform: 'translate(-50%, -100%)',
+          transform: tooltipFlipped ? 'translate(-50%, 0%)' : 'translate(-50%, -100%)',
           zIndex: 50
         }"
       >
