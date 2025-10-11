@@ -7,33 +7,33 @@ const systemStore = useSystemStore()
 const metrics = computed(() => [
   {
     label: 'Total Requests',
-    value: systemStore.metrics.totalRequests.toLocaleString(),
+    value: (systemStore.metrics?.totalRequests || 0).toLocaleString(),
     unit: '',
     color: 'text-primary'
   },
   {
     label: 'Avg Latency',
-    value: systemStore.metrics.avgLatency,
+    value: systemStore.metrics?.avgLatency || 0,
     unit: 'ms',
-    color: systemStore.metrics.avgLatency > 100 ? 'text-warning' : 'text-success'
+    color: (systemStore.metrics?.avgLatency || 0) > 100 ? 'text-warning' : 'text-success'
   },
   {
     label: 'Error Rate',
-    value: (systemStore.metrics.errorRate * 100).toFixed(2),
+    value: ((systemStore.metrics?.errorRate || 0) * 100).toFixed(2),
     unit: '%',
-    color: systemStore.metrics.errorRate > 0.05 ? 'text-danger' : 'text-success'
+    color: (systemStore.metrics?.errorRate || 0) > 0.05 ? 'text-danger' : 'text-success'
   },
   {
     label: 'CPU Usage',
-    value: systemStore.metrics.cpuUsage.toFixed(1),
+    value: (systemStore.metrics?.cpuUsage || 0).toFixed(1),
     unit: '%',
-    color: systemStore.metrics.cpuUsage > 80 ? 'text-danger' : 'text-primary'
+    color: (systemStore.metrics?.cpuUsage || 0) > 80 ? 'text-danger' : 'text-primary'
   },
   {
     label: 'Memory Usage',
-    value: systemStore.metrics.memoryUsage.toFixed(1),
+    value: (systemStore.metrics?.memoryUsage || 0).toFixed(1),
     unit: '%',
-    color: systemStore.metrics.memoryUsage > 80 ? 'text-danger' : 'text-primary'
+    color: (systemStore.metrics?.memoryUsage || 0) > 80 ? 'text-danger' : 'text-primary'
   }
 ])
 

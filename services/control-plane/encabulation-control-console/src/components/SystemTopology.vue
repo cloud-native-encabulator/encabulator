@@ -131,14 +131,27 @@ function calculatePodPositions(podCount: number): { x: number, y: number }[] {
 
 // Helper function to determine pod color based on status
 function getPodColor(pod: any, plane: string): string {
-  if (!pod.ready || pod.status === 'Failed') {
-    return '#ff0055' // Red for failed pods
+  const colors = {
+    data: '#00d9ff',
+    processing: '#ff00ff',
+    support: '#ffaa00',
+    control: '#00ff88'
   }
-  if (pod.status !== 'Running') {
-    return '#666666' // Gray for not ready pods
+  
+  // Failed pods are red
+  if (pod.status === 'Failed') {
+    return '#ff0055'
   }
-  // Use plane color for healthy pods
-  return planeColors[plane as keyof typeof planeColors]
+  // Not ready pods are gray
+  if (!pod.ready) {
+    return '#666666'
+  }
+  // Running and ready pods use plane color
+  if (pod.status === 'Running' && pod.ready) {
+    return colors[plane as keyof typeof colors] || '#666666'
+  }
+  // Default to gray for other states
+  return '#666666'
 }
 
 function initializeVisualization() {
@@ -385,6 +398,11 @@ function initializeVisualization() {
     const pods = service?.pods || []
     
     if (pods.length === 0) return
+    
+    // Debug: log first pod to see what data we're getting
+    if (pods.length > 0) {
+      console.log(`Service ${d.id} pod data:`, pods[0], `plane: ${d.plane}`)
+    }
     
     const podGroup = d3.select(this).append('g').attr('class', 'pod-indicators')
     

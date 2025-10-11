@@ -158,7 +158,7 @@
     - Test all components work on mobile browsers (iOS Safari, Chrome Android)
     - _Requirements: 11.1, 11.2, 11.3_
 
-  - [ ] 6.3 Implement pod visualization within service nodes
+  - [x] 6.3 Implement pod visualization within service nodes
 
     - Extend KubernetesService to fetch individual pod data with status and metrics
     - Add pod indicator rendering logic to SystemTopology.vue
