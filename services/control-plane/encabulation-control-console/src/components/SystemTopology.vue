@@ -14,6 +14,10 @@ const tooltipPosition = ref({ x: 0, y: 0 })
 const tooltipVisible = ref(false)
 const tooltipFlipped = ref(false)
 
+// View toggles
+const showTraffic = ref(false)
+const showRoutes = ref(false)
+
 // Pod tooltip state
 const hoveredPod = ref<any>(null)
 const podTooltipPosition = ref({ x: 0, y: 0 })
@@ -33,7 +37,6 @@ interface Particle {
 const particles = ref<Particle[]>([])
 let particleIdCounter = 0
 let animationFrameId: number | null = null
-const showTraffic = ref(false)
 let particleSpawnInterval: number | null = null
 
 // Service plane definitions
@@ -244,8 +247,12 @@ function animateParticles() {
     return true
   })
   
-  // Continue animation
-  animationFrameId = requestAnimationFrame(animateParticles)
+  // Continue animation if traffic is enabled OR there are still particles in flight
+  if (showTraffic.value || particles.value.length > 0) {
+    animationFrameId = requestAnimationFrame(animateParticles)
+  } else {
+    animationFrameId = null
+  }
 }
 
 function startParticleAnimation() {
@@ -272,15 +279,13 @@ function startParticleAnimation() {
 }
 
 function stopParticleAnimation() {
-  if (animationFrameId !== null) {
-    cancelAnimationFrame(animationFrameId)
-    animationFrameId = null
-  }
+  // Stop spawning new particles
   if (particleSpawnInterval !== null) {
     clearInterval(particleSpawnInterval)
     particleSpawnInterval = null
   }
-  particles.value = []
+  // Don't clear particles or cancel animation - let them finish naturally
+  // The animateParticles function will stop itself when particles.length === 0
 }
 
 function initializeVisualization() {
@@ -411,8 +416,12 @@ function initializeVisualization() {
     .text('Support Plane')
   
   // Draw links with curved paths
-  g.append('g')
-    .selectAll('path')
+  const linksGroup = g.append('g')
+    .attr('class', 'connection-links')
+    .style('opacity', showRoutes.value ? 1 : 0)
+    .style('pointer-events', showRoutes.value ? 'auto' : 'none')
+  
+  linksGroup.selectAll('path')
     .data(links.value)
     .join('path')
     .attr('d', (d: any) => {
@@ -621,20 +630,52 @@ function initializeVisualization() {
 
 onMounted(() => {
   initializeVisualization()
-  startParticleAnimation()
+  
+  // Only start particle animation if showTraffic is true
+  if (showTraffic.value) {
+    startParticleAnimation()
+  }
   
   // Reinitialize on window resize
   window.addEventListener('resize', initializeVisualization)
 })
 
 onUnmounted(() => {
-  stopParticleAnimation()
+  // Force stop everything on unmount
+  if (particleSpawnInterval !== null) {
+    clearInterval(particleSpawnInterval)
+    particleSpawnInterval = null
+  }
+  if (animationFrameId !== null) {
+    cancelAnimationFrame(animationFrameId)
+    animationFrameId = null
+  }
+  particles.value = []
   window.removeEventListener('resize', initializeVisualization)
 })
 
 watch(() => systemStore.services, () => {
   initializeVisualization()
 }, { deep: true })
+
+watch(showRoutes, (newValue) => {
+  if (svgRef.value) {
+    d3.select(svgRef.value)
+      .select('.connection-links')
+      .transition()
+      .duration(300)
+      .style('opacity', newValue ? 1 : 0)
+      .style('pointer-events', newValue ? 'auto' : 'none')
+  }
+})
+
+watch(showTraffic, (newValue) => {
+  if (newValue) {
+    startParticleAnimation()
+  } else {
+    stopParticleAnimation()
+  }
+})
 </script>
 
 <template>
@@ -642,15 +683,26 @@ watch(() => systemStore.services, () => {
     <div class="flex items-center justify-between mb-4">
       <h2 class="text-xl font-bold">System Topology</h2>
       <div class="flex items-center gap-6">
-        <button
-          @click="showTraffic = !showTraffic"
-          class="px-3 py-1.5 rounded-lg text-sm font-medium transition-colors"
-          :class="showTraffic 
-            ? 'bg-primary text-background hover:bg-primary/90' 
-            : 'bg-surface border border-text-muted/30 text-text-secondary hover:bg-surface-hover'"
-        >
-          {{ showTraffic ? 'Hide Traffic' : 'View Traffic' }}
-        </button>
+        <div class="flex gap-2">
+          <button
+            @click="showRoutes = !showRoutes"
+            class="px-3 py-1.5 rounded-lg text-sm font-medium transition-colors"
+            :class="showRoutes 
+              ? 'bg-primary text-background hover:bg-primary/90' 
+              : 'bg-surface border border-text-muted/30 text-text-secondary hover:bg-surface-hover'"
+          >
+            {{ showRoutes ? 'Hide Routes' : 'View Routes' }}
+          </button>
+          <button
+            @click="showTraffic = !showTraffic"
+            class="px-3 py-1.5 rounded-lg text-sm font-medium transition-colors"
+            :class="showTraffic 
+              ? 'bg-primary text-background hover:bg-primary/90' 
+              : 'bg-surface border border-text-muted/30 text-text-secondary hover:bg-surface-hover'"
+          >
+            {{ showTraffic ? 'Hide Traffic' : 'View Traffic' }}
+          </button>
+        </div>
         <div class="flex gap-4 text-sm">
           <div class="flex items-center gap-2">
             <div class="w-3 h-3 rounded-full" :style="{ backgroundColor: planeColors.data }"></div>

@@ -176,7 +176,7 @@
     - Implement smart tooltip positioning to avoid viewport edges
     - _Requirements: 13.5, 13.6, 13.7_
 
-  - [-] 6.5 Implement canvas-based particle animation system
+  - [x] 6.5 Implement canvas-based particle animation system
 
     - Add canvas overlay to SystemTopology component
     - Implement particle data structure and lifecycle management
