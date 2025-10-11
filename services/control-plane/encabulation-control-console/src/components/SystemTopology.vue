@@ -13,6 +13,12 @@ const tooltipPosition = ref({ x: 0, y: 0 })
 const tooltipVisible = ref(false)
 const tooltipFlipped = ref(false)
 
+// Pod tooltip state
+const hoveredPod = ref<any>(null)
+const podTooltipPosition = ref({ x: 0, y: 0 })
+const podTooltipVisible = ref(false)
+const podTooltipFlipped = ref(false)
+
 // Service plane definitions
 const servicePlanes = {
   data: ['hydrocoptic-datastore', 'sinusoidal-database', 'prefabulated-cache'],
@@ -414,6 +420,37 @@ function initializeVisualization() {
         .attr('stroke', '#ffffff')
         .attr('stroke-width', 1)
         .style('cursor', 'pointer')
+        .on('mouseenter', (event: any, pod: any) => {
+          event.stopPropagation()
+          hoveredPod.value = pod
+          
+          const nodePos = nodePositions.get(d.id)
+          if (nodePos) {
+            const podIndex = pods.indexOf(pod)
+            const podPos = positions[podIndex]
+            
+            // Calculate absolute position
+            const absX = nodePos.x + podPos.x
+            const absY = nodePos.y + podPos.y
+            
+            // Smart positioning: flip tooltip below if near top
+            const flipThreshold = 120
+            
+            if (absY < flipThreshold) {
+              podTooltipPosition.value = { x: absX, y: absY + 20 }
+              podTooltipFlipped.value = true
+            } else {
+              podTooltipPosition.value = { x: absX, y: absY - 20 }
+              podTooltipFlipped.value = false
+            }
+            
+            podTooltipVisible.value = true
+          }
+        })
+        .on('mouseleave', () => {
+          hoveredPod.value = null
+          podTooltipVisible.value = false
+        })
     } else {
       // Grouped representation with count badge
       podGroup.append('text')
@@ -531,6 +568,58 @@ watch(() => systemStore.services, () => {
               <span class="text-text-secondary text-xs">Memory:</span>
               <span class="font-mono text-xs">{{ systemStore.services[hoveredNode.id].memory || 'N/A' }}</span>
             </div>
+          </div>
+        </div>
+      </div>
+      
+      <!-- Pod tooltip -->
+      <div 
+        v-if="podTooltipVisible && hoveredPod" 
+        class="absolute pointer-events-none bg-surface/95 backdrop-blur-sm border border-primary/50 rounded-lg p-3 shadow-lg transition-opacity duration-200"
+        :style="{ 
+          left: `${podTooltipPosition.x}px`, 
+          top: `${podTooltipPosition.y}px`,
+          transform: podTooltipFlipped ? 'translate(-50%, 0%)' : 'translate(-50%, -100%)',
+          zIndex: 60
+        }"
+      >
+        <div class="text-sm space-y-1.5 min-w-48">
+          <div class="font-bold text-primary border-b border-primary/30 pb-1 mb-2 text-xs">
+            {{ hoveredPod.name }}
+          </div>
+          <div class="flex justify-between items-center">
+            <span class="text-text-secondary text-xs">Status:</span>
+            <span 
+              class="capitalize font-medium text-xs px-2 py-0.5 rounded"
+              :style="{ 
+                color: hoveredPod.ready ? '#00ff88' : '#666666',
+                backgroundColor: hoveredPod.ready ? '#00ff8820' : '#66666620'
+              }"
+            >
+              {{ hoveredPod.status }}
+            </span>
+          </div>
+          <div class="flex justify-between">
+            <span class="text-text-secondary text-xs">CPU:</span>
+            <span class="font-mono text-xs">{{ hoveredPod.cpu }}</span>
+          </div>
+          <div class="flex justify-between">
+            <span class="text-text-secondary text-xs">Memory:</span>
+            <span class="font-mono text-xs">{{ hoveredPod.memory }}</span>
+          </div>
+          <div v-if="hoveredPod.p50Latency || hoveredPod.p99Latency" class="pt-1 border-t border-text-muted/20 mt-2">
+            <div v-if="hoveredPod.p50Latency" class="flex justify-between">
+              <span class="text-text-secondary text-xs">P50 Latency:</span>
+              <span class="font-mono text-xs">{{ hoveredPod.p50Latency }}ms</span>
+            </div>
+            <div v-if="hoveredPod.p99Latency" class="flex justify-between">
+              <span class="text-text-secondary text-xs">P99 Latency:</span>
+              <span class="font-mono text-xs">{{ hoveredPod.p99Latency }}ms</span>
+            </div>
+          </div>
+          <div v-if="hoveredPod.errorRate !== undefined" class="flex justify-between">
+            <span class="text-text-secondary text-xs">Error Rate:</span>
+            <span class="font-mono text-xs">{{ (hoveredPod.errorRate * 100).toFixed(2) }}%</span>
           </div>
         </div>
       </div>

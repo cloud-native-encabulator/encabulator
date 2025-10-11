@@ -167,7 +167,7 @@
     - Implement grouped representation for services with > 5 pods
     - _Requirements: 13.1, 13.2, 13.3, 13.4_
 
-  - [ ] 6.4 Implement pod tooltip with detailed metrics
+  - [x] 6.4 Implement pod tooltip with detailed metrics
 
     - Add hover detection for individual pod indicators
     - Create pod tooltip component with pod name, status, CPU, and memory
@@ -176,7 +176,7 @@
     - Implement smart tooltip positioning to avoid viewport edges
     - _Requirements: 13.5, 13.6, 13.7_
 
-  - [ ] 6.5 Implement canvas-based particle animation system
+  - [-] 6.5 Implement canvas-based particle animation system
 
     - Add canvas overlay to SystemTopology component
     - Implement particle data structure and lifecycle management
