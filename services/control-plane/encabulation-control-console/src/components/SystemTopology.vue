@@ -399,11 +399,6 @@ function initializeVisualization() {
     
     if (pods.length === 0) return
     
-    // Debug: log first pod to see what data we're getting
-    if (pods.length > 0) {
-      console.log(`Service ${d.id} pod data:`, pods[0], `plane: ${d.plane}`)
-    }
-    
     const podGroup = d3.select(this).append('g').attr('class', 'pod-indicators')
     
     if (pods.length <= 5) {
@@ -414,12 +409,11 @@ function initializeVisualization() {
         .data(pods)
         .join('circle')
         .attr('class', 'pod')
-        .attr('r', 4)
+        .attr('r', 6)
         .attr('cx', (_: any, i: number) => positions[i].x)
         .attr('cy', (_: any, i: number) => positions[i].y)
         .attr('fill', (pod: any) => getPodColor(pod, d.plane))
-        .attr('stroke', '#0a0a0a')
-        .attr('stroke-width', 0.5)
+        .attr('stroke', 'none')
         .style('cursor', 'pointer')
     } else {
       // Grouped representation with count badge
