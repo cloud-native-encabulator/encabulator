@@ -43,15 +43,16 @@ export class KubernetesService {
             const replicas = deployment.status?.replicas || 0
             const readyReplicas = deployment.status?.readyReplicas || 0
             
-            // Fetch pod metrics for this deployment
-            const metrics = await this.getPodMetrics(namespace, name)
+            // Fetch individual pod data for this deployment
+            const pods = await this.getPodsForDeployment(namespace, name)
             
             services[name] = {
               status: readyReplicas === replicas && replicas > 0 ? 'healthy' : 
                       replicas > 0 ? 'degraded' : 'unhealthy',
               replicas: replicas,
-              cpu: metrics.cpu,
-              memory: metrics.memory,
+              cpu: pods.length > 0 ? pods[0].cpu : 'N/A',
+              memory: pods.length > 0 ? pods[0].memory : 'N/A',
+              pods: pods
             }
           }
         } catch (error) {
@@ -66,7 +67,7 @@ export class KubernetesService {
     }
   }
 
-  private async getPodMetrics(namespace: string, deploymentName: string): Promise<{ cpu: string, memory: string }> {
+  private async getPodsForDeployment(namespace: string, deploymentName: string): Promise<any[]> {
     try {
       // Get pods for this deployment
       const pods = await this.coreApi.listNamespacedPod(
@@ -79,35 +80,50 @@ export class KubernetesService {
       )
 
       if (pods.body.items.length === 0) {
-        return { cpu: 'N/A', memory: 'N/A' }
+        return []
       }
 
-      // Try to get metrics from metrics API using Metrics client
-      try {
-        const podName = pods.body.items[0].metadata?.name || ''
-        const metricsClient = new k8s.Metrics(this.kc)
-        
-        const metricsResponse = await metricsClient.getPodMetrics(namespace, podName)
-        const containers = metricsResponse.containers || []
-        
-        if (containers.length > 0) {
-          const cpuUsage = containers[0].usage?.cpu || '0'
-          const memUsage = containers[0].usage?.memory || '0'
+      const metricsClient = new k8s.Metrics(this.kc)
+      const podData = []
+
+      for (const pod of pods.body.items) {
+        const podName = pod.metadata?.name || 'unknown'
+        const podStatus = pod.status?.phase || 'Unknown'
+        const ready = pod.status?.conditions?.find(c => c.type === 'Ready')?.status === 'True'
+
+        let cpu = 'N/A'
+        let memory = 'N/A'
+
+        // Try to get metrics for this pod
+        try {
+          const metricsResponse = await metricsClient.getPodMetrics(namespace, podName)
+          const containers = metricsResponse.containers || []
           
-          // Convert to readable format
-          const cpu = this.formatCpu(cpuUsage)
-          const memory = this.formatMemory(memUsage)
-          
-          return { cpu, memory }
+          if (containers.length > 0) {
+            const cpuUsage = containers[0].usage?.cpu || '0'
+            const memUsage = containers[0].usage?.memory || '0'
+            
+            cpu = this.formatCpu(cpuUsage)
+            memory = this.formatMemory(memUsage)
+          }
+        } catch (metricsError) {
+          // Metrics not available for this pod
+          console.debug(`Metrics not available for pod ${podName}`)
         }
-      } catch (metricsError: any) {
-        // Metrics API might not be available
-        console.debug(`Metrics not available for ${deploymentName}`)
+
+        podData.push({
+          name: podName,
+          status: podStatus,
+          ready: ready,
+          cpu: cpu,
+          memory: memory
+        })
       }
 
-      return { cpu: 'N/A', memory: 'N/A' }
+      return podData
     } catch (error) {
-      return { cpu: 'N/A', memory: 'N/A' }
+      console.error(`Error fetching pods for ${deploymentName}:`, error)
+      return []
     }
   }
 

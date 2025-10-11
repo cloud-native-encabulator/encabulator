@@ -1,10 +1,22 @@
+export interface PodInfo {
+  name: string
+  status: string
+  ready: boolean
+  cpu: string
+  memory: string
+  p50Latency?: number
+  p99Latency?: number
+  errorRate?: number
+}
+
 export interface Service {
   status: 'healthy' | 'degraded' | 'unhealthy' | 'unknown'
   replicas: number
   desiredReplicas?: number
-  cpu?: number
-  memory?: number
+  cpu?: string
+  memory?: string
   requestRate?: number
+  pods?: PodInfo[]
 }
 
 export interface SystemMetrics {

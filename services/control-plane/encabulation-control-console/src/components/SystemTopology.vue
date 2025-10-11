@@ -99,6 +99,48 @@ const planeColors = {
   control: '#00ff88'
 }
 
+// Helper function to calculate pod positions in a grid
+function calculatePodPositions(podCount: number): { x: number, y: number }[] {
+  const positions: { x: number, y: number }[] = []
+  const spacing = 10
+  
+  if (podCount === 1) {
+    positions.push({ x: 0, y: 0 })
+  } else if (podCount === 2) {
+    positions.push({ x: -spacing / 2, y: 0 })
+    positions.push({ x: spacing / 2, y: 0 })
+  } else if (podCount === 3) {
+    positions.push({ x: -spacing, y: 0 })
+    positions.push({ x: 0, y: 0 })
+    positions.push({ x: spacing, y: 0 })
+  } else if (podCount === 4) {
+    positions.push({ x: -spacing / 2, y: -spacing / 2 })
+    positions.push({ x: spacing / 2, y: -spacing / 2 })
+    positions.push({ x: -spacing / 2, y: spacing / 2 })
+    positions.push({ x: spacing / 2, y: spacing / 2 })
+  } else if (podCount === 5) {
+    positions.push({ x: -spacing, y: -spacing / 2 })
+    positions.push({ x: 0, y: -spacing / 2 })
+    positions.push({ x: spacing, y: -spacing / 2 })
+    positions.push({ x: -spacing / 2, y: spacing / 2 })
+    positions.push({ x: spacing / 2, y: spacing / 2 })
+  }
+  
+  return positions
+}
+
+// Helper function to determine pod color based on status
+function getPodColor(pod: any, plane: string): string {
+  if (!pod.ready || pod.status === 'Failed') {
+    return '#ff0055' // Red for failed pods
+  }
+  if (pod.status !== 'Running') {
+    return '#666666' // Gray for not ready pods
+  }
+  // Use plane color for healthy pods
+  return planeColors[plane as keyof typeof planeColors]
+}
+
 function initializeVisualization() {
   if (!svgRef.value || !containerRef.value) return
   
@@ -337,6 +379,44 @@ function initializeVisualization() {
     .attr('stroke-width', 3)
     .style('transition', 'all 0.3s ease')
   
+  // Pod indicators
+  node.each(function(d: ServiceNode) {
+    const service = systemStore.services[d.id]
+    const pods = service?.pods || []
+    
+    if (pods.length === 0) return
+    
+    const podGroup = d3.select(this).append('g').attr('class', 'pod-indicators')
+    
+    if (pods.length <= 5) {
+      // Draw individual pod circles in a grid
+      const positions = calculatePodPositions(pods.length)
+      
+      podGroup.selectAll('circle.pod')
+        .data(pods)
+        .join('circle')
+        .attr('class', 'pod')
+        .attr('r', 4)
+        .attr('cx', (_: any, i: number) => positions[i].x)
+        .attr('cy', (_: any, i: number) => positions[i].y)
+        .attr('fill', (pod: any) => getPodColor(pod, d.plane))
+        .attr('stroke', '#0a0a0a')
+        .attr('stroke-width', 0.5)
+        .style('cursor', 'pointer')
+    } else {
+      // Grouped representation with count badge
+      podGroup.append('text')
+        .attr('class', 'pod-count-badge')
+        .text(`${pods.length} pods`)
+        .attr('text-anchor', 'middle')
+        .attr('dy', -15)
+        .attr('font-size', '8px')
+        .attr('fill', '#ffffff')
+        .attr('opacity', 0.8)
+        .style('pointer-events', 'none')
+    }
+  })
+  
   // Node labels
   node.append('text')
     .text((d: ServiceNode) => {
@@ -347,16 +427,6 @@ function initializeVisualization() {
     .attr('dy', 40)
     .attr('font-size', '10px')
     .attr('fill', '#ffffff')
-    .style('pointer-events', 'none')
-  
-  // Replica count
-  node.append('text')
-    .text((d: ServiceNode) => d.replicas)
-    .attr('text-anchor', 'middle')
-    .attr('dy', 5)
-    .attr('font-size', '14px')
-    .attr('font-weight', 'bold')
-    .attr('fill', '#0a0a0a')
     .style('pointer-events', 'none')
   
   // Click outside to deselect
