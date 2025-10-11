@@ -93,10 +93,10 @@ const statusColors = {
 }
 
 const planeColors = {
-  data: '#00d9ff',
-  processing: '#ff00ff',
-  support: '#ffaa00',
-  control: '#00ff88'
+  data: '#00d9ff',      // cyan
+  processing: '#ff00ff', // magenta
+  support: '#ffaa00',    // yellow
+  control: '#8b5cf6'     // purple (distinct from green status)
 }
 
 // Helper function to calculate pod positions in a grid
@@ -130,14 +130,7 @@ function calculatePodPositions(podCount: number): { x: number, y: number }[] {
 }
 
 // Helper function to determine pod color based on status
-function getPodColor(pod: any, plane: string): string {
-  const colors = {
-    data: '#00d9ff',
-    processing: '#ff00ff',
-    support: '#ffaa00',
-    control: '#00ff88'
-  }
-  
+function getPodColor(pod: any, _plane: string): string {
   // Failed pods are red
   if (pod.status === 'Failed') {
     return '#ff0055'
@@ -146,9 +139,9 @@ function getPodColor(pod: any, plane: string): string {
   if (!pod.ready) {
     return '#666666'
   }
-  // Running and ready pods use plane color
+  // Running and ready pods are green
   if (pod.status === 'Running' && pod.ready) {
-    return colors[plane as keyof typeof colors] || '#666666'
+    return '#00ff88'
   }
   // Default to gray for other states
   return '#666666'
@@ -384,9 +377,14 @@ function initializeVisualization() {
     })
     .style('cursor', 'pointer')
   
-  // Node circles
-  node.append('circle')
-    .attr('r', (d: ServiceNode) => Math.max(20, 15 + (d.replicas * 5)))
+  // Node shapes (rounded rectangles for services)
+  node.append('rect')
+    .attr('width', (d: ServiceNode) => Math.max(50, 40 + (d.replicas * 8)))
+    .attr('height', (d: ServiceNode) => Math.max(50, 40 + (d.replicas * 8)))
+    .attr('x', (d: ServiceNode) => -Math.max(25, 20 + (d.replicas * 4)))
+    .attr('y', (d: ServiceNode) => -Math.max(25, 20 + (d.replicas * 4)))
+    .attr('rx', 8)
+    .attr('ry', 8)
     .attr('fill', (d: ServiceNode) => planeColors[d.plane])
     .attr('stroke', (d: ServiceNode) => statusColors[d.status])
     .attr('stroke-width', 3)
@@ -413,7 +411,8 @@ function initializeVisualization() {
         .attr('cx', (_: any, i: number) => positions[i].x)
         .attr('cy', (_: any, i: number) => positions[i].y)
         .attr('fill', (pod: any) => getPodColor(pod, d.plane))
-        .attr('stroke', 'none')
+        .attr('stroke', '#ffffff')
+        .attr('stroke-width', 1)
         .style('cursor', 'pointer')
     } else {
       // Grouped representation with count badge
