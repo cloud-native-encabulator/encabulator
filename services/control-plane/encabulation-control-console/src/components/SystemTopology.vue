@@ -1,11 +1,12 @@
 <script setup lang="ts">
-import { ref, onMounted, watch, computed } from 'vue'
+import { ref, onMounted, onUnmounted, watch, computed } from 'vue'
 import * as d3 from 'd3'
 import { useSystemStore } from '@/stores/system'
 import type { ServiceNode, ServiceLink } from '@/types'
 
 const systemStore = useSystemStore()
 const svgRef = ref<SVGSVGElement | null>(null)
+const canvasRef = ref<HTMLCanvasElement | null>(null)
 const containerRef = ref<HTMLDivElement | null>(null)
 const selectedNode = ref<ServiceNode | null>(null)
 const hoveredNode = ref<ServiceNode | null>(null)
@@ -18,6 +19,22 @@ const hoveredPod = ref<any>(null)
 const podTooltipPosition = ref({ x: 0, y: 0 })
 const podTooltipVisible = ref(false)
 const podTooltipFlipped = ref(false)
+
+// Particle animation state
+interface Particle {
+  id: number
+  sourceId: string
+  targetId: string
+  progress: number
+  speed: number
+  color: string
+}
+
+const particles = ref<Particle[]>([])
+let particleIdCounter = 0
+let animationFrameId: number | null = null
+const showTraffic = ref(false)
+let particleSpawnInterval: number | null = null
 
 // Service plane definitions
 const servicePlanes = {
@@ -153,12 +170,131 @@ function getPodColor(pod: any, _plane: string): string {
   return '#666666'
 }
 
+// Particle animation functions
+const nodePositions = new Map<string, { x: number, y: number }>()
+
+function spawnParticle(sourceId: string, targetId: string, color: string = '#00ff88') {
+  // Cap at 100 particles for performance
+  if (particles.value.length >= 100) return
+  
+  particles.value.push({
+    id: particleIdCounter++,
+    sourceId,
+    targetId,
+    progress: 0,
+    speed: 0.005 + Math.random() * 0.005, // Random speed between 0.005 and 0.01
+    color
+  })
+}
+
+function getPointOnCurve(sourcePos: { x: number, y: number }, targetPos: { x: number, y: number }, t: number): { x: number, y: number } {
+  // Calculate curved path (quadratic bezier)
+  const dx = targetPos.x - sourcePos.x
+  const dy = targetPos.y - sourcePos.y
+  const dr = Math.sqrt(dx * dx + dy * dy) * 0.5
+  
+  // Control point for the curve
+  const midX = (sourcePos.x + targetPos.x) / 2
+  const midY = (sourcePos.y + targetPos.y) / 2
+  const offsetX = -dy / Math.sqrt(dx * dx + dy * dy) * dr
+  const offsetY = dx / Math.sqrt(dx * dx + dy * dy) * dr
+  const controlX = midX + offsetX
+  const controlY = midY + offsetY
+  
+  // Quadratic bezier formula
+  const x = (1 - t) * (1 - t) * sourcePos.x + 2 * (1 - t) * t * controlX + t * t * targetPos.x
+  const y = (1 - t) * (1 - t) * sourcePos.y + 2 * (1 - t) * t * controlY + t * t * targetPos.y
+  
+  return { x, y }
+}
+
+function animateParticles() {
+  if (!canvasRef.value) return
+  
+  const canvas = canvasRef.value
+  const ctx = canvas.getContext('2d')
+  if (!ctx) return
+  
+  // Clear canvas
+  ctx.clearRect(0, 0, canvas.width, canvas.height)
+  
+  // Update and draw particles
+  particles.value = particles.value.filter(particle => {
+    // Update progress
+    particle.progress += particle.speed
+    
+    // Remove if reached target
+    if (particle.progress >= 1) return false
+    
+    // Get positions
+    const sourcePos = nodePositions.get(particle.sourceId)
+    const targetPos = nodePositions.get(particle.targetId)
+    
+    if (!sourcePos || !targetPos) return false
+    
+    // Calculate position on curve
+    const pos = getPointOnCurve(sourcePos, targetPos, particle.progress)
+    
+    // Draw particle
+    ctx.beginPath()
+    ctx.arc(pos.x, pos.y, 3, 0, Math.PI * 2)
+    ctx.fillStyle = particle.color
+    ctx.fill()
+    
+    return true
+  })
+  
+  // Continue animation
+  animationFrameId = requestAnimationFrame(animateParticles)
+}
+
+function startParticleAnimation() {
+  if (animationFrameId !== null) return
+  animateParticles()
+  
+  // Spawn particles periodically for each link
+  particleSpawnInterval = setInterval(() => {
+    if (!showTraffic.value) return // Don't spawn if traffic is hidden
+    
+    links.value.forEach(link => {
+      const sourceId = typeof link.source === 'string' ? link.source : link.source.id
+      const targetId = typeof link.target === 'string' ? link.target : link.target.id
+      
+      // Spawn particles based on traffic volume (link.value)
+      const particleCount = Math.min(link.value, 3) // Spawn 1-3 particles per interval
+      for (let i = 0; i < particleCount; i++) {
+        setTimeout(() => {
+          spawnParticle(sourceId, targetId)
+        }, i * 100) // Stagger spawns
+      }
+    })
+  }, 1000) // Spawn every second
+}
+
+function stopParticleAnimation() {
+  if (animationFrameId !== null) {
+    cancelAnimationFrame(animationFrameId)
+    animationFrameId = null
+  }
+  if (particleSpawnInterval !== null) {
+    clearInterval(particleSpawnInterval)
+    particleSpawnInterval = null
+  }
+  particles.value = []
+}
+
 function initializeVisualization() {
   if (!svgRef.value || !containerRef.value) return
   
   const container = containerRef.value
   const width = container.clientWidth
   const height = 600
+  
+  // Initialize canvas
+  if (canvasRef.value) {
+    canvasRef.value.width = width
+    canvasRef.value.height = height
+  }
   
   // Clear existing
   d3.select(svgRef.value).selectAll('*').remove()
@@ -183,8 +319,8 @@ function initializeVisualization() {
   const layerHeight = height / 5
   const padding = 80
   
-  // Calculate fixed positions for each node
-  const nodePositions = new Map<string, { x: number, y: number }>()
+  // Clear and recalculate node positions
+  nodePositions.clear()
   
   // Control Plane (top)
   const controlServices = nodes.value.filter(n => n.plane === 'control')
@@ -485,9 +621,15 @@ function initializeVisualization() {
 
 onMounted(() => {
   initializeVisualization()
+  startParticleAnimation()
   
   // Reinitialize on window resize
   window.addEventListener('resize', initializeVisualization)
+})
+
+onUnmounted(() => {
+  stopParticleAnimation()
+  window.removeEventListener('resize', initializeVisualization)
 })
 
 watch(() => systemStore.services, () => {
@@ -499,28 +641,40 @@ watch(() => systemStore.services, () => {
   <div class="system-topology">
     <div class="flex items-center justify-between mb-4">
       <h2 class="text-xl font-bold">System Topology</h2>
-      <div class="flex gap-4 text-sm">
-        <div class="flex items-center gap-2">
-          <div class="w-3 h-3 rounded-full" :style="{ backgroundColor: planeColors.data }"></div>
-          <span>Data</span>
-        </div>
-        <div class="flex items-center gap-2">
-          <div class="w-3 h-3 rounded-full" :style="{ backgroundColor: planeColors.processing }"></div>
-          <span>Processing</span>
-        </div>
-        <div class="flex items-center gap-2">
-          <div class="w-3 h-3 rounded-full" :style="{ backgroundColor: planeColors.support }"></div>
-          <span>Support</span>
-        </div>
-        <div class="flex items-center gap-2">
-          <div class="w-3 h-3 rounded-full" :style="{ backgroundColor: planeColors.control }"></div>
-          <span>Control</span>
+      <div class="flex items-center gap-6">
+        <button
+          @click="showTraffic = !showTraffic"
+          class="px-3 py-1.5 rounded-lg text-sm font-medium transition-colors"
+          :class="showTraffic 
+            ? 'bg-primary text-background hover:bg-primary/90' 
+            : 'bg-surface border border-text-muted/30 text-text-secondary hover:bg-surface-hover'"
+        >
+          {{ showTraffic ? 'Hide Traffic' : 'View Traffic' }}
+        </button>
+        <div class="flex gap-4 text-sm">
+          <div class="flex items-center gap-2">
+            <div class="w-3 h-3 rounded-full" :style="{ backgroundColor: planeColors.data }"></div>
+            <span>Data</span>
+          </div>
+          <div class="flex items-center gap-2">
+            <div class="w-3 h-3 rounded-full" :style="{ backgroundColor: planeColors.processing }"></div>
+            <span>Processing</span>
+          </div>
+          <div class="flex items-center gap-2">
+            <div class="w-3 h-3 rounded-full" :style="{ backgroundColor: planeColors.support }"></div>
+            <span>Support</span>
+          </div>
+          <div class="flex items-center gap-2">
+            <div class="w-3 h-3 rounded-full" :style="{ backgroundColor: planeColors.control }"></div>
+            <span>Control</span>
+          </div>
         </div>
       </div>
     </div>
     
     <div ref="containerRef" class="relative bg-background rounded-lg border border-text-muted/20 overflow-visible">
       <svg ref="svgRef"></svg>
+      <canvas ref="canvasRef" class="absolute top-0 left-0 pointer-events-none"></canvas>
       
       <!-- Hover tooltip -->
       <div 
