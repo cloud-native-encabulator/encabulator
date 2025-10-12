@@ -1,3 +1,7 @@
+# Namespace configuration
+namespace: encabulator-control
+createNamespace: false
+
 replicaCount: 1
 
 image:
