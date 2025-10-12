@@ -6,9 +6,9 @@ const systemStore = useSystemStore()
 
 const metrics = computed(() => [
   {
-    label: 'Total Requests',
+    label: 'Throughput',
     value: (systemStore.metrics?.totalRequests || 0).toLocaleString(),
-    unit: '',
+    unit: ' req/s',
     color: 'text-primary'
   },
   {

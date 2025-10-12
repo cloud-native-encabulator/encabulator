@@ -33,7 +33,7 @@ export class MetricsService {
     // Mock metrics for demonstration
     // In production, these would come from Prometheus queries
     return {
-      totalRequests: Math.floor(Math.random() * 10000) + 5000,
+      totalRequests: Math.floor(Math.random() * 200) + 100, // 100-300 req/s (TPS)
       avgLatency: Math.floor(Math.random() * 100) + 20, // 20-120ms
       errorRate: Math.random() * 0.02, // 0-0.02 (0-2% when displayed)
       cpuUsage: Math.floor(Math.random() * 40) + 30, // 30-70%
