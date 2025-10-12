@@ -459,12 +459,20 @@ function initializeVisualization() {
       const targetPos = nodePositions.get(d.target)
       if (!sourcePos || !targetPos) return ''
       
-      // Create curved path
+      // Create curved path using quadratic bezier (same as particle animation)
       const dx = targetPos.x - sourcePos.x
       const dy = targetPos.y - sourcePos.y
       const dr = Math.sqrt(dx * dx + dy * dy) * 0.5
       
-      return `M${sourcePos.x},${sourcePos.y}A${dr},${dr} 0 0,1 ${targetPos.x},${targetPos.y}`
+      // Control point for the curve (same calculation as getPointOnCurve)
+      const midX = (sourcePos.x + targetPos.x) / 2
+      const midY = (sourcePos.y + targetPos.y) / 2
+      const offsetX = -dy / Math.sqrt(dx * dx + dy * dy) * dr
+      const offsetY = dx / Math.sqrt(dx * dx + dy * dy) * dr
+      const controlX = midX + offsetX
+      const controlY = midY + offsetY
+      
+      return `M${sourcePos.x},${sourcePos.y}Q${controlX},${controlY} ${targetPos.x},${targetPos.y}`
     })
     .attr('stroke', '#666')
     .attr('stroke-opacity', 0.4)
