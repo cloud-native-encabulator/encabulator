@@ -203,7 +203,7 @@
     - Add gray particles for unavailable metrics
     - _Requirements: 15.1, 15.2, 15.3, 15.4_
 
-  - [ ] 6.8 Implement connection tooltip with traffic metrics
+  - [x] 6.8 Implement connection tooltip with traffic metrics
 
     - Add hover detection for connection lines
     - Create connection tooltip component with source/target display

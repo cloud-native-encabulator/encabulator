@@ -24,6 +24,20 @@ const podTooltipPosition = ref({ x: 0, y: 0 })
 const podTooltipVisible = ref(false)
 const podTooltipFlipped = ref(false)
 
+// Connection tooltip state
+const hoveredConnection = ref<{ source: string, target: string } | null>(null)
+const connectionTooltipPosition = ref({ x: 0, y: 0 })
+const connectionTooltipVisible = ref(false)
+const connectionTooltipFlipped = ref(false)
+
+// Get traffic metrics for hovered connection
+const hoveredConnectionMetrics = computed(() => {
+  if (!hoveredConnection.value) return null
+  return systemStore.trafficMetrics.find(
+    m => m.source === hoveredConnection.value!.source && m.target === hoveredConnection.value!.target
+  )
+})
+
 // Particle animation state
 interface Particle {
   id: number
@@ -479,6 +493,53 @@ function initializeVisualization() {
     .attr('stroke-width', (d: any) => Math.sqrt(d.value) * 1.5)
     .attr('fill', 'none')
     .attr('marker-end', 'url(#arrow)')
+    .style('cursor', 'pointer')
+    .on('mouseenter', (event: any, d: any) => {
+      const sourceId = typeof d.source === 'string' ? d.source : d.source.id
+      const targetId = typeof d.target === 'string' ? d.target : d.target.id
+      
+      hoveredConnection.value = { source: sourceId, target: targetId }
+      
+      // Get midpoint of the connection for tooltip position
+      const sourcePos = nodePositions.get(sourceId)
+      const targetPos = nodePositions.get(targetId)
+      
+      if (sourcePos && targetPos) {
+        const midX = (sourcePos.x + targetPos.x) / 2
+        const midY = (sourcePos.y + targetPos.y) / 2
+        
+        // Smart positioning: flip tooltip below if near top
+        const flipThreshold = 120
+        
+        if (midY < flipThreshold) {
+          connectionTooltipPosition.value = { x: midX, y: midY + 30 }
+          connectionTooltipFlipped.value = true
+        } else {
+          connectionTooltipPosition.value = { x: midX, y: midY - 30 }
+          connectionTooltipFlipped.value = false
+        }
+        
+        connectionTooltipVisible.value = true
+      }
+      
+      // Highlight the hovered connection
+      d3.select(event.currentTarget)
+        .transition()
+        .duration(200)
+        .attr('stroke-opacity', 0.8)
+        .attr('stroke-width', Math.sqrt(d.value) * 2.5)
+    })
+    .on('mouseleave', (event: any, d: any) => {
+      hoveredConnection.value = null
+      connectionTooltipVisible.value = false
+      
+      // Reset connection appearance
+      d3.select(event.currentTarget)
+        .transition()
+        .duration(200)
+        .attr('stroke-opacity', 0.4)
+        .attr('stroke-width', Math.sqrt(d.value) * 1.5)
+    })
   
   // Get connected node IDs for a given node
   const getConnectedNodes = (nodeId: string): Set<string> => {
@@ -864,6 +925,74 @@ watch(showTraffic, (newValue) => {
           <div v-if="hoveredPod.errorRate !== undefined" class="flex justify-between">
             <span class="text-text-secondary text-xs">Error Rate:</span>
             <span class="font-mono text-xs">{{ (hoveredPod.errorRate * 100).toFixed(2) }}%</span>
+          </div>
+        </div>
+      </div>
+      
+      <!-- Connection tooltip -->
+      <div 
+        v-if="connectionTooltipVisible && hoveredConnection" 
+        class="absolute pointer-events-none bg-surface/95 backdrop-blur-sm border border-primary/50 rounded-lg p-3 shadow-lg transition-opacity duration-200"
+        :style="{ 
+          left: `${connectionTooltipPosition.x}px`, 
+          top: `${connectionTooltipPosition.y}px`,
+          transform: connectionTooltipFlipped ? 'translate(-50%, 0%)' : 'translate(-50%, -100%)',
+          zIndex: 55
+        }"
+      >
+        <div class="text-sm space-y-1.5 min-w-56">
+          <div class="font-bold text-primary border-b border-primary/30 pb-1 mb-2 text-xs">
+            {{ hoveredConnection.source }} → {{ hoveredConnection.target }}
+          </div>
+          <template v-if="hoveredConnectionMetrics">
+            <div class="flex justify-between">
+              <span class="text-text-secondary text-xs">Traffic Volume:</span>
+              <span class="font-mono text-xs">
+                {{ hoveredConnectionMetrics.requestsPerSecond.toFixed(1) }} req/s
+              </span>
+            </div>
+            <div class="pt-1 border-t border-text-muted/20 mt-2">
+              <div class="flex justify-between">
+                <span class="text-text-secondary text-xs">Avg Latency:</span>
+                <span class="font-mono text-xs">{{ hoveredConnectionMetrics.avgLatency }}ms</span>
+              </div>
+              <div class="flex justify-between">
+                <span class="text-text-secondary text-xs">P50 Latency:</span>
+                <span class="font-mono text-xs">{{ hoveredConnectionMetrics.p50Latency }}ms</span>
+              </div>
+              <div class="flex justify-between">
+                <span class="text-text-secondary text-xs">P99 Latency:</span>
+                <span class="font-mono text-xs">{{ hoveredConnectionMetrics.p99Latency }}ms</span>
+              </div>
+            </div>
+            <div class="flex justify-between pt-1 border-t border-text-muted/20 mt-2">
+              <span class="text-text-secondary text-xs">Error Rate:</span>
+              <span class="font-mono text-xs" :class="{
+                'text-success': hoveredConnectionMetrics.errorRate < 0.01,
+                'text-danger': hoveredConnectionMetrics.errorRate >= 0.01
+              }">
+                {{ (hoveredConnectionMetrics.errorRate * 100).toFixed(2) }}%
+              </span>
+            </div>
+            <div class="flex justify-between items-center">
+              <span class="text-text-secondary text-xs">Health:</span>
+              <span 
+                class="capitalize font-medium text-xs px-2 py-0.5 rounded"
+                :style="{ 
+                  color: hoveredConnectionMetrics.healthStatus === 'healthy' ? '#00ff88' :
+                         hoveredConnectionMetrics.healthStatus === 'warning' ? '#ffaa00' :
+                         hoveredConnectionMetrics.healthStatus === 'error' ? '#ff0055' : '#666666',
+                  backgroundColor: hoveredConnectionMetrics.healthStatus === 'healthy' ? '#00ff8820' :
+                                   hoveredConnectionMetrics.healthStatus === 'warning' ? '#ffaa0020' :
+                                   hoveredConnectionMetrics.healthStatus === 'error' ? '#ff005520' : '#66666620'
+                }"
+              >
+                {{ hoveredConnectionMetrics.healthStatus }}
+              </span>
+            </div>
+          </template>
+          <div v-else class="text-text-muted text-xs italic">
+            No traffic metrics available
           </div>
         </div>
       </div>
