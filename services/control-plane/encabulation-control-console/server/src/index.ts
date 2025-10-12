@@ -59,6 +59,91 @@ app.get('/api/traffic', (req, res) => {
   }
 })
 
+// Control Actions API
+app.post('/api/actions/synchronize-grammeters', async (req, res) => {
+  try {
+    const response = await fetch('http://cardinal-grammeter.encabulator-control.svc.cluster.local:8080/traffic/start', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        target: 'http://dingle-arm-api-gateway.encabulator-processing.svc.cluster.local:8080',
+        pattern: 'steady',
+        magnetoReluctance: 50,
+        capacitiveDiractance: 50
+      })
+    })
+    const data = await response.json()
+    res.json({ success: true, message: 'Cardinal Grammeters synchronized', data })
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to synchronize grammeters', message: String(error) })
+  }
+})
+
+app.post('/api/actions/induce-fumbling', async (req, res) => {
+  try {
+    const response = await fetch('http://malaise-injection-engine.encabulator-control.svc.cluster.local:8080/inject', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        type: 'latency',
+        target: 'panametric-fam-processor',
+        duration: 300
+      })
+    })
+    const data = await response.json()
+    res.json({ success: true, message: 'Side fumbling induced', data })
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to induce fumbling', message: String(error) })
+  }
+})
+
+app.post('/api/actions/flex-dingle-arm', async (req, res) => {
+  const { direction } = req.body
+  if (!direction || !['up', 'down'].includes(direction)) {
+    return res.status(400).json({ error: 'Direction must be "up" or "down"' })
+  }
+  
+  try {
+    await k8sService.scaleService('dingle-arm-api-gateway', direction)
+    res.json({ success: true, message: `Dingle Arm flexed ${direction}` })
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to flex dingle arm', message: String(error) })
+  }
+})
+
+app.post('/api/actions/recalibrate-fam', async (req, res) => {
+  try {
+    await k8sService.restartService('panametric-fam-processor')
+    res.json({ success: true, message: 'Panametric Fam recalibrated' })
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to recalibrate fam', message: String(error) })
+  }
+})
+
+app.post('/api/actions/engage-dampeners', async (req, res) => {
+  try {
+    const response = await fetch('http://cardinal-grammeter.encabulator-control.svc.cluster.local:8080/traffic/stop', {
+      method: 'POST'
+    })
+    const data = await response.json()
+    res.json({ success: true, message: 'Malaise dampeners engaged', data })
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to engage dampeners', message: String(error) })
+  }
+})
+
+app.post('/api/actions/purge-marzelvanes', async (req, res) => {
+  try {
+    const response = await fetch('http://prefabulated-cache.encabulator-data.svc.cluster.local:8080/cache/clear', {
+      method: 'POST'
+    })
+    const data = await response.json()
+    res.json({ success: true, message: 'Hydrocoptic marzelvanes purged', data })
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to purge marzelvanes', message: String(error) })
+  }
+})
+
 // WebSocket connection handling
 io.on('connection', (socket) => {
   console.log('Client connected:', socket.id)

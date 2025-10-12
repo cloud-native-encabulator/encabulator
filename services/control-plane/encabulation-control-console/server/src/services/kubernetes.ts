@@ -191,7 +191,7 @@ export class KubernetesService {
   }
 
   async scaleService(serviceName: string, direction: 'up' | 'down'): Promise<void> {
-    const namespaces = ['encabulator-system', 'encabulator-data', 'encabulator-control']
+    const namespaces = ['encabulator-system', 'encabulator-data', 'encabulator-control', 'encabulator-processing', 'encabulator-support']
     
     for (const namespace of namespaces) {
       try {
@@ -212,6 +212,50 @@ export class KubernetesService {
         )
         
         console.log(`Scaled ${serviceName} to ${newReplicas} replicas`)
+        return
+      } catch (error) {
+        // Try next namespace
+        continue
+      }
+    }
+    
+    throw new Error(`Service ${serviceName} not found`)
+  }
+
+  async restartService(serviceName: string): Promise<void> {
+    const namespaces = ['encabulator-system', 'encabulator-data', 'encabulator-control', 'encabulator-processing', 'encabulator-support']
+    
+    for (const namespace of namespaces) {
+      try {
+        const deployment = await this.k8sApi.readNamespacedDeployment(serviceName, namespace)
+        
+        // Trigger a rollout restart by updating the restart annotation
+        const now = new Date().toISOString()
+        const patch = {
+          spec: {
+            template: {
+              metadata: {
+                annotations: {
+                  'kubectl.kubernetes.io/restartedAt': now
+                }
+              }
+            }
+          }
+        }
+
+        await this.k8sApi.patchNamespacedDeployment(
+          serviceName,
+          namespace,
+          patch,
+          undefined,
+          undefined,
+          undefined,
+          undefined,
+          undefined,
+          { headers: { 'Content-Type': 'application/strategic-merge-patch+json' } }
+        )
+        
+        console.log(`Restarted ${serviceName} in ${namespace}`)
         return
       } catch (error) {
         // Try next namespace

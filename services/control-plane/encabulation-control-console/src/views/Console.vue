@@ -6,6 +6,7 @@ import { useWebSocket } from '@/composables/useWebSocket'
 import SystemTopology from '@/components/SystemTopology.vue'
 import ControlPanel from '@/components/ControlPanel.vue'
 import MetricsPanel from '@/components/MetricsPanel.vue'
+import ActionsPanel from '@/components/ActionsPanel.vue'
 
 const systemStore = useSystemStore()
 const authStore = useAuthStore()
@@ -121,7 +122,7 @@ const guestTimeRemaining = computed(() => {
         </div>
 
         <!-- System Topology and Controls -->
-        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
           <div class="lg:col-span-2 card">
             <SystemTopology />
           </div>
@@ -135,6 +136,11 @@ const guestTimeRemaining = computed(() => {
               <MetricsPanel />
             </div>
           </div>
+        </div>
+
+        <!-- Actions Panel -->
+        <div class="card">
+          <ActionsPanel />
         </div>
       </div>
     </main>
