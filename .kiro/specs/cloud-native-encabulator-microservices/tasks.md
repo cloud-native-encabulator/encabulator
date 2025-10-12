@@ -221,7 +221,7 @@
     - Add CPU usage monitoring and throttling if needed
     - _Requirements: 17.1, 17.2, 17.3, 17.4, 17.5_
 
-  - [-] 6.10 Implement encabulator-themed control actions
+  - [x] 6.10 Implement encabulator-themed control actions
 
     - Create ActionsPanel.vue component with themed action buttons
     - Add "Synchronize Cardinal Grammeters" action (trigger load test via cardinal-grammeter API)

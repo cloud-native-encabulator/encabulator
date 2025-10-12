@@ -138,9 +138,26 @@ const guestTimeRemaining = computed(() => {
           </div>
         </div>
 
-        <!-- Actions Panel -->
-        <div class="card">
+        <!-- Actions Panel (Admin/Operator only) -->
+        <div v-if="!authStore.isGuest" class="card">
           <ActionsPanel />
+        </div>
+        
+        <!-- Guest Message -->
+        <div v-else class="card bg-warning/10 border border-warning/30">
+          <div class="flex items-center gap-3 p-4">
+            <svg class="w-6 h-6 text-warning flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+            </svg>
+            <div>
+              <h3 class="font-semibold text-warning mb-1">Control Actions Restricted</h3>
+              <p class="text-sm text-text-secondary">
+                Guest users can view system status but cannot perform control actions.
+                <router-link to="/login" class="text-primary hover:underline ml-1">Sign in</router-link>
+                for full access.
+              </p>
+            </div>
+          </div>
         </div>
       </div>
     </main>
