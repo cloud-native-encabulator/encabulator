@@ -6,6 +6,7 @@ import path from 'path'
 import { register } from 'prom-client'
 import { KubernetesService } from './services/kubernetes'
 import { MetricsService } from './services/metrics'
+import { TrafficSimulationService } from './services/traffic'
 
 const app = express()
 const httpServer = createServer(app)
@@ -19,6 +20,7 @@ const io = new Server(httpServer, {
 const PORT = process.env.PORT || 8080
 const k8sService = new KubernetesService()
 const metricsService = new MetricsService()
+const trafficService = new TrafficSimulationService()
 
 app.use(cors())
 app.use(express.json())
@@ -47,15 +49,29 @@ app.get('/metrics', async (req, res) => {
   res.end(await register.metrics())
 })
 
+// Traffic metrics endpoint
+app.get('/api/traffic', (req, res) => {
+  try {
+    const trafficMetrics = trafficService.getTrafficMetrics()
+    res.json({ trafficMetrics, timestamp: new Date().toISOString() })
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to fetch traffic metrics', message: String(error) })
+  }
+})
+
 // WebSocket connection handling
 io.on('connection', (socket) => {
   console.log('Client connected:', socket.id)
 
   // Send initial system status
   k8sService.getSystemStatus().then((status) => {
+    const trafficMetrics = trafficService.getTrafficMetrics()
     socket.emit('message', {
       type: 'system_status',
-      payload: status,
+      payload: {
+        ...status,
+        trafficMetrics,
+      },
     })
   })
 
@@ -103,12 +119,14 @@ setInterval(async () => {
   try {
     const status = await k8sService.getSystemStatus()
     const metrics = await metricsService.getSystemMetrics()
+    const trafficMetrics = trafficService.getTrafficMetrics()
     
     io.emit('message', {
       type: 'system_status',
       payload: {
         ...status,
         metrics,
+        trafficMetrics,
       },
     })
   } catch (error) {

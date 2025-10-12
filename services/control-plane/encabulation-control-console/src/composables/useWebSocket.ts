@@ -64,6 +64,9 @@ export function useWebSocket() {
         if (data.payload.metrics) {
           systemStore.updateMetrics(data.payload.metrics)
         }
+        if (data.payload.trafficMetrics) {
+          systemStore.updateTrafficMetrics(data.payload.trafficMetrics)
+        }
         break
       
       case 'service_update':

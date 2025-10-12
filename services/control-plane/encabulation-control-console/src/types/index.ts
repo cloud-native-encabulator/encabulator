@@ -65,3 +65,14 @@ export interface ServiceLink {
   target: string | ServiceNode
   value: number
 }
+
+export interface TrafficMetrics {
+  source: string
+  target: string
+  requestsPerSecond: number
+  avgLatency: number
+  p50Latency: number
+  p99Latency: number
+  errorRate: number
+  healthStatus: 'healthy' | 'warning' | 'error' | 'unknown'
+}

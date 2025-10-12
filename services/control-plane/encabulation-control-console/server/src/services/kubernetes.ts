@@ -111,12 +111,20 @@ export class KubernetesService {
           console.debug(`Metrics not available for pod ${podName}`)
         }
 
+        // Generate simulated latency and error metrics for pods
+        const p50Latency = this.generatePodLatency(deploymentName, 'p50')
+        const p99Latency = this.generatePodLatency(deploymentName, 'p99')
+        const errorRate = this.generatePodErrorRate()
+
         podData.push({
           name: podName,
           status: podStatus,
           ready: ready,
           cpu: cpu,
-          memory: memory
+          memory: memory,
+          p50Latency: p50Latency,
+          p99Latency: p99Latency,
+          errorRate: errorRate
         })
       }
 
@@ -145,6 +153,41 @@ export class KubernetesService {
       return `${mb}Mi`
     }
     return memString
+  }
+
+  private generatePodLatency(serviceName: string, percentile: 'p50' | 'p99'): number {
+    // Generate realistic latency based on service type
+    let baseLatency = 25
+    
+    // Data stores have higher latency
+    if (serviceName.includes('datastore') || serviceName.includes('database')) {
+      baseLatency = 50
+    } else if (serviceName.includes('cache')) {
+      baseLatency = 5
+    } else if (serviceName.includes('processor') || serviceName.includes('gateway')) {
+      baseLatency = 20
+    } else if (serviceName.includes('console') || serviceName.includes('engine')) {
+      baseLatency = 15
+    }
+    
+    // Add variation
+    const variation = Math.random() * 0.4 + 0.8 // 80-120% of base
+    const latency = baseLatency * variation
+    
+    // p99 is typically 2-3x p50
+    if (percentile === 'p99') {
+      return Math.round(latency * (2 + Math.random()))
+    }
+    
+    return Math.round(latency)
+  }
+
+  private generatePodErrorRate(): number {
+    // Most pods have very low error rates
+    // Occasionally a pod might have elevated errors
+    const baseRate = 0.001 // 0.1%
+    const spike = Math.random() < 0.1 ? Math.random() * 0.02 : 0 // 10% chance of 0-2% spike
+    return Math.min(0.05, baseRate + spike)
   }
 
   async scaleService(serviceName: string, direction: 'up' | 'down'): Promise<void> {

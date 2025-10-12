@@ -1,6 +1,6 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
-import type { Service, SystemMetrics } from '@/types'
+import type { Service, SystemMetrics, TrafficMetrics } from '@/types'
 
 export const useSystemStore = defineStore('system', () => {
   const services = ref<Record<string, Service>>({})
@@ -11,6 +11,7 @@ export const useSystemStore = defineStore('system', () => {
     cpuUsage: 0,
     memoryUsage: 0
   })
+  const trafficMetrics = ref<TrafficMetrics[]>([])
   const connected = ref(false)
   const lastUpdate = ref<Date | null>(null)
 
@@ -39,6 +40,10 @@ export const useSystemStore = defineStore('system', () => {
     metrics.value = data
   }
 
+  function updateTrafficMetrics(data: TrafficMetrics[]) {
+    trafficMetrics.value = data
+  }
+
   function updateServiceStatus(serviceName: string, status: Service['status']) {
     if (services.value[serviceName]) {
       services.value[serviceName].status = status
@@ -52,6 +57,7 @@ export const useSystemStore = defineStore('system', () => {
   return {
     services,
     metrics,
+    trafficMetrics,
     connected,
     lastUpdate,
     healthyServices,
@@ -59,6 +65,7 @@ export const useSystemStore = defineStore('system', () => {
     systemHealth,
     updateServices,
     updateMetrics,
+    updateTrafficMetrics,
     updateServiceStatus,
     setConnected
   }
