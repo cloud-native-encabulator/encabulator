@@ -53,6 +53,14 @@ let particleIdCounter = 0
 let animationFrameId: number | null = null
 let particleSpawnInterval: number | null = null
 
+// Performance monitoring
+let lastFrameTime = performance.now()
+let frameCount = 0
+let fps = 60
+const fpsHistory: number[] = []
+const MAX_FPS_HISTORY = 10
+let particleSpawnRate = 1.0 // Multiplier for particle spawning (0.0 to 1.0)
+
 // Service plane definitions
 const servicePlanes = {
   data: ['hydrocoptic-datastore', 'sinusoidal-database', 'prefabulated-cache'],
@@ -258,9 +266,40 @@ function getPointOnCurve(sourcePos: { x: number, y: number }, targetPos: { x: nu
 function animateParticles() {
   if (!canvasRef.value) return
   
+  // Check if page is visible (Page Visibility API)
+  if (document.hidden) {
+    // Pause animation when tab is hidden
+    animationFrameId = requestAnimationFrame(animateParticles)
+    return
+  }
+  
   const canvas = canvasRef.value
   const ctx = canvas.getContext('2d')
   if (!ctx) return
+  
+  // Monitor frame rate
+  const currentTime = performance.now()
+  const deltaTime = currentTime - lastFrameTime
+  lastFrameTime = currentTime
+  
+  frameCount++
+  if (frameCount % 10 === 0) {
+    // Calculate FPS every 10 frames
+    const currentFps = 1000 / deltaTime
+    fpsHistory.push(currentFps)
+    if (fpsHistory.length > MAX_FPS_HISTORY) {
+      fpsHistory.shift()
+    }
+    fps = fpsHistory.reduce((a, b) => a + b, 0) / fpsHistory.length
+    
+    // Adaptive particle reduction if FPS drops below 45
+    if (fps < 45 && particleSpawnRate > 0.3) {
+      particleSpawnRate = Math.max(0.3, particleSpawnRate - 0.1)
+      console.log(`FPS: ${fps.toFixed(1)} - Reducing particle spawn rate to ${(particleSpawnRate * 100).toFixed(0)}%`)
+    } else if (fps > 55 && particleSpawnRate < 1.0) {
+      particleSpawnRate = Math.min(1.0, particleSpawnRate + 0.05)
+    }
+  }
   
   // Clear canvas
   ctx.clearRect(0, 0, canvas.width, canvas.height)
@@ -306,13 +345,16 @@ function startParticleAnimation() {
   // Spawn particles periodically for each link
   particleSpawnInterval = setInterval(() => {
     if (!showTraffic.value) return // Don't spawn if traffic is hidden
+    if (document.hidden) return // Don't spawn when tab is hidden
     
     links.value.forEach(link => {
       const sourceId = typeof link.source === 'string' ? link.source : link.source.id
       const targetId = typeof link.target === 'string' ? link.target : link.target.id
       
-      // Spawn particles based on traffic volume (link.value)
-      const particleCount = Math.min(link.value, 3) // Spawn 1-3 particles per interval
+      // Spawn particles based on traffic volume (link.value) and adaptive spawn rate
+      const baseParticleCount = Math.min(link.value, 3) // Base: 1-3 particles per interval
+      const particleCount = Math.ceil(baseParticleCount * particleSpawnRate)
+      
       for (let i = 0; i < particleCount; i++) {
         setTimeout(() => {
           spawnParticle(sourceId, targetId)
@@ -727,6 +769,17 @@ function initializeVisualization() {
   })
 }
 
+// Handle page visibility changes
+function handleVisibilityChange() {
+  if (document.hidden) {
+    console.log('Tab hidden - animations paused')
+  } else {
+    console.log('Tab visible - animations resumed')
+    // Reset frame timing when tab becomes visible again
+    lastFrameTime = performance.now()
+  }
+}
+
 onMounted(() => {
   initializeVisualization()
   
@@ -737,6 +790,9 @@ onMounted(() => {
   
   // Reinitialize on window resize
   window.addEventListener('resize', initializeVisualization)
+  
+  // Listen for visibility changes (Page Visibility API)
+  document.addEventListener('visibilitychange', handleVisibilityChange)
 })
 
 onUnmounted(() => {
@@ -751,6 +807,7 @@ onUnmounted(() => {
   }
   particles.value = []
   window.removeEventListener('resize', initializeVisualization)
+  document.removeEventListener('visibilitychange', handleVisibilityChange)
 })
 
 watch(() => systemStore.services, () => {
