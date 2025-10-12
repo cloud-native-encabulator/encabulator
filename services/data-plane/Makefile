@@ -72,3 +72,11 @@ fmt: ## Format all Data Plane services
 		$(MAKE) -C $$service fmt; \
 	done
 	@echo "✓ All Data Plane services formatted"
+
+dev-deploy: ## Build and deploy all services with 'dev' tag (fast iteration)
+	@echo "Dev-deploying all Data Plane services..."
+	@for service in $(SERVICES); do \
+		echo "Dev-deploying $$service..."; \
+		$(MAKE) -C $$service dev-deploy || exit 1; \
+	done
+	@echo "✓ All Data Plane services deployed with dev tag"

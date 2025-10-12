@@ -229,3 +229,18 @@ ci: dev-deps build test helm-lint ## Run CI pipeline (build, test, lint)
 
 verify: build test helm-lint helm-template ## Verify all builds, tests, and Helm charts
 	@echo "✓ Verification complete"
+
+# Dev Deploy Targets
+dev-deploy: dev-deploy-control-plane dev-deploy-processing-plane dev-deploy-data-plane dev-deploy-support-plane ## Deploy all services with 'dev' tag
+
+dev-deploy-control-plane: ## Deploy Control Plane services with 'dev' tag
+	@$(MAKE) -C services/control-plane dev-deploy
+
+dev-deploy-processing-plane: ## Deploy Processing Plane services with 'dev' tag
+	@$(MAKE) -C services/processing-plane dev-deploy
+
+dev-deploy-data-plane: ## Deploy Data Plane services with 'dev' tag
+	@$(MAKE) -C services/data-plane dev-deploy
+
+dev-deploy-support-plane: ## Deploy Support Plane services with 'dev' tag
+	@$(MAKE) -C services/support-plane dev-deploy

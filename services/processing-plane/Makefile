@@ -69,3 +69,11 @@ fmt: ## Format all Processing Plane services
 		$(MAKE) -C $$service fmt; \
 	done
 	@echo "✓ All Processing Plane services formatted"
+
+dev-deploy: ## Build and deploy all services with 'dev' tag (fast iteration)
+	@echo "Dev-deploying all Processing Plane services..."
+	@for service in $(SERVICES); do \
+		echo "Dev-deploying $$service..."; \
+		$(MAKE) -C $$service dev-deploy || exit 1; \
+	done
+	@echo "✓ All Processing Plane services deployed with dev tag"
