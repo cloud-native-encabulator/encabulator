@@ -176,9 +176,39 @@ function getPodColor(pod: any, _plane: string): string {
 // Particle animation functions
 const nodePositions = new Map<string, { x: number, y: number }>()
 
-function spawnParticle(sourceId: string, targetId: string, color: string = '#00ff88') {
+/**
+ * Determine particle color based on traffic health metrics
+ */
+function getParticleColor(sourceId: string, targetId: string): string {
+  // Find traffic metrics for this connection
+  const metrics = systemStore.trafficMetrics.find(
+    m => m.source === sourceId && m.target === targetId
+  )
+  
+  if (!metrics) {
+    // No metrics available - gray
+    return '#666666'
+  }
+  
+  // Determine color based on health status
+  switch (metrics.healthStatus) {
+    case 'healthy':
+      return '#00ff88' // Green
+    case 'warning':
+      return '#ffaa00' // Yellow
+    case 'error':
+      return '#ff0055' // Red
+    default:
+      return '#666666' // Gray (unknown)
+  }
+}
+
+function spawnParticle(sourceId: string, targetId: string, color?: string) {
   // Cap at 100 particles for performance
   if (particles.value.length >= 100) return
+  
+  // Determine color based on traffic health if not explicitly provided
+  const particleColor = color || getParticleColor(sourceId, targetId)
   
   particles.value.push({
     id: particleIdCounter++,
@@ -186,7 +216,7 @@ function spawnParticle(sourceId: string, targetId: string, color: string = '#00f
     targetId,
     progress: 0,
     speed: 0.005 + Math.random() * 0.005, // Random speed between 0.005 and 0.01
-    color
+    color: particleColor
   })
 }
 
