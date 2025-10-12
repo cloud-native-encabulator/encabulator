@@ -61,6 +61,9 @@ const fpsHistory: number[] = []
 const MAX_FPS_HISTORY = 10
 let particleSpawnRate = 1.0 // Multiplier for particle spawning (0.0 to 1.0)
 
+// Zoom transform tracking for canvas particles
+let currentTransform = { k: 1, x: 0, y: 0 }
+
 // Service plane definitions
 const servicePlanes = {
   data: ['hydrocoptic-datastore', 'sinusoidal-database', 'prefabulated-cache'],
@@ -321,9 +324,13 @@ function animateParticles() {
     // Calculate position on curve
     const pos = getPointOnCurve(sourcePos, targetPos, particle.progress)
     
+    // Apply zoom transform to particle position
+    const transformedX = pos.x * currentTransform.k + currentTransform.x
+    const transformedY = pos.y * currentTransform.k + currentTransform.y
+    
     // Draw particle
     ctx.beginPath()
-    ctx.arc(pos.x, pos.y, 3, 0, Math.PI * 2)
+    ctx.arc(transformedX, transformedY, 3 * currentTransform.k, 0, Math.PI * 2)
     ctx.fillStyle = particle.color
     ctx.fill()
     
@@ -390,6 +397,9 @@ function initializeVisualization() {
   // Clear existing
   d3.select(svgRef.value).selectAll('*').remove()
   
+  // Reset zoom transform
+  currentTransform = { k: 1, x: 0, y: 0 }
+  
   const svg = d3.select(svgRef.value)
     .attr('width', width)
     .attr('height', height)
@@ -397,14 +407,15 @@ function initializeVisualization() {
   
   const g = svg.append('g')
   
-  // Add zoom behavior
-  const zoom = d3.zoom<SVGSVGElement, unknown>()
-    .scaleExtent([0.5, 2])
-    .on('zoom', (event) => {
-      g.attr('transform', event.transform)
-    })
-  
-  svg.call(zoom as any)
+  // Zoom disabled - causes particle sync issues with canvas overlay
+  // Can be re-enabled in future with proper canvas transform handling
+  // const zoom = d3.zoom<SVGSVGElement, unknown>()
+  //   .scaleExtent([0.5, 2])
+  //   .on('zoom', (event) => {
+  //     g.attr('transform', event.transform)
+  //     currentTransform = { k: event.transform.k, x: event.transform.x, y: event.transform.y }
+  //   })
+  // svg.call(zoom as any)
   
   // Fixed hierarchical layout - 4 layers (planes)
   const layerHeight = height / 5
@@ -1086,7 +1097,7 @@ watch(showTraffic, (newValue) => {
     </div>
     
     <div class="mt-2 text-xs text-text-muted text-center">
-      Hover for quick info • Click for details • Scroll to zoom
+      Hover for quick info • Click for details
     </div>
   </div>
 </template>
