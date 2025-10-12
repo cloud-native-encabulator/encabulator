@@ -1,13 +1,20 @@
-# DemoScenarioOrchestrator Makefile (Python)
+# SERVICE_NAME Service Makefile
 
 SERVICE_NAME := demo-scenario-orchestrator
+BINARY := $(SERVICE_NAME)
 
-# ECR Configuration (can be overridden from parent Makefile)
+# Project paths
+PROJECT_ROOT := ../../..
+HELM_CHART := $(PROJECT_ROOT)/helm/charts/$(SERVICE_NAME)
+VERSION_SCRIPT := $(PROJECT_ROOT)/scripts/version/bump-and-get-version.sh
+
+# ECR Configuration
 ECR_REGISTRY ?= 510431938379.dkr.ecr.us-east-2.amazonaws.com
 ECR_NAMESPACE ?= encabulator
 IMAGE_TAG ?= latest
 CONTAINER_RUNTIME ?= finch
 BUMP ?= patch
+K8S_NAMESPACE := encabulator-control
 
 # Version management
 VERSION_FILE := VERSION
@@ -18,67 +25,50 @@ help: ## Show this help message
 	@echo "$(SERVICE_NAME) - Available targets:"
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-20s\033[0m %s\n", $$1, $$2}'
 
-build: ## Validate Python syntax
+build: ## Build the service
 	@echo "Building $(SERVICE_NAME)..."
-	@python3 -m py_compile main.py
-	@echo "✓ Build complete"
+	@go build -o $(BINARY) ./cmd/server
+	@echo "✓ Build complete: $(BINARY)"
 
 test: ## Run tests
 	@echo "Testing $(SERVICE_NAME)..."
-	@python3 -m pytest test_main.py -v 2>/dev/null || echo "pytest not available, skipping tests"
+	@go test ./... -v
 	@echo "✓ Tests complete"
-
-test-coverage: ## Run tests with coverage
-	@python3 -m pytest test_main.py --cov=. --cov-report=html 2>/dev/null || echo "pytest-cov not available"
-	@echo "✓ Coverage report: htmlcov/index.html"
-
-run: ## Run the service
-	@python3 main.py
 
 image: ## Build container image for local platform
 	@echo "Building container image for $(SERVICE_NAME)..."
 	@$(CONTAINER_RUNTIME) build -t $(SERVICE_NAME):latest .
 	@echo "✓ Container image built: $(SERVICE_NAME):latest"
 
-image-local-publish: image ## Tag and publish local platform image to ECR
-	@echo "Publishing local $(SERVICE_NAME) to ECR..."
-	@echo "  Tagging: $(SERVICE_NAME):latest -> $(ECR_REGISTRY)/$(ECR_NAMESPACE)/$(SERVICE_NAME):$(IMAGE_TAG)"
-	@$(CONTAINER_RUNTIME) tag $(SERVICE_NAME):latest $(ECR_REGISTRY)/$(ECR_NAMESPACE)/$(SERVICE_NAME):$(IMAGE_TAG)
-	@echo "  Pushing: $(ECR_REGISTRY)/$(ECR_NAMESPACE)/$(SERVICE_NAME):$(IMAGE_TAG)"
-	@$(CONTAINER_RUNTIME) push $(ECR_REGISTRY)/$(ECR_NAMESPACE)/$(SERVICE_NAME):$(IMAGE_TAG)
-	@echo "✓ Successfully published local $(SERVICE_NAME):$(IMAGE_TAG)"
+image-build: ## Build multi-platform container image (no push)
+	@echo "Building multi-platform $(SERVICE_NAME)..."
+	@$(CONTAINER_RUNTIME) build --platform linux/amd64,linux/arm64 \
+		-t $(ECR_REGISTRY)/$(ECR_NAMESPACE)/$(SERVICE_NAME):$(IMAGE_TAG) .
+	@echo "✓ Successfully built $(SERVICE_NAME):$(IMAGE_TAG)"
 
-docker-build: image ## Build Docker image (deprecated, use 'image')
-
-image-publish: ## Build and publish multi-platform container image to ECR (auto-bumps version)
-	@echo "Current version: $(CURRENT_VERSION)"
-	@NEW_VERSION=$$(../../../scripts/version/bump-and-get-version.sh . $(BUMP)); \
-	echo "Bumping version ($(BUMP)): $(CURRENT_VERSION) -> $$NEW_VERSION"; \
-	echo "Building and publishing multi-platform $(SERVICE_NAME) to ECR..."; \
-	echo "  Building for linux/amd64,linux/arm64: $(ECR_REGISTRY)/$(ECR_NAMESPACE)/$(SERVICE_NAME):$$NEW_VERSION"; \
-	$(CONTAINER_RUNTIME) build --platform linux/amd64,linux/arm64 \
-		-t $(ECR_REGISTRY)/$(ECR_NAMESPACE)/$(SERVICE_NAME):$$NEW_VERSION \
-		-t $(ECR_REGISTRY)/$(ECR_NAMESPACE)/$(SERVICE_NAME):latest \
-		.; \
+image-publish: ## Build and publish (auto-bumps version)
+	@NEW_VERSION=$$($(VERSION_SCRIPT) . $(BUMP)); \
+	$(MAKE) IMAGE_TAG=$$NEW_VERSION image-build; \
 	$(CONTAINER_RUNTIME) push --platform linux/amd64,linux/arm64 $(ECR_REGISTRY)/$(ECR_NAMESPACE)/$(SERVICE_NAME):$$NEW_VERSION; \
+	$(CONTAINER_RUNTIME) tag $(ECR_REGISTRY)/$(ECR_NAMESPACE)/$(SERVICE_NAME):$$NEW_VERSION $(ECR_REGISTRY)/$(ECR_NAMESPACE)/$(SERVICE_NAME):latest; \
 	$(CONTAINER_RUNTIME) push --platform linux/amd64,linux/arm64 $(ECR_REGISTRY)/$(ECR_NAMESPACE)/$(SERVICE_NAME):latest; \
-	echo "✓ Successfully published multi-platform $(SERVICE_NAME):$$NEW_VERSION"
+	echo "✓ Published $(SERVICE_NAME):$$NEW_VERSION"
+
+dev-deploy: ## Build with 'dev' tag and deploy (no version bump)
+	@$(MAKE) IMAGE_TAG=dev image-build
+	@$(CONTAINER_RUNTIME) push --platform linux/amd64,linux/arm64 $(ECR_REGISTRY)/$(ECR_NAMESPACE)/$(SERVICE_NAME):dev
+	@helm upgrade $(SERVICE_NAME) $(HELM_CHART) -n $(K8S_NAMESPACE) --set image.tag=dev --set image.pullPolicy=Always
+	@echo "✓ Deployed $(SERVICE_NAME):dev"
 
 clean: ## Clean build artifacts
-	@find . -type d -name "__pycache__" -exec rm -rf {} + 2>/dev/null || true
-	@find . -type f -name "*.pyc" -delete
-	@find . -type f -name "*.pyo" -delete
-	@find . -type d -name ".pytest_cache" -exec rm -rf {} + 2>/dev/null || true
-	@rm -rf htmlcov .coverage
+	@rm -f $(BINARY) *.test *.out coverage.html
 	@echo "✓ Cleaned"
 
-fmt: ## Format code (requires black)
-	@command -v black >/dev/null 2>&1 && black *.py || echo "black not installed"
-	@echo "✓ Code formatted"
+fmt: ## Format code
+	@gofmt -w .
 
-lint: ## Run linter (requires pylint)
-	@command -v pylint >/dev/null 2>&1 && pylint *.py || echo "pylint not installed"
+lint: ## Run linter
+	@command -v golangci-lint >/dev/null 2>&1 && golangci-lint run || echo "golangci-lint not installed"
 
-deps: ## Install dependencies
-	@pip3 install -r requirements.txt
-	@echo "✓ Dependencies installed"
+deps: ## Download dependencies
+	@go mod download && go mod tidy

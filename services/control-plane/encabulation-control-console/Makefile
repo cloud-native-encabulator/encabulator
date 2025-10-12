@@ -16,7 +16,7 @@ CURRENT_VERSION := $(shell cat $(VERSION_FILE) 2>/dev/null || echo "0.0.1")
 .PHONY: help
 help: ## Show this help message
 	@echo "$(SERVICE_NAME) - Available targets:"
-	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-20s\033[0m %s\n", $$1, $$2}'
+	@grep -E '^[a-zA-Z_-]+:.*?## .*$' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-20s\033[0m %s\n", $$1, $$2}'
 
 build: deps build-frontend build-backend ## Build frontend and backend
 	@echo "✓ Full build complete"
@@ -71,19 +71,36 @@ image-local-publish: image ## Tag and publish local platform image to ECR
 
 docker-build: image ## Build Docker image (deprecated, use 'image')
 
+image-build: ## Build multi-platform container image (no push)
+	@echo "Building multi-platform $(SERVICE_NAME)..."
+	@echo "  Building for linux/amd64,linux/arm64: $(ECR_REGISTRY)/$(ECR_NAMESPACE)/$(SERVICE_NAME):$(IMAGE_TAG)"
+	@$(CONTAINER_RUNTIME) build --platform linux/amd64,linux/arm64 \
+		-t $(ECR_REGISTRY)/$(ECR_NAMESPACE)/$(SERVICE_NAME):$(IMAGE_TAG) \
+		.
+	@echo "✓ Successfully built multi-platform $(SERVICE_NAME):$(IMAGE_TAG)"
+
 image-publish: ## Build and publish multi-platform container image to ECR (auto-bumps version)
 	@echo "Current version: $(CURRENT_VERSION)"
 	@NEW_VERSION=$$(../../../scripts/version/bump-and-get-version.sh . $(BUMP)); \
 	echo "Bumping version ($(BUMP)): $(CURRENT_VERSION) -> $$NEW_VERSION"; \
-	echo "Building and publishing multi-platform $(SERVICE_NAME) to ECR..."; \
-	echo "  Building for linux/amd64,linux/arm64: $(ECR_REGISTRY)/$(ECR_NAMESPACE)/$(SERVICE_NAME):$$NEW_VERSION"; \
-	$(CONTAINER_RUNTIME) build --platform linux/amd64,linux/arm64 \
-		-t $(ECR_REGISTRY)/$(ECR_NAMESPACE)/$(SERVICE_NAME):$$NEW_VERSION \
-		-t $(ECR_REGISTRY)/$(ECR_NAMESPACE)/$(SERVICE_NAME):latest \
-		.; \
+	$(MAKE) IMAGE_TAG=$$NEW_VERSION image-build; \
+	echo "Publishing multi-platform $(SERVICE_NAME) to ECR..."; \
 	$(CONTAINER_RUNTIME) push --platform linux/amd64,linux/arm64 $(ECR_REGISTRY)/$(ECR_NAMESPACE)/$(SERVICE_NAME):$$NEW_VERSION; \
+	$(CONTAINER_RUNTIME) tag $(ECR_REGISTRY)/$(ECR_NAMESPACE)/$(SERVICE_NAME):$$NEW_VERSION $(ECR_REGISTRY)/$(ECR_NAMESPACE)/$(SERVICE_NAME):latest; \
 	$(CONTAINER_RUNTIME) push --platform linux/amd64,linux/arm64 $(ECR_REGISTRY)/$(ECR_NAMESPACE)/$(SERVICE_NAME):latest; \
 	echo "✓ Successfully published multi-platform $(SERVICE_NAME):$$NEW_VERSION"
+
+dev-deploy: ## Build with 'dev' tag, push, and deploy to cluster (fast iteration, no version bump)
+	@echo "Building and deploying $(SERVICE_NAME) with dev tag..."
+	@$(MAKE) IMAGE_TAG=dev image-build
+	@echo "Pushing dev image..."
+	@$(CONTAINER_RUNTIME) push --platform linux/amd64,linux/arm64 $(ECR_REGISTRY)/$(ECR_NAMESPACE)/$(SERVICE_NAME):dev
+	@echo "Deploying via Helm..."
+	@helm upgrade $(SERVICE_NAME) ../../../helm/charts/$(SERVICE_NAME) \
+		-n encabulator-control \
+		--set image.tag=dev \
+		--set image.pullPolicy=Always
+	@echo "✓ Successfully deployed $(SERVICE_NAME):dev"
 
 clean: ## Clean build artifacts
 	@rm -rf dist node_modules server/dist server/node_modules
