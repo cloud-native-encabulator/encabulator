@@ -48,7 +48,11 @@ dev-deploy: ## Build with 'dev' tag and deploy (no version bump)
 	@$(MAKE) IMAGE_TAG=dev image-build
 	@$(CONTAINER_RUNTIME) push --platform linux/amd64,linux/arm64 $(ECR_REGISTRY)/$(ECR_NAMESPACE)/$(SERVICE_NAME):dev
 	@helm upgrade $(SERVICE_NAME) $(HELM_CHART) -n $(K8S_NAMESPACE) --set image.tag=dev --set image.pullPolicy=Always
-	@echo "✓ Deployed $(SERVICE_NAME):dev"
+	@echo "Restarting deployment to pull new image..."
+	@kubectl rollout restart deployment $(SERVICE_NAME) -n $(K8S_NAMESPACE)
+	@echo "Waiting for rollout to complete..."
+	@kubectl rollout status deployment $(SERVICE_NAME) -n $(K8S_NAMESPACE) --timeout=60s
+	@echo "✓ Successfully deployed $(SERVICE_NAME):dev"
 
 clean: ## Clean build artifacts
 	@find . -type d -name __pycache__ -exec rm -rf {} + 2>/dev/null || true

@@ -185,7 +185,7 @@
     - Add particle despawn logic at target nodes
     - _Requirements: 14.1, 14.2, 14.3, 14.4_
 
-  - [ ] 6.6 Implement traffic metrics collection and simulation
+  - [x] 6.6 Implement traffic metrics collection and simulation
 
     - Create TrafficMetrics interface and data structures
     - Implement simulated traffic metrics generation based on service topology
