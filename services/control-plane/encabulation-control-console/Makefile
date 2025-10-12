@@ -105,8 +105,7 @@ dev-deploy: ## Build with 'dev' tag, push, and deploy to cluster (fast iteration
 	@echo "Waiting for rollout to complete..."
 	@kubectl rollout status deployment $(SERVICE_NAME) -n encabulator-control --timeout=60s
 	@echo "✓ Successfully deployed $(SERVICE_NAME):dev"
-	@echo "Waiting for rollout to complete..."
-	@kubectl rollout status deployment $(SERVICE_NAME) -n $(K8S_NAMESPACE) --timeout=60s
+
 clean: ## Clean build artifacts
 	@rm -rf dist node_modules server/dist server/node_modules
 	@echo "✓ Cleaned"
