@@ -98,13 +98,23 @@ async def get_current_user(token: str = Depends(oauth2_scheme)) -> User:
         if username is None:
             raise credentials_exception
         token_data = TokenData(username=username, roles=payload.get("roles", []))
-    except JWTError:
+    except JWTError as e:
+        print(f"JWT decode error: {e}")
         raise credentials_exception
     
     user = get_user(username=token_data.username)
     if user is None:
+        print(f"User not found: {token_data.username}")
         raise credentials_exception
-    return User(**user.dict())
+    
+    # Convert UserInDB to User (exclude hashed_password and timestamps)
+    return User(
+        username=user.username,
+        email=user.email,
+        full_name=user.full_name,
+        disabled=user.disabled,
+        roles=user.roles
+    )
 
 
 async def get_current_active_user(current_user: User = Depends(get_current_user)) -> User:
@@ -142,7 +152,7 @@ def log_activity(username: str, action: str, resource: Optional[str] = None,
         user_agent=user_agent,
         success=success
     )
-    activity_logs.append(log_entry.dict())
+    activity_logs.append(log_entry.model_dump())
     # Keep only last 1000 entries
     if len(activity_logs) > 1000:
         activity_logs.pop(0)

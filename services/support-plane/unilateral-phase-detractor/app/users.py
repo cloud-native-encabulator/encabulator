@@ -15,6 +15,28 @@ from .auth import (
 router = APIRouter(prefix="/api/v1/users", tags=["users"])
 
 
+@router.get("/me", response_model=UserResponse)
+async def get_current_user_info(
+    request: Request,
+    current_user: User = Depends(get_current_active_user)
+):
+    """Get current user info"""
+    log_activity(
+        username=current_user.username,
+        action="get_current_user",
+        ip_address=request.client.host if request.client else None
+    )
+    
+    # Get full user data from database
+    if current_user.username not in fake_users_db:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="User not found"
+        )
+    
+    return UserResponse(**fake_users_db[current_user.username])
+
+
 @router.get("", response_model=List[UserResponse])
 async def list_users(
     request: Request,
