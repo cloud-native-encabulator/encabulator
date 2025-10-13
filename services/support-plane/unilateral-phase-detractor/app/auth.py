@@ -18,17 +18,37 @@ fake_users_db = {
         "full_name": "Admin User",
         "hashed_password": "$2b$12$EixZaYVK1fsbw1ZfbX3OXePaWxn96p36WQoeG6Lruj3vjPGga31lW",  # "secret"
         "disabled": False,
-        "roles": ["admin", "user"],
+        "roles": ["admin"],
+        "created_at": datetime.utcnow(),
+        "updated_at": datetime.utcnow(),
+        "last_login": None,
     },
-    "user": {
-        "username": "user",
-        "email": "user@encabulate.net",
-        "full_name": "Regular User",
+    "operator": {
+        "username": "operator",
+        "email": "operator@encabulate.net",
+        "full_name": "Operator User",
         "hashed_password": "$2b$12$EixZaYVK1fsbw1ZfbX3OXePaWxn96p36WQoeG6Lruj3vjPGga31lW",  # "secret"
         "disabled": False,
-        "roles": ["user"],
+        "roles": ["operator"],
+        "created_at": datetime.utcnow(),
+        "updated_at": datetime.utcnow(),
+        "last_login": None,
+    },
+    "viewer": {
+        "username": "viewer",
+        "email": "viewer@encabulate.net",
+        "full_name": "Viewer User",
+        "hashed_password": "$2b$12$EixZaYVK1fsbw1ZfbX3OXePaWxn96p36WQoeG6Lruj3vjPGga31lW",  # "secret"
+        "disabled": False,
+        "roles": ["viewer"],
+        "created_at": datetime.utcnow(),
+        "updated_at": datetime.utcnow(),
+        "last_login": None,
     },
 }
+
+# Activity log storage (in-memory)
+activity_logs = []
 
 
 def verify_password(plain_password: str, hashed_password: str) -> bool:
@@ -91,3 +111,38 @@ async def get_current_active_user(current_user: User = Depends(get_current_user)
     if current_user.disabled:
         raise HTTPException(status_code=400, detail="Inactive user")
     return current_user
+
+
+def require_role(required_role: str):
+    """Dependency to check if user has required role"""
+    async def role_checker(current_user: User = Depends(get_current_active_user)) -> User:
+        if required_role not in current_user.roles and "admin" not in current_user.roles:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail=f"User does not have required role: {required_role}"
+            )
+        return current_user
+    return role_checker
+
+
+def log_activity(username: str, action: str, resource: Optional[str] = None, 
+                 ip_address: Optional[str] = None, user_agent: Optional[str] = None,
+                 success: bool = True):
+    """Log user activity"""
+    from .models import ActivityLog
+    import uuid
+    
+    log_entry = ActivityLog(
+        id=str(uuid.uuid4()),
+        username=username,
+        action=action,
+        resource=resource,
+        timestamp=datetime.utcnow(),
+        ip_address=ip_address,
+        user_agent=user_agent,
+        success=success
+    )
+    activity_logs.append(log_entry.dict())
+    # Keep only last 1000 entries
+    if len(activity_logs) > 1000:
+        activity_logs.pop(0)
