@@ -1,9 +1,9 @@
-import express from 'express'
+import express, { Request, Response, NextFunction } from 'express'
 import { createServer } from 'http'
 import { Server } from 'socket.io'
 import cors from 'cors'
 import path from 'path'
-import { register } from 'prom-client'
+import { register, Counter, Histogram } from 'prom-client'
 import rateLimit from 'express-rate-limit'
 import { KubernetesService } from './services/kubernetes'
 import { MetricsService } from './services/metrics'
@@ -22,6 +22,25 @@ const PORT = process.env.PORT || 8080
 const k8sService = new KubernetesService()
 const metricsService = new MetricsService()
 const trafficService = new TrafficSimulationService()
+
+// Prometheus metrics
+const actionCounter = new Counter({
+  name: 'control_console_actions_total',
+  help: 'Total number of control actions executed',
+  labelNames: ['action', 'status']
+})
+
+const actionDuration = new Histogram({
+  name: 'control_console_action_duration_seconds',
+  help: 'Duration of control actions',
+  labelNames: ['action']
+})
+
+const authRequestCounter = new Counter({
+  name: 'control_console_auth_requests_total',
+  help: 'Total number of auth requests',
+  labelNames: ['endpoint', 'status']
+})
 
 app.use(cors())
 app.use(express.json())
@@ -57,6 +76,50 @@ function addToActionHistory(action: string, user: string, success: boolean, mess
   if (actionHistory.length > 100) {
     actionHistory.pop()
   }
+  
+  // Update Prometheus metrics
+  actionCounter.inc({ action, status: success ? 'success' : 'failure' })
+}
+
+// JWT middleware for protected routes
+async function authenticateJWT(req: Request, res: Response, next: NextFunction) {
+  const authHeader = req.headers.authorization
+  
+  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    return res.status(401).json({ error: 'Missing or invalid authorization header' })
+  }
+  
+  try {
+    // Verify token with auth service
+    const response = await fetch(`${AUTH_API_BASE}/api/v1/users/me`, {
+      headers: { 'Authorization': authHeader }
+    })
+    
+    if (!response.ok) {
+      return res.status(401).json({ error: 'Invalid or expired token' })
+    }
+    
+    const user = await response.json() as { username: string; role: string }
+    req.headers['x-user'] = user.username
+    req.headers['x-user-role'] = user.role
+    next()
+  } catch (error) {
+    console.error('JWT authentication error:', error)
+    res.status(500).json({ error: 'Authentication service unavailable' })
+  }
+}
+
+// Role-based authorization middleware
+function requireRole(...roles: string[]) {
+  return (req: Request, res: Response, next: NextFunction) => {
+    const userRole = req.headers['x-user-role'] as string
+    
+    if (!userRole || !roles.includes(userRole)) {
+      return res.status(403).json({ error: 'Insufficient permissions' })
+    }
+    
+    next()
+  }
 }
 
 // Proxy to unilateral-phase-detractor for auth
@@ -70,8 +133,11 @@ app.post('/api/auth/login', async (req, res) => {
       body: JSON.stringify(req.body)
     })
     const data = await response.json()
+    authRequestCounter.inc({ endpoint: 'login', status: response.ok ? 'success' : 'failure' })
     res.status(response.status).json(data)
   } catch (error) {
+    authRequestCounter.inc({ endpoint: 'login', status: 'error' })
+    console.error('Login error:', error)
     res.status(500).json({ error: 'Auth service unavailable' })
   }
 })
@@ -82,20 +148,26 @@ app.get('/api/auth/users/me', async (req, res) => {
       headers: { 'Authorization': req.headers.authorization || '' }
     })
     const data = await response.json()
+    authRequestCounter.inc({ endpoint: 'users_me', status: response.ok ? 'success' : 'failure' })
     res.status(response.status).json(data)
   } catch (error) {
+    authRequestCounter.inc({ endpoint: 'users_me', status: 'error' })
+    console.error('Get user error:', error)
     res.status(500).json({ error: 'Auth service unavailable' })
   }
 })
 
-app.get('/api/auth/users', async (req, res) => {
+app.get('/api/auth/users', authenticateJWT, requireRole('admin'), async (req, res) => {
   try {
     const response = await fetch(`${AUTH_API_BASE}/api/v1/users`, {
       headers: { 'Authorization': req.headers.authorization || '' }
     })
     const data = await response.json()
+    authRequestCounter.inc({ endpoint: 'users_list', status: response.ok ? 'success' : 'failure' })
     res.status(response.status).json(data)
   } catch (error) {
+    authRequestCounter.inc({ endpoint: 'users_list', status: 'error' })
+    console.error('List users error:', error)
     res.status(500).json({ error: 'Auth service unavailable' })
   }
 })
@@ -112,7 +184,7 @@ app.get('/api/auth/users/:username', async (req, res) => {
   }
 })
 
-app.post('/api/auth/users', async (req, res) => {
+app.post('/api/auth/users', authenticateJWT, requireRole('admin'), async (req, res) => {
   try {
     const response = await fetch(`${AUTH_API_BASE}/api/v1/users`, {
       method: 'POST',
@@ -123,13 +195,16 @@ app.post('/api/auth/users', async (req, res) => {
       body: JSON.stringify(req.body)
     })
     const data = await response.json()
+    authRequestCounter.inc({ endpoint: 'users_create', status: response.ok ? 'success' : 'failure' })
     res.status(response.status).json(data)
   } catch (error) {
+    authRequestCounter.inc({ endpoint: 'users_create', status: 'error' })
+    console.error('Create user error:', error)
     res.status(500).json({ error: 'Auth service unavailable' })
   }
 })
 
-app.put('/api/auth/users/:username', async (req, res) => {
+app.put('/api/auth/users/:username', authenticateJWT, requireRole('admin'), async (req, res) => {
   try {
     const response = await fetch(`${AUTH_API_BASE}/api/v1/users/${req.params.username}`, {
       method: 'PUT',
@@ -140,18 +215,22 @@ app.put('/api/auth/users/:username', async (req, res) => {
       body: JSON.stringify(req.body)
     })
     const data = await response.json()
+    authRequestCounter.inc({ endpoint: 'users_update', status: response.ok ? 'success' : 'failure' })
     res.status(response.status).json(data)
   } catch (error) {
+    authRequestCounter.inc({ endpoint: 'users_update', status: 'error' })
+    console.error('Update user error:', error)
     res.status(500).json({ error: 'Auth service unavailable' })
   }
 })
 
-app.delete('/api/auth/users/:username', async (req, res) => {
+app.delete('/api/auth/users/:username', authenticateJWT, requireRole('admin'), async (req, res) => {
   try {
     const response = await fetch(`${AUTH_API_BASE}/api/v1/users/${req.params.username}`, {
       method: 'DELETE',
       headers: { 'Authorization': req.headers.authorization || '' }
     })
+    authRequestCounter.inc({ endpoint: 'users_delete', status: response.ok ? 'success' : 'failure' })
     if (response.status === 204) {
       res.status(204).send()
     } else {
@@ -159,6 +238,8 @@ app.delete('/api/auth/users/:username', async (req, res) => {
       res.status(response.status).json(data)
     }
   } catch (error) {
+    authRequestCounter.inc({ endpoint: 'users_delete', status: 'error' })
+    console.error('Delete user error:', error)
     res.status(500).json({ error: 'Auth service unavailable' })
   }
 })
@@ -217,14 +298,15 @@ app.get('/api/actions/history', (req, res) => {
 })
 
 // Grafana proxy endpoint
-app.get('/api/grafana/*', async (req, res) => {
+app.use('/api/grafana', async (req, res) => {
   try {
-    const grafanaPath = req.path.replace('/api/grafana/', '')
-    const grafanaUrl = `http://grafana.encabulator-monitoring.svc.cluster.local:3000/${grafanaPath}`
+    const grafanaPath = req.path
+    const grafanaUrl = `http://grafana.encabulator-monitoring.svc.cluster.local:3000${grafanaPath}`
     const response = await fetch(grafanaUrl)
     const data = await response.text()
     res.send(data)
   } catch (error) {
+    console.error('Grafana proxy error:', error)
     res.status(500).json({ error: 'Grafana service unavailable' })
   }
 })
@@ -232,6 +314,8 @@ app.get('/api/grafana/*', async (req, res) => {
 // Control Actions API (with rate limiting)
 app.post('/api/actions/synchronize-grammeters', actionLimiter, async (req, res) => {
   const user = req.headers['x-user'] as string || 'unknown'
+  const end = actionDuration.startTimer({ action: 'synchronize-grammeters' })
+  
   try {
     const response = await fetch('http://cardinal-grammeter.encabulator-control.svc.cluster.local:8080/traffic/start', {
       method: 'POST',
@@ -245,14 +329,32 @@ app.post('/api/actions/synchronize-grammeters', actionLimiter, async (req, res) 
     })
     const data = await response.json()
     addToActionHistory('synchronize-grammeters', user, true, 'Cardinal Grammeters synchronized')
+    end()
+    
+    // Emit WebSocket event for real-time updates
+    io.emit('message', {
+      type: 'action_completed',
+      payload: {
+        action: 'synchronize-grammeters',
+        user,
+        success: true,
+        message: 'Cardinal Grammeters synchronized'
+      }
+    })
+    
     res.json({ success: true, message: 'Cardinal Grammeters synchronized', data })
   } catch (error) {
     addToActionHistory('synchronize-grammeters', user, false, String(error))
+    end()
+    console.error('Synchronize grammeters error:', error)
     res.status(500).json({ error: 'Failed to synchronize grammeters', message: String(error) })
   }
 })
 
-app.post('/api/actions/induce-fumbling', async (req, res) => {
+app.post('/api/actions/induce-fumbling', actionLimiter, async (req, res) => {
+  const user = req.headers['x-user'] as string || 'unknown'
+  const end = actionDuration.startTimer({ action: 'induce-fumbling' })
+  
   try {
     const response = await fetch('http://malaise-injection-engine.encabulator-control.svc.cluster.local:8080/inject', {
       method: 'POST',
@@ -264,55 +366,93 @@ app.post('/api/actions/induce-fumbling', async (req, res) => {
       })
     })
     const data = await response.json()
+    addToActionHistory('induce-fumbling', user, true, 'Side fumbling induced')
+    end()
     res.json({ success: true, message: 'Side fumbling induced', data })
   } catch (error) {
+    addToActionHistory('induce-fumbling', user, false, String(error))
+    end()
+    console.error('Induce fumbling error:', error)
     res.status(500).json({ error: 'Failed to induce fumbling', message: String(error) })
   }
 })
 
-app.post('/api/actions/flex-dingle-arm', async (req, res) => {
+app.post('/api/actions/flex-dingle-arm', actionLimiter, async (req, res) => {
+  const user = req.headers['x-user'] as string || 'unknown'
   const { direction } = req.body
+  const end = actionDuration.startTimer({ action: 'flex-dingle-arm' })
+  
   if (!direction || !['up', 'down'].includes(direction)) {
+    end()
     return res.status(400).json({ error: 'Direction must be "up" or "down"' })
   }
   
   try {
     await k8sService.scaleService('dingle-arm-api-gateway', direction)
+    addToActionHistory('flex-dingle-arm', user, true, `Dingle Arm flexed ${direction}`)
+    end()
     res.json({ success: true, message: `Dingle Arm flexed ${direction}` })
   } catch (error) {
+    addToActionHistory('flex-dingle-arm', user, false, String(error))
+    end()
+    console.error('Flex dingle arm error:', error)
     res.status(500).json({ error: 'Failed to flex dingle arm', message: String(error) })
   }
 })
 
-app.post('/api/actions/recalibrate-fam', async (req, res) => {
+app.post('/api/actions/recalibrate-fam', actionLimiter, async (req, res) => {
+  const user = req.headers['x-user'] as string || 'unknown'
+  const end = actionDuration.startTimer({ action: 'recalibrate-fam' })
+  
   try {
     await k8sService.restartService('panametric-fam-processor')
+    addToActionHistory('recalibrate-fam', user, true, 'Panametric Fam recalibrated')
+    end()
     res.json({ success: true, message: 'Panametric Fam recalibrated' })
   } catch (error) {
+    addToActionHistory('recalibrate-fam', user, false, String(error))
+    end()
+    console.error('Recalibrate fam error:', error)
     res.status(500).json({ error: 'Failed to recalibrate fam', message: String(error) })
   }
 })
 
-app.post('/api/actions/engage-dampeners', async (req, res) => {
+app.post('/api/actions/engage-dampeners', actionLimiter, async (req, res) => {
+  const user = req.headers['x-user'] as string || 'unknown'
+  const end = actionDuration.startTimer({ action: 'engage-dampeners' })
+  
   try {
     const response = await fetch('http://cardinal-grammeter.encabulator-control.svc.cluster.local:8080/traffic/stop', {
       method: 'POST'
     })
     const data = await response.json()
+    addToActionHistory('engage-dampeners', user, true, 'Malaise dampeners engaged')
+    end()
     res.json({ success: true, message: 'Malaise dampeners engaged', data })
   } catch (error) {
+    addToActionHistory('engage-dampeners', user, false, String(error))
+    end()
+    console.error('Engage dampeners error:', error)
     res.status(500).json({ error: 'Failed to engage dampeners', message: String(error) })
   }
 })
 
-app.post('/api/actions/purge-marzelvanes', async (req, res) => {
+app.post('/api/actions/purge-marzelvanes', actionLimiter, async (req, res) => {
+  const user = req.headers['x-user'] as string || 'unknown'
+  const end = actionDuration.startTimer({ action: 'purge-marzelvanes' })
+  
   try {
     const response = await fetch('http://prefabulated-cache.encabulator-data.svc.cluster.local:8080/cache/clear', {
       method: 'POST'
     })
     const data = await response.json()
+    addToActionHistory('purge-marzelvanes', user, true, 'Hydrocoptic marzelvanes purged')
+    end()
     res.json({ success: true, message: 'Hydrocoptic marzelvanes purged', data })
   } catch (error) {
+    addToActionHistory('purge-marzelvanes', user, false, String(error))
+    end()
+    console.error('Purge marzelvanes error:', error)
     res.status(500).json({ error: 'Failed to purge marzelvanes', message: String(error) })
   }
 })
@@ -334,8 +474,9 @@ io.on('connection', (socket) => {
   })
 
   // Handle client messages
-  socket.on('message', async (data) => {
+  socket.on('message', async (data: any) => {
     console.log('Received message:', data)
+    const user = (data.user as string) || 'unknown'
 
     try {
       switch (data.type) {
@@ -344,22 +485,87 @@ io.on('connection', (socket) => {
             data.payload.service,
             data.payload.direction
           )
+          addToActionHistory('scale_service', user, true, `Scaled ${data.payload.service} ${data.payload.direction}`)
           break
         case 'inject_failure':
           await k8sService.injectFailure(data.payload.service)
+          addToActionHistory('inject_failure', user, true, `Injected failure into ${data.payload.service}`)
           break
         case 'run_scenario':
           await k8sService.runScenario(data.payload.scenario)
+          addToActionHistory('run_scenario', user, true, `Ran scenario: ${data.payload.scenario}`)
+          break
+        case 'synchronize_grammeters':
+          const gramResponse = await fetch('http://cardinal-grammeter.encabulator-control.svc.cluster.local:8080/traffic/start', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              target: 'http://dingle-arm-api-gateway.encabulator-processing.svc.cluster.local:8080',
+              pattern: 'steady',
+              magnetoReluctance: 50,
+              capacitiveDiractance: 50
+            })
+          })
+          await gramResponse.json()
+          addToActionHistory('synchronize_grammeters', user, true, 'Cardinal Grammeters synchronized')
+          break
+        case 'induce_fumbling':
+          const fumblingResponse = await fetch('http://malaise-injection-engine.encabulator-control.svc.cluster.local:8080/inject', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              type: 'latency',
+              target: 'panametric-fam-processor',
+              duration: 300
+            })
+          })
+          await fumblingResponse.json()
+          addToActionHistory('induce_fumbling', user, true, 'Side fumbling induced')
+          break
+        case 'flex_dingle_arm':
+          await k8sService.scaleService('dingle-arm-api-gateway', data.payload.direction)
+          addToActionHistory('flex_dingle_arm', user, true, `Dingle Arm flexed ${data.payload.direction}`)
+          break
+        case 'recalibrate_fam':
+          await k8sService.restartService('panametric-fam-processor')
+          addToActionHistory('recalibrate_fam', user, true, 'Panametric Fam recalibrated')
+          break
+        case 'engage_dampeners':
+          const dampenerResponse = await fetch('http://cardinal-grammeter.encabulator-control.svc.cluster.local:8080/traffic/stop', {
+            method: 'POST'
+          })
+          await dampenerResponse.json()
+          addToActionHistory('engage_dampeners', user, true, 'Malaise dampeners engaged')
+          break
+        case 'purge_marzelvanes':
+          const purgeResponse = await fetch('http://prefabulated-cache.encabulator-data.svc.cluster.local:8080/cache/clear', {
+            method: 'POST'
+          })
+          await purgeResponse.json()
+          addToActionHistory('purge_marzelvanes', user, true, 'Hydrocoptic marzelvanes purged')
           break
       }
 
       // Send updated status
       const status = await k8sService.getSystemStatus()
-      socket.emit('message', {
+      io.emit('message', {
         type: 'system_status',
         payload: status,
       })
+      
+      // Broadcast action completion
+      io.emit('message', {
+        type: 'action_completed',
+        payload: {
+          action: data.type,
+          user,
+          success: true,
+          timestamp: new Date().toISOString()
+        }
+      })
     } catch (error) {
+      console.error('WebSocket action error:', error)
+      addToActionHistory(data.type, user, false, String(error))
       socket.emit('message', {
         type: 'error',
         payload: { message: String(error) },

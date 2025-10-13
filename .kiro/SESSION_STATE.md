@@ -5,22 +5,22 @@
 
 ## 🎯 Current Focus
 
-**Active Task:** 6.13 - Enhance backend for new features (IN PROGRESS)
+**Active Task:** 6.13 - Enhance backend for new features (COMPLETE ✅)
 
 ### What's Done in 6.13:
-- ✅ Rate limiting (10 req/min for control actions)
+- ✅ Rate limiting (10 req/min for all control actions)
 - ✅ Action history API (`GET /api/actions/history`)
-- ✅ Grafana proxy endpoint (`GET /api/grafana/*`)
+- ✅ Grafana proxy endpoint (`/api/grafana/*`)
 - ✅ Auth proxy endpoints (all `/api/auth/*` routes)
 - ✅ User service integration
-
-### What's Remaining in 6.13:
-- ⏳ JWT middleware formalization
-- ⏳ WebSocket events for enhanced actions
-- ⏳ Enhanced error handling
-- ⏳ Prometheus metrics updates
-- ⏳ Apply rate limiting to all control actions (only one done)
-- ⏳ Add action history logging to all actions (only one done)
+- ✅ JWT middleware formalization (authenticateJWT + requireRole)
+- ✅ WebSocket events for all enhanced actions
+- ✅ Enhanced error handling (console.error logging)
+- ✅ Prometheus metrics updates (actionCounter, actionDuration, authRequestCounter)
+- ✅ Rate limiting applied to all control actions
+- ✅ Action history logging for all actions
+- ✅ Role-based access control for admin endpoints
+- ✅ Deployed to cluster (revision 59)
 
 ## 🔑 Key Information
 
@@ -54,7 +54,7 @@ kubectl port-forward -n encabulator-support svc/unilateral-phase-detractor 8081:
 ## 📦 Recent Deployments
 
 All services are deployed and running:
-- ✅ Control Console (revision 57+)
+- ✅ Control Console (revision 59 - with enhanced backend)
 - ✅ Unilateral Phase Detractor (revision 4+)
 - ✅ All 12 microservices operational
 
@@ -84,7 +84,7 @@ All services are deployed and running:
 
 ## 📊 Progress Overview
 
-### Task 6: Control Console (12/15 complete - 80%)
+### Task 6: Control Console (13/15 complete - 87%)
 - ✅ 6.1 - Vue 3 migration
 - ✅ 6.2 - Core components
 - ✅ 6.3 - Pod visualization
@@ -97,7 +97,7 @@ All services are deployed and running:
 - ✅ 6.10 - Control actions
 - ✅ 6.11 - User management API
 - ✅ 6.12 - Admin portal
-- ⏳ 6.13 - Backend enhancements (IN PROGRESS)
+- ✅ 6.13 - Backend enhancements (COMPLETE)
 - ⚪ 6.14* - Unit tests (optional)
 - ⚪ 6.15* - Integration tests (optional)
 
