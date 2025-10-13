@@ -262,7 +262,7 @@
     - Add mobile-responsive admin interface
     - _Requirements: 3.1, 3.2, 11.1, 2.1_
 
-  - [ ] 6.13 Enhance backend for new features
+  - [-] 6.13 Enhance backend for new features
 
     - Add Grafana proxy endpoint for secure dashboard embedding (/api/grafana/\*)
     - Implement JWT authentication middleware for protected routes

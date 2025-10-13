@@ -4,6 +4,7 @@ import { Server } from 'socket.io'
 import cors from 'cors'
 import path from 'path'
 import { register } from 'prom-client'
+import rateLimit from 'express-rate-limit'
 import { KubernetesService } from './services/kubernetes'
 import { MetricsService } from './services/metrics'
 import { TrafficSimulationService } from './services/traffic'
@@ -24,6 +25,39 @@ const trafficService = new TrafficSimulationService()
 
 app.use(cors())
 app.use(express.json())
+
+// Rate limiting for control actions
+const actionLimiter = rateLimit({
+  windowMs: 60 * 1000, // 1 minute
+  max: 10, // 10 requests per minute
+  message: { error: 'Too many requests, please try again later' }
+})
+
+// Action history storage (in-memory)
+interface ActionHistoryItem {
+  id: string
+  action: string
+  user: string
+  timestamp: string
+  success: boolean
+  message: string
+}
+const actionHistory: ActionHistoryItem[] = []
+
+function addToActionHistory(action: string, user: string, success: boolean, message: string) {
+  actionHistory.unshift({
+    id: Date.now().toString(),
+    action,
+    user,
+    timestamp: new Date().toISOString(),
+    success,
+    message
+  })
+  // Keep last 100 actions
+  if (actionHistory.length > 100) {
+    actionHistory.pop()
+  }
+}
 
 // Proxy to unilateral-phase-detractor for auth
 const AUTH_API_BASE = 'http://unilateral-phase-detractor.encabulator-support.svc.cluster.local:8080'
@@ -176,8 +210,28 @@ app.get('/api/traffic', (req, res) => {
   }
 })
 
-// Control Actions API
-app.post('/api/actions/synchronize-grammeters', async (req, res) => {
+// Action history endpoint
+app.get('/api/actions/history', (req, res) => {
+  const limit = parseInt(req.query.limit as string) || 50
+  res.json(actionHistory.slice(0, limit))
+})
+
+// Grafana proxy endpoint
+app.get('/api/grafana/*', async (req, res) => {
+  try {
+    const grafanaPath = req.path.replace('/api/grafana/', '')
+    const grafanaUrl = `http://grafana.encabulator-monitoring.svc.cluster.local:3000/${grafanaPath}`
+    const response = await fetch(grafanaUrl)
+    const data = await response.text()
+    res.send(data)
+  } catch (error) {
+    res.status(500).json({ error: 'Grafana service unavailable' })
+  }
+})
+
+// Control Actions API (with rate limiting)
+app.post('/api/actions/synchronize-grammeters', actionLimiter, async (req, res) => {
+  const user = req.headers['x-user'] as string || 'unknown'
   try {
     const response = await fetch('http://cardinal-grammeter.encabulator-control.svc.cluster.local:8080/traffic/start', {
       method: 'POST',
@@ -190,8 +244,10 @@ app.post('/api/actions/synchronize-grammeters', async (req, res) => {
       })
     })
     const data = await response.json()
+    addToActionHistory('synchronize-grammeters', user, true, 'Cardinal Grammeters synchronized')
     res.json({ success: true, message: 'Cardinal Grammeters synchronized', data })
   } catch (error) {
+    addToActionHistory('synchronize-grammeters', user, false, String(error))
     res.status(500).json({ error: 'Failed to synchronize grammeters', message: String(error) })
   }
 })
