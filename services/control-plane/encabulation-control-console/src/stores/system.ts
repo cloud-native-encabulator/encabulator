@@ -1,6 +1,9 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
+import axios from 'axios'
 import type { Service, SystemMetrics, TrafficMetrics } from '@/types'
+
+export type TrafficMode = 'simulated' | 'real'
 
 export const useSystemStore = defineStore('system', () => {
   const services = ref<Record<string, Service>>({})
@@ -14,6 +17,8 @@ export const useSystemStore = defineStore('system', () => {
   const trafficMetrics = ref<TrafficMetrics[]>([])
   const connected = ref(false)
   const lastUpdate = ref<Date | null>(null)
+  const trafficMode = ref<TrafficMode>('simulated')
+  const trafficModeLoading = ref(false)
 
   const healthyServices = computed(() => 
     Object.entries(services.value)
@@ -54,12 +59,56 @@ export const useSystemStore = defineStore('system', () => {
     connected.value = status
   }
 
+  async function fetchTrafficMode() {
+    try {
+      const response = await axios.get('/api/traffic/mode')
+      trafficMode.value = response.data.mode
+      return response.data.mode
+    } catch (error) {
+      console.error('Failed to fetch traffic mode:', error)
+      return trafficMode.value
+    }
+  }
+
+  async function setTrafficMode(mode: TrafficMode) {
+    trafficModeLoading.value = true
+    try {
+      const response = await axios.post('/api/traffic/mode', { mode })
+      trafficMode.value = response.data.mode
+      
+      // Store preference in localStorage
+      localStorage.setItem('traffic_mode', mode)
+      
+      return true
+    } catch (error) {
+      console.error('Failed to set traffic mode:', error)
+      return false
+    } finally {
+      trafficModeLoading.value = false
+    }
+  }
+
+  // Initialize traffic mode from localStorage
+  function initializeTrafficMode() {
+    const stored = localStorage.getItem('traffic_mode')
+    if (stored === 'simulated' || stored === 'real') {
+      trafficMode.value = stored
+      // Sync with backend
+      setTrafficMode(stored)
+    } else {
+      // Fetch from backend
+      fetchTrafficMode()
+    }
+  }
+
   return {
     services,
     metrics,
     trafficMetrics,
     connected,
     lastUpdate,
+    trafficMode,
+    trafficModeLoading,
     healthyServices,
     totalServices,
     systemHealth,
@@ -67,6 +116,9 @@ export const useSystemStore = defineStore('system', () => {
     updateMetrics,
     updateTrafficMetrics,
     updateServiceStatus,
-    setConnected
+    setConnected,
+    fetchTrafficMode,
+    setTrafficMode,
+    initializeTrafficMode
   }
 })

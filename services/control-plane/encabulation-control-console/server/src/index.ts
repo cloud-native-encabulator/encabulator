@@ -291,6 +291,32 @@ app.get('/api/traffic', (req, res) => {
   }
 })
 
+// Traffic mode endpoints
+app.get('/api/traffic/mode', (req, res) => {
+  try {
+    const mode = trafficService.getTrafficMode()
+    res.json({ mode, timestamp: new Date().toISOString() })
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to get traffic mode', message: String(error) })
+  }
+})
+
+app.post('/api/traffic/mode', (req, res) => {
+  try {
+    const { mode } = req.body
+    
+    if (!mode || !['simulated', 'real'].includes(mode)) {
+      return res.status(400).json({ error: 'Invalid mode. Must be "simulated" or "real"' })
+    }
+    
+    trafficService.setTrafficMode(mode)
+    res.json({ mode, message: `Traffic mode set to ${mode}`, timestamp: new Date().toISOString() })
+  } catch (error) {
+    console.error('Set traffic mode error:', error)
+    res.status(500).json({ error: 'Failed to set traffic mode', message: String(error) })
+  }
+})
+
 // Action history endpoint
 app.get('/api/actions/history', (req, res) => {
   const limit = parseInt(req.query.limit as string) || 50

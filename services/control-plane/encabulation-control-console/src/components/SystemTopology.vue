@@ -843,6 +843,20 @@ watch(showTraffic, (newValue) => {
     stopParticleAnimation()
   }
 })
+
+// Traffic mode toggle
+const toggleTrafficMode = async () => {
+  const newMode = systemStore.trafficMode === 'simulated' ? 'real' : 'simulated'
+  const success = await systemStore.setTrafficMode(newMode)
+  if (success) {
+    console.log(`Traffic mode switched to: ${newMode}`)
+  }
+}
+
+// Initialize traffic mode on mount
+onMounted(() => {
+  systemStore.initializeTrafficMode()
+})
 </script>
 
 <template>
@@ -868,6 +882,18 @@ watch(showTraffic, (newValue) => {
               : 'bg-surface border border-text-muted/30 text-text-secondary hover:bg-surface-hover'"
           >
             {{ showTraffic ? 'Hide Traffic' : 'View Traffic' }}
+          </button>
+          <button
+            @click="toggleTrafficMode"
+            :disabled="systemStore.trafficModeLoading"
+            class="px-3 py-1.5 rounded-lg text-sm font-medium transition-colors flex items-center gap-2"
+            :class="systemStore.trafficMode === 'real'
+              ? 'bg-green-600 text-white hover:bg-green-700' 
+              : 'bg-purple-600 text-white hover:bg-purple-700'"
+            :title="systemStore.trafficMode === 'real' ? 'Real traffic from services' : 'Simulated traffic for demo'"
+          >
+            <span>{{ systemStore.trafficMode === 'real' ? '⚡' : '🎭' }}</span>
+            <span>{{ systemStore.trafficMode === 'real' ? 'Real' : 'Simulated' }}</span>
           </button>
         </div>
         <div class="flex gap-4 text-sm">

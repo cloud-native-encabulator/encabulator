@@ -24,11 +24,11 @@ describe('SystemTopology Integration Tests', () => {
         status: 'healthy',
         replicas: 5,
         pods: [
-          { name: 'pod-1', status: 'ready', cpu: '100m', memory: '256Mi', p50Latency: 45, p99Latency: 120, errorRate: 0 },
-          { name: 'pod-2', status: 'ready', cpu: '110m', memory: '260Mi', p50Latency: 50, p99Latency: 130, errorRate: 0 },
-          { name: 'pod-3', status: 'ready', cpu: '95m', memory: '250Mi', p50Latency: 42, p99Latency: 115, errorRate: 0 },
-          { name: 'pod-4', status: 'not-ready', cpu: '0m', memory: '0Mi', p50Latency: 0, p99Latency: 0, errorRate: 0 },
-          { name: 'pod-5', status: 'ready', cpu: '105m', memory: '258Mi', p50Latency: 48, p99Latency: 125, errorRate: 0 },
+          { name: 'pod-1', status: 'ready', ready: true, cpu: '100m', memory: '256Mi', p50Latency: 45, p99Latency: 120, errorRate: 0 },
+          { name: 'pod-2', status: 'ready', ready: true, cpu: '110m', memory: '260Mi', p50Latency: 50, p99Latency: 130, errorRate: 0 },
+          { name: 'pod-3', status: 'ready', ready: true, cpu: '95m', memory: '250Mi', p50Latency: 42, p99Latency: 115, errorRate: 0 },
+          { name: 'pod-4', status: 'not-ready', ready: false, cpu: '0m', memory: '0Mi', p50Latency: 0, p99Latency: 0, errorRate: 0 },
+          { name: 'pod-5', status: 'ready', ready: true, cpu: '105m', memory: '258Mi', p50Latency: 48, p99Latency: 125, errorRate: 0 },
         ]
       }
     })
@@ -45,18 +45,18 @@ describe('SystemTopology Integration Tests', () => {
   it('renders traffic particles with metrics', async () => {
     const systemStore = useSystemStore()
     const wrapper = mount(SystemTopology)
-    const component = wrapper.vm as any
 
-    // Set up traffic metrics
-    systemStore.updateTrafficMetrics({
-      'panametric-fam-processor->dingle-arm-api-gateway': {
-        requestsPerSecond: 50,
-        avgLatency: 75,
-        p50Latency: 65,
-        p99Latency: 150,
-        errorRate: 0.005
-      }
-    })
+    // Set up traffic metrics as array
+    systemStore.updateTrafficMetrics([{
+      source: 'panametric-fam-processor',
+      target: 'dingle-arm-api-gateway',
+      requestsPerSecond: 50,
+      avgLatency: 75,
+      p50Latency: 65,
+      p99Latency: 150,
+      errorRate: 0.005,
+      healthStatus: 'healthy'
+    }])
 
     await flushPromises()
     await wrapper.vm.$nextTick()
@@ -66,10 +66,12 @@ describe('SystemTopology Integration Tests', () => {
     expect(canvas.exists()).toBe(true)
 
     // Verify traffic metrics are available
-    const metrics = systemStore.trafficMetrics['panametric-fam-processor->dingle-arm-api-gateway']
+    const metrics = systemStore.trafficMetrics.find(m => 
+      m.source === 'panametric-fam-processor' && m.target === 'dingle-arm-api-gateway'
+    )
     expect(metrics).toBeTruthy()
-    expect(metrics.requestsPerSecond).toBe(50)
-    expect(metrics.avgLatency).toBe(75)
+    expect(metrics?.requestsPerSecond).toBe(50)
+    expect(metrics?.avgLatency).toBe(75)
   })
 
   it('displays tooltip on hover interactions', async () => {
@@ -98,18 +100,19 @@ describe('SystemTopology Integration Tests', () => {
   it('updates metrics on polling interval', async () => {
     vi.useFakeTimers()
     const systemStore = useSystemStore()
-    const wrapper = mount(SystemTopology)
+    mount(SystemTopology)
 
     // Initial metrics
-    systemStore.updateTrafficMetrics({
-      'test-connection': {
-        requestsPerSecond: 10,
-        avgLatency: 50,
-        p50Latency: 45,
-        p99Latency: 100,
-        errorRate: 0
-      }
-    })
+    systemStore.updateTrafficMetrics([{
+      source: 'test-service-a',
+      target: 'test-service-b',
+      requestsPerSecond: 10,
+      avgLatency: 50,
+      p50Latency: 45,
+      p99Latency: 100,
+      errorRate: 0,
+      healthStatus: 'healthy'
+    }])
 
     await flushPromises()
 
@@ -117,23 +120,25 @@ describe('SystemTopology Integration Tests', () => {
     vi.advanceTimersByTime(5000)
 
     // Simulate metrics update
-    systemStore.updateTrafficMetrics({
-      'test-connection': {
-        requestsPerSecond: 25,
-        avgLatency: 75,
-        p50Latency: 70,
-        p99Latency: 150,
-        errorRate: 0.01
-      }
-    })
+    systemStore.updateTrafficMetrics([{
+      source: 'test-service-a',
+      target: 'test-service-b',
+      requestsPerSecond: 25,
+      avgLatency: 75,
+      p50Latency: 70,
+      p99Latency: 150,
+      errorRate: 0.01,
+      healthStatus: 'warning'
+    }])
 
     await flushPromises()
-    await wrapper.vm.$nextTick()
 
     // Verify metrics updated
-    const metrics = systemStore.trafficMetrics['test-connection']
-    expect(metrics.requestsPerSecond).toBe(25)
-    expect(metrics.avgLatency).toBe(75)
+    const metrics = systemStore.trafficMetrics.find(m => 
+      m.source === 'test-service-a' && m.target === 'test-service-b'
+    )
+    expect(metrics?.requestsPerSecond).toBe(25)
+    expect(metrics?.avgLatency).toBe(75)
 
     vi.useRealTimers()
   })

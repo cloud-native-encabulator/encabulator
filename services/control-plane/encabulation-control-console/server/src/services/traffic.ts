@@ -15,13 +15,31 @@ interface ServiceLink {
   value: number
 }
 
+export type TrafficMode = 'simulated' | 'real'
+
 export class TrafficSimulationService {
   private serviceLinks: ServiceLink[] = []
   private baselineMetrics: Map<string, TrafficMetrics> = new Map()
   private simulationEnabled: boolean = true
+  private trafficMode: TrafficMode = 'simulated'
 
   constructor() {
     this.initializeServiceTopology()
+  }
+
+  /**
+   * Get current traffic mode
+   */
+  public getTrafficMode(): TrafficMode {
+    return this.trafficMode
+  }
+
+  /**
+   * Set traffic mode
+   */
+  public setTrafficMode(mode: TrafficMode): void {
+    this.trafficMode = mode
+    console.log(`Traffic mode set to: ${mode}`)
   }
 
   private initializeServiceTopology(): void {
