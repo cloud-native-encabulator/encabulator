@@ -49,13 +49,13 @@ const editUser = ref({
   disabled: false
 })
 
-const API_BASE = 'http://unilateral-phase-detractor.encabulator-support.svc.cluster.local:8080'
+const API_BASE = '/api/auth'
 
 async function fetchUsers() {
   loading.value = true
   error.value = null
   try {
-    const response = await fetch(`${API_BASE}/api/v1/users`, {
+    const response = await fetch(`${API_BASE}/users`, {
       headers: { 'Authorization': `Bearer ${authStore.token}` }
     })
     if (!response.ok) throw new Error('Failed to fetch users')
@@ -74,7 +74,7 @@ async function selectUser(user: UserData) {
 
 async function fetchUserActivity(username: string) {
   try {
-    const response = await fetch(`${API_BASE}/api/v1/users/${username}/activity?limit=50`, {
+    const response = await fetch(`${API_BASE}/users/${username}/activity?limit=50`, {
       headers: { 'Authorization': `Bearer ${authStore.token}` }
     })
     if (!response.ok) throw new Error('Failed to fetch activity')
@@ -89,7 +89,7 @@ async function createUser() {
   loading.value = true
   error.value = null
   try {
-    const response = await fetch(`${API_BASE}/api/v1/users`, {
+    const response = await fetch(`${API_BASE}/users`, {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${authStore.token}`,
@@ -127,7 +127,7 @@ async function updateUser() {
   loading.value = true
   error.value = null
   try {
-    const response = await fetch(`${API_BASE}/api/v1/users/${selectedUser.value.username}`, {
+    const response = await fetch(`${API_BASE}/users/${selectedUser.value.username}`, {
       method: 'PUT',
       headers: {
         'Authorization': `Bearer ${authStore.token}`,
@@ -157,7 +157,7 @@ async function deleteUser(username: string) {
   loading.value = true
   error.value = null
   try {
-    const response = await fetch(`${API_BASE}/api/v1/users/${username}`, {
+    const response = await fetch(`${API_BASE}/users/${username}`, {
       method: 'DELETE',
       headers: { 'Authorization': `Bearer ${authStore.token}` }
     })

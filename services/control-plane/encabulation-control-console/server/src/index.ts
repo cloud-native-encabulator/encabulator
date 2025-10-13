@@ -25,6 +25,123 @@ const trafficService = new TrafficSimulationService()
 app.use(cors())
 app.use(express.json())
 
+// Proxy to unilateral-phase-detractor for auth
+const AUTH_API_BASE = 'http://unilateral-phase-detractor.encabulator-support.svc.cluster.local:8080'
+
+app.post('/api/auth/login', async (req, res) => {
+  try {
+    const response = await fetch(`${AUTH_API_BASE}/api/v1/login`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(req.body)
+    })
+    const data = await response.json()
+    res.status(response.status).json(data)
+  } catch (error) {
+    res.status(500).json({ error: 'Auth service unavailable' })
+  }
+})
+
+app.get('/api/auth/users/me', async (req, res) => {
+  try {
+    const response = await fetch(`${AUTH_API_BASE}/api/v1/users/me`, {
+      headers: { 'Authorization': req.headers.authorization || '' }
+    })
+    const data = await response.json()
+    res.status(response.status).json(data)
+  } catch (error) {
+    res.status(500).json({ error: 'Auth service unavailable' })
+  }
+})
+
+app.get('/api/auth/users', async (req, res) => {
+  try {
+    const response = await fetch(`${AUTH_API_BASE}/api/v1/users`, {
+      headers: { 'Authorization': req.headers.authorization || '' }
+    })
+    const data = await response.json()
+    res.status(response.status).json(data)
+  } catch (error) {
+    res.status(500).json({ error: 'Auth service unavailable' })
+  }
+})
+
+app.get('/api/auth/users/:username', async (req, res) => {
+  try {
+    const response = await fetch(`${AUTH_API_BASE}/api/v1/users/${req.params.username}`, {
+      headers: { 'Authorization': req.headers.authorization || '' }
+    })
+    const data = await response.json()
+    res.status(response.status).json(data)
+  } catch (error) {
+    res.status(500).json({ error: 'Auth service unavailable' })
+  }
+})
+
+app.post('/api/auth/users', async (req, res) => {
+  try {
+    const response = await fetch(`${AUTH_API_BASE}/api/v1/users`, {
+      method: 'POST',
+      headers: {
+        'Authorization': req.headers.authorization || '',
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(req.body)
+    })
+    const data = await response.json()
+    res.status(response.status).json(data)
+  } catch (error) {
+    res.status(500).json({ error: 'Auth service unavailable' })
+  }
+})
+
+app.put('/api/auth/users/:username', async (req, res) => {
+  try {
+    const response = await fetch(`${AUTH_API_BASE}/api/v1/users/${req.params.username}`, {
+      method: 'PUT',
+      headers: {
+        'Authorization': req.headers.authorization || '',
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(req.body)
+    })
+    const data = await response.json()
+    res.status(response.status).json(data)
+  } catch (error) {
+    res.status(500).json({ error: 'Auth service unavailable' })
+  }
+})
+
+app.delete('/api/auth/users/:username', async (req, res) => {
+  try {
+    const response = await fetch(`${AUTH_API_BASE}/api/v1/users/${req.params.username}`, {
+      method: 'DELETE',
+      headers: { 'Authorization': req.headers.authorization || '' }
+    })
+    if (response.status === 204) {
+      res.status(204).send()
+    } else {
+      const data = await response.json()
+      res.status(response.status).json(data)
+    }
+  } catch (error) {
+    res.status(500).json({ error: 'Auth service unavailable' })
+  }
+})
+
+app.get('/api/auth/users/:username/activity', async (req, res) => {
+  try {
+    const limit = req.query.limit || '100'
+    const response = await fetch(`${AUTH_API_BASE}/api/v1/users/${req.params.username}/activity?limit=${limit}`, {
+      headers: { 'Authorization': req.headers.authorization || '' }
+    })
+    const data = await response.json()
+    res.status(response.status).json(data)
+  } catch (error) {
+    res.status(500).json({ error: 'Auth service unavailable' })
+  }
+})
+
 // Serve static files from the React app
 app.use(express.static(path.join(__dirname, '../public')))
 

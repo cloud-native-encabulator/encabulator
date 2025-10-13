@@ -33,8 +33,8 @@ export const useAuthStore = defineStore('auth', () => {
 
   async function login(username: string, password: string) {
     try {
-      // Call the unilateral-phase-detractor API
-      const response = await fetch('http://unilateral-phase-detractor.encabulator-support.svc.cluster.local:8080/api/v1/login', {
+      // Call through backend proxy
+      const response = await fetch('/api/auth/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ username, password })
@@ -61,7 +61,7 @@ export const useAuthStore = defineStore('auth', () => {
     if (!token.value) return null
     
     try {
-      const response = await fetch('http://unilateral-phase-detractor.encabulator-support.svc.cluster.local:8080/api/v1/users/me', {
+      const response = await fetch('/api/auth/users/me', {
         headers: { 'Authorization': `Bearer ${token.value}` }
       })
       

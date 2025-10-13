@@ -246,7 +246,7 @@
     - Add API documentation for user management endpoints
     - _Requirements: 3.1, 3.2_
 
-  - [ ] 6.12 Implement admin portal with Vue Router
+  - [x] 6.12 Implement admin portal with Vue Router
 
     - Create /admin routes with Vue Router navigation guards
     - Implement AdminLayout.vue component with sidebar navigation

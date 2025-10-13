@@ -19,7 +19,7 @@ const searchQuery = ref('')
 const filterAction = ref('')
 const filterSuccess = ref<'all' | 'success' | 'failed'>('all')
 
-const API_BASE = 'http://unilateral-phase-detractor.encabulator-support.svc.cluster.local:8080'
+const API_BASE = '/api/auth'
 
 const filteredLogs = computed(() => {
   return logs.value.filter(log => {
@@ -55,7 +55,7 @@ async function fetchAllLogs() {
   loading.value = true
   try {
     // Fetch activity for all users and combine
-    const response = await fetch(`${API_BASE}/api/v1/users`, {
+    const response = await fetch(`${API_BASE}/users`, {
       headers: { 'Authorization': `Bearer ${authStore.token}` }
     })
     if (!response.ok) throw new Error('Failed to fetch users')
@@ -64,7 +64,7 @@ async function fetchAllLogs() {
     const allLogs: ActivityLog[] = []
     for (const user of users) {
       const activityResponse = await fetch(
-        `${API_BASE}/api/v1/users/${user.username}/activity?limit=100`,
+        `${API_BASE}/users/${user.username}/activity?limit=100`,
         { headers: { 'Authorization': `Bearer ${authStore.token}` } }
       )
       if (activityResponse.ok) {
