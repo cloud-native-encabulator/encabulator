@@ -236,7 +236,7 @@
     - Add action icons and visual feedback for each operation
     - _Requirements: 12.1, 12.2, 12.3, 12.4_
 
-  - [ ] 6.11 Add user management API to unilateral-phase-detractor
+  - [x] 6.11 Add user management API to unilateral-phase-detractor
 
     - Implement user CRUD endpoints (GET /users, POST /users, PUT /users/:id, DELETE /users/:id)
     - Add role management (admin, operator, viewer)

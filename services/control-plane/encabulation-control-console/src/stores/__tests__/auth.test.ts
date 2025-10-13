@@ -57,7 +57,8 @@ describe('Auth Store', () => {
     
     const user = await store.login('testuser', 'password')
     
-    expect(user.username).toBe('testuser')
+    expect(user).toBeTruthy()
+    expect(user?.username).toBe('testuser')
     expect(store.user).toBeTruthy()
     expect(store.token).toBeTruthy()
     expect(store.isAuthenticated).toBe(true)

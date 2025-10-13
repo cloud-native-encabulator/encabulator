@@ -31,34 +31,69 @@ export const useAuthStore = defineStore('auth', () => {
     localStorage.removeItem('auth_token')
   }
 
-  async function login(username: string, _password: string) {
-    // TODO: Implement actual login API call
-    const mockUser: User = {
-      id: '1',
-      username,
-      email: `${username}@encabulator.local`,
-      role: 'admin'
+  async function login(username: string, password: string) {
+    try {
+      // Call the unilateral-phase-detractor API
+      const response = await fetch('http://unilateral-phase-detractor.encabulator-support.svc.cluster.local:8080/api/v1/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username, password })
+      })
+      
+      if (!response.ok) {
+        throw new Error('Login failed')
+      }
+      
+      const data = await response.json()
+      setToken(data.access_token)
+      
+      // Fetch user details
+      await fetchCurrentUser()
+      
+      return user.value
+    } catch (error) {
+      console.error('Login error:', error)
+      throw error
     }
-    
-    setUser(mockUser)
-    setToken('mock-jwt-token')
-    
-    return mockUser
   }
 
   async function fetchCurrentUser() {
     if (!token.value) return null
     
-    // TODO: Implement actual user fetch API call
-    const mockUser: User = {
-      id: '1',
-      username: 'admin',
-      email: 'admin@encabulator.local',
-      role: 'admin'
+    try {
+      const response = await fetch('http://unilateral-phase-detractor.encabulator-support.svc.cluster.local:8080/api/v1/users/me', {
+        headers: { 'Authorization': `Bearer ${token.value}` }
+      })
+      
+      if (!response.ok) {
+        logout()
+        return null
+      }
+      
+      const userData = await response.json()
+      
+      // Map roles to single role (use highest privilege)
+      let role: 'admin' | 'operator' | 'viewer' | 'guest' = 'viewer'
+      if (userData.roles.includes('admin')) {
+        role = 'admin'
+      } else if (userData.roles.includes('operator')) {
+        role = 'operator'
+      }
+      
+      const mappedUser: User = {
+        id: userData.username,
+        username: userData.username,
+        email: userData.email,
+        role
+      }
+      
+      setUser(mappedUser)
+      return mappedUser
+    } catch (error) {
+      console.error('Fetch user error:', error)
+      logout()
+      return null
     }
-    
-    setUser(mockUser)
-    return mockUser
   }
 
   function loginAsGuest() {
