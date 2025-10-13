@@ -127,26 +127,24 @@ export class TrafficGenerator {
   }
 
   private generatePayload(complexity: number): any {
-    // Higher complexity = larger, more complex payload
-    const size = Math.floor(complexity / 10)
+    // Generate encabulation request payload
+    // Higher complexity = more grammeters and additional metadata
+    const grammeters = Math.floor(Math.random() * 100) + 1
+    const prefabulation = Math.random() > 0.5
+    const sinusoidalMode = ['STANDARD', 'INVERSE', 'LOGARITHMIC'][Math.floor(Math.random() * 3)]
+
     const payload: any = {
-      timestamp: new Date().toISOString(),
-      requestId: `req-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+      grammeters,
+      prefabulation,
+      sinusoidalMode,
     }
 
-    // Add complexity based on capacitive diractance
-    if (complexity > 30) {
-      payload.parameters = {
-        grammeters: Math.random() * 100,
-        prefabulation: Math.random() > 0.5,
-        sinusoidalMode: ['STANDARD', 'INVERSE', 'LOGARITHMIC'][Math.floor(Math.random() * 3)],
-      }
-    }
-
+    // Add metadata for higher complexity
     if (complexity > 60) {
       payload.metadata = {
         source: 'cardinal-grammeter',
-        tags: Array.from({ length: size }, (_, i) => `tag-${i}`),
+        timestamp: new Date().toISOString(),
+        requestId: `req-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
         correlationId: `corr-${Date.now()}`,
       }
     }
