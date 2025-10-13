@@ -79,8 +79,8 @@ describe('SystemTopology', () => {
 
   it('displays help text', () => {
     const wrapper = mount(SystemTopology)
-    expect(wrapper.text()).toContain('Drag nodes to reposition')
-    expect(wrapper.text()).toContain('Scroll to zoom')
-    expect(wrapper.text()).toContain('Click node for details')
+    // Updated to match actual help text in component
+    expect(wrapper.text()).toContain('Hover for quick info')
+    expect(wrapper.text()).toContain('Click for details')
   })
 })
