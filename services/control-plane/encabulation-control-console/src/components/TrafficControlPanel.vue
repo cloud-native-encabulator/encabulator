@@ -28,12 +28,12 @@ const stats = ref<TrafficStatus>({
 
 // Calculate estimated TPS based on fluorescent score motion
 const estimatedTPS = computed(() => {
-  // Range: 0.5 TPS to 50 TPS (exponential scaling)
+  // Range: 0.5 TPS to 1000 TPS (exponential scaling)
   const minTPS = 0.5
-  const maxTPS = 50
+  const maxTPS = 1000
   const normalizedFSM = fluorescentScoreMotion.value / 100
-  const tps = minTPS + (maxTPS - minTPS) * Math.pow(normalizedFSM, 1.5)
-  return tps.toFixed(1)
+  const tps = minTPS + (maxTPS - minTPS) * Math.pow(normalizedFSM, 2)
+  return tps >= 100 ? Math.round(tps).toString() : tps.toFixed(1)
 })
 
 // Calculate estimated latency from magneto reluctance
@@ -222,8 +222,11 @@ onUnmounted(() => {
       />
       <div class="flex justify-between text-xs text-white/90 mt-2">
         <span>0.5 TPS</span>
-        <span class="font-semibold">Est: {{ estimatedTPS }} TPS</span>
-        <span>50 TPS</span>
+        <span class="font-semibold text-base">{{ estimatedTPS }} TPS</span>
+        <span>1000 TPS</span>
+      </div>
+      <div v-if="fluorescentScoreMotion > 80" class="text-xs text-white/90 mt-2 text-center font-semibold">
+        ⚠️ EXTREME LOAD - Will drive aggressive scaling
       </div>
     </div>
 

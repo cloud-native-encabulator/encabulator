@@ -91,28 +91,40 @@ export class TrafficGenerator {
     if (!this.config) return
 
     const interval = this.calculateInterval()
+    const requestsPerInterval = this.calculateRequestsPerInterval()
     
     this.intervalId = setInterval(() => {
       if (!this.active) return
-      this.sendRequest()
+      
+      // For high TPS, spawn multiple requests per interval
+      for (let i = 0; i < requestsPerInterval; i++) {
+        this.sendRequest()
+      }
     }, interval)
   }
 
   private calculateInterval(): number {
-    if (!this.config) return 1000
+    // Use 100ms intervals for batching
+    return 100
+  }
+
+  private calculateRequestsPerInterval(): number {
+    if (!this.config) return 1
 
     // Fluorescent Score Motion controls TPS (throughput)
-    // Low FSM = low TPS (long interval), High FSM = high TPS (short interval)
-    // Range: 0.5 TPS (2000ms) to 50 TPS (20ms)
-    const minInterval = 20   // 50 TPS
-    const maxInterval = 2000 // 0.5 TPS
+    // Range: 0.5 TPS to 1000 TPS
+    const minTPS = 0.5
+    const maxTPS = 1000
     const fsm = this.config.fluorescentScoreMotion || 50
     
-    // Exponential scaling for better control at high TPS
+    // Exponential scaling for better control across the range
     const normalizedFSM = fsm / 100
-    const interval = maxInterval - (maxInterval - minInterval) * Math.pow(normalizedFSM, 1.5)
+    const targetTPS = minTPS + (maxTPS - minTPS) * Math.pow(normalizedFSM, 2)
     
-    return Math.max(minInterval, interval)
+    // Calculate requests per 100ms interval
+    const requestsPerInterval = Math.max(1, Math.round((targetTPS * 100) / 1000))
+    
+    return requestsPerInterval
   }
 
   private async injectLatency(): Promise<void> {
