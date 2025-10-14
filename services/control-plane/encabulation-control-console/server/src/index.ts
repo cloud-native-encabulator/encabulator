@@ -337,6 +337,33 @@ app.use('/api/grafana', async (req, res) => {
   }
 })
 
+// Cardinal Grammeter proxy endpoints
+app.get('/api/cardinal-grammeter/status', async (req, res) => {
+  try {
+    const response = await fetch('http://cardinal-grammeter.encabulator-control.svc.cluster.local:8080/traffic/status')
+    const data = await response.json()
+    res.json(data)
+  } catch (error) {
+    console.error('Failed to get grammeter status:', error)
+    res.status(500).json({ error: 'Failed to get traffic status' })
+  }
+})
+
+app.post('/api/cardinal-grammeter/update', async (req, res) => {
+  try {
+    const response = await fetch('http://cardinal-grammeter.encabulator-control.svc.cluster.local:8080/traffic/update', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(req.body)
+    })
+    const data = await response.json()
+    res.json(data)
+  } catch (error) {
+    console.error('Failed to update grammeter:', error)
+    res.status(500).json({ error: 'Failed to update traffic parameters' })
+  }
+})
+
 // Control Actions API (with rate limiting)
 app.post('/api/actions/synchronize-grammeters', actionLimiter, async (req, res) => {
   const user = req.headers['x-user'] as string || 'unknown'

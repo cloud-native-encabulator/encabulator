@@ -7,6 +7,7 @@ import SystemTopology from '@/components/SystemTopology.vue'
 import ControlPanel from '@/components/ControlPanel.vue'
 import MetricsPanel from '@/components/MetricsPanel.vue'
 import ActionsPanel from '@/components/ActionsPanel.vue'
+import TrafficControlPanel from '@/components/TrafficControlPanel.vue'
 
 const systemStore = useSystemStore()
 const authStore = useAuthStore()
@@ -136,6 +137,11 @@ const guestTimeRemaining = computed(() => {
               <MetricsPanel />
             </div>
           </div>
+        </div>
+
+        <!-- Traffic Control Panel (Admin/Operator only) -->
+        <div v-if="!authStore.isGuest" class="mb-6">
+          <TrafficControlPanel />
         </div>
 
         <!-- Actions Panel (Admin/Operator only) -->
