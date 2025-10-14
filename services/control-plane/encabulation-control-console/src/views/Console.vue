@@ -8,6 +8,7 @@ import ControlPanel from '@/components/ControlPanel.vue'
 import MetricsPanel from '@/components/MetricsPanel.vue'
 import ActionsPanel from '@/components/ActionsPanel.vue'
 import TrafficControlPanel from '@/components/TrafficControlPanel.vue'
+import EncabulationsPanel from '@/components/EncabulationsPanel.vue'
 
 const systemStore = useSystemStore()
 const authStore = useAuthStore()
@@ -139,9 +140,10 @@ const guestTimeRemaining = computed(() => {
           </div>
         </div>
 
-        <!-- Traffic Control Panel (Admin/Operator only) -->
-        <div v-if="!authStore.isGuest" class="mb-6">
+        <!-- Traffic Control and Data Panels -->
+        <div v-if="!authStore.isGuest" class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
           <TrafficControlPanel />
+          <EncabulationsPanel />
         </div>
 
         <!-- Actions Panel (Admin/Operator only) -->

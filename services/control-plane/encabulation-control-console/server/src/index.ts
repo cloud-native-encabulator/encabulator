@@ -337,6 +337,20 @@ app.use('/api/grafana', async (req, res) => {
   }
 })
 
+// Encabulations data endpoint
+app.get('/api/encabulations', async (req, res) => {
+  try {
+    const page = req.query.page || '1'
+    const pageSize = req.query.pageSize || '10'
+    const response = await fetch(`http://hydrocoptic-datastore.encabulator-data.svc.cluster.local:8080/api/v1/encabulations?page=${page}&pageSize=${pageSize}`)
+    const data = await response.json()
+    res.json(data)
+  } catch (error) {
+    console.error('Failed to fetch encabulations:', error)
+    res.status(500).json({ error: 'Failed to fetch encabulations', encabulations: [], total: 0 })
+  }
+})
+
 // Cardinal Grammeter proxy endpoints
 app.get('/api/cardinal-grammeter/status', async (req, res) => {
   try {
