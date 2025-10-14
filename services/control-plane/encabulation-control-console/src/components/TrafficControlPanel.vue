@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted } from 'vue'
+import { ref, computed, onMounted, onUnmounted } from 'vue'
 import axios from 'axios'
 
 const API_BASE = import.meta.env.VITE_API_BASE || ''
@@ -15,8 +15,9 @@ interface TrafficStatus {
 
 const isActive = ref(false)
 const isLoading = ref(false)
-const magnetoReluctance = ref(70)
-const capacitiveDiractance = ref(50)
+const fluorescentScoreMotion = ref(50) // TPS throttle (0-100)
+const magnetoReluctance = ref(0) // Latency injection (0-100)
+const capacitiveDiractance = ref(50) // Payload complexity (0-100)
 const pattern = ref<'steady' | 'burst' | 'ramp' | 'sine'>('steady')
 const stats = ref<TrafficStatus>({
   active: false,
@@ -25,12 +26,30 @@ const stats = ref<TrafficStatus>({
   avgLatency: 0
 })
 
+// Calculate estimated TPS based on fluorescent score motion
+const estimatedTPS = computed(() => {
+  // Range: 0.5 TPS to 50 TPS (exponential scaling)
+  const minTPS = 0.5
+  const maxTPS = 50
+  const normalizedFSM = fluorescentScoreMotion.value / 100
+  const tps = minTPS + (maxTPS - minTPS) * Math.pow(normalizedFSM, 1.5)
+  return tps.toFixed(1)
+})
+
+// Calculate estimated latency from magneto reluctance
+const estimatedLatency = computed(() => {
+  // Range: 0ms to 500ms base + jitter
+  const baseLatency = (magnetoReluctance.value / 100) * 500
+  return Math.round(baseLatency)
+})
+
 let statusInterval: number | null = null
 
 const startTraffic = async () => {
   isLoading.value = true
   try {
     await axios.post(`${API_BASE}/api/actions/synchronize-grammeters`, {
+      fluorescentScoreMotion: fluorescentScoreMotion.value,
       magnetoReluctance: magnetoReluctance.value,
       capacitiveDiractance: capacitiveDiractance.value,
       pattern: pattern.value
@@ -62,12 +81,27 @@ const updateParameters = async () => {
   
   try {
     await axios.post(`${API_BASE}/api/cardinal-grammeter/update`, {
+      fluorescentScoreMotion: fluorescentScoreMotion.value,
       magnetoReluctance: magnetoReluctance.value,
       capacitiveDiractance: capacitiveDiractance.value
     })
   } catch (error) {
     console.error('Failed to update parameters:', error)
   }
+}
+
+const getScoreMotionColor = () => {
+  if (fluorescentScoreMotion.value < 30) return 'from-blue-500 to-cyan-500'
+  if (fluorescentScoreMotion.value < 70) return 'from-green-500 to-emerald-500'
+  return 'from-orange-500 to-red-500'
+}
+
+const getScoreMotionLabel = () => {
+  if (fluorescentScoreMotion.value < 30) return 'Minimal'
+  if (fluorescentScoreMotion.value < 50) return 'Moderate'
+  if (fluorescentScoreMotion.value < 70) return 'Elevated'
+  if (fluorescentScoreMotion.value < 90) return 'High'
+  return 'Maximum'
 }
 
 const fetchStatus = async () => {
@@ -164,13 +198,45 @@ onUnmounted(() => {
       </div>
     </div>
 
-    <!-- Magneto Reluctance Slider -->
+    <!-- Fluorescent Score Motion (TPS Throttle) -->
+    <div class="mb-4 p-4 rounded-lg bg-gradient-to-r" :class="getScoreMotionColor()">
+      <div class="flex justify-between items-center mb-3">
+        <div>
+          <label class="text-sm font-bold text-white drop-shadow">
+            ⚡ Fluorescent Score Motion
+          </label>
+          <div class="text-xs text-white/90 mt-0.5">TPS Throttle Control</div>
+        </div>
+        <div class="text-right">
+          <div class="text-2xl font-bold text-white drop-shadow">{{ fluorescentScoreMotion }}</div>
+          <div class="text-xs text-white/90">{{ getScoreMotionLabel() }}</div>
+        </div>
+      </div>
+      <input
+        v-model.number="fluorescentScoreMotion"
+        @change="updateParameters"
+        type="range"
+        min="0"
+        max="100"
+        class="w-full h-3 bg-white/30 rounded-lg appearance-none cursor-pointer slider-white"
+      />
+      <div class="flex justify-between text-xs text-white/90 mt-2">
+        <span>0.5 TPS</span>
+        <span class="font-semibold">Est: {{ estimatedTPS }} TPS</span>
+        <span>50 TPS</span>
+      </div>
+    </div>
+
+    <!-- Magneto Reluctance (Latency Injection) -->
     <div class="mb-4">
       <div class="flex justify-between items-center mb-2">
         <label class="text-sm font-medium text-text-secondary">
-          Magneto Reluctance (Frequency)
+          🧲 Magneto Reluctance (Friction Induction)
         </label>
-        <span class="text-sm font-mono text-primary">{{ magnetoReluctance }}</span>
+        <div class="text-right">
+          <span class="text-sm font-mono text-primary">{{ magnetoReluctance }}</span>
+          <span class="text-xs text-text-muted ml-2">~{{ estimatedLatency }}ms</span>
+        </div>
       </div>
       <input
         v-model.number="magnetoReluctance"
@@ -178,11 +244,11 @@ onUnmounted(() => {
         type="range"
         min="0"
         max="100"
-        class="w-full h-2 bg-surface-hover rounded-lg appearance-none cursor-pointer accent-primary"
+        class="w-full h-2 bg-surface-hover rounded-lg appearance-none cursor-pointer accent-orange-500"
       />
       <div class="flex justify-between text-xs text-text-muted mt-1">
-        <span>Low (Slow)</span>
-        <span>High (Fast)</span>
+        <span>No Latency</span>
+        <span>High Latency + Jitter</span>
       </div>
     </div>
 
@@ -225,3 +291,25 @@ onUnmounted(() => {
     </div>
   </div>
 </template>
+
+<style scoped>
+.slider-white::-webkit-slider-thumb {
+  appearance: none;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: white;
+  cursor: pointer;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+}
+
+.slider-white::-moz-range-thumb {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: white;
+  cursor: pointer;
+  border: none;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+}
+</style>

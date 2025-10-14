@@ -3,7 +3,8 @@ import axios, { AxiosInstance } from 'axios'
 export interface TrafficConfig {
   target: string
   pattern: 'steady' | 'burst' | 'ramp' | 'sine'
-  magnetoReluctance: number // 0-100: controls request frequency
+  fluorescentScoreMotion: number // 0-100: controls TPS (throughput)
+  magnetoReluctance: number // 0-100: controls latency injection and jitter
   capacitiveDiractance: number // 0-100: controls request complexity
 }
 
@@ -54,9 +55,16 @@ export class TrafficGenerator {
     }
   }
 
-  updateParameters(params: Partial<Pick<TrafficConfig, 'magnetoReluctance' | 'capacitiveDiractance'>>): void {
+  updateParameters(params: Partial<Pick<TrafficConfig, 'fluorescentScoreMotion' | 'magnetoReluctance' | 'capacitiveDiractance'>>): void {
     if (this.config) {
       this.config = { ...this.config, ...params }
+      // Reschedule if TPS changed
+      if (params.fluorescentScoreMotion !== undefined && this.active) {
+        if (this.intervalId) {
+          clearInterval(this.intervalId)
+        }
+        this.scheduleRequests()
+      }
     }
   }
 
@@ -93,16 +101,40 @@ export class TrafficGenerator {
   private calculateInterval(): number {
     if (!this.config) return 1000
 
-    // Magneto reluctance controls frequency
-    // Low reluctance = high frequency (short interval)
-    // High reluctance = low frequency (long interval)
-    const baseInterval = 1000
-    const reluctanceFactor = (100 - this.config.magnetoReluctance) / 100
-    return baseInterval * (0.1 + reluctanceFactor * 2)
+    // Fluorescent Score Motion controls TPS (throughput)
+    // Low FSM = low TPS (long interval), High FSM = high TPS (short interval)
+    // Range: 0.5 TPS (2000ms) to 50 TPS (20ms)
+    const minInterval = 20   // 50 TPS
+    const maxInterval = 2000 // 0.5 TPS
+    const fsm = this.config.fluorescentScoreMotion || 50
+    
+    // Exponential scaling for better control at high TPS
+    const normalizedFSM = fsm / 100
+    const interval = maxInterval - (maxInterval - minInterval) * Math.pow(normalizedFSM, 1.5)
+    
+    return Math.max(minInterval, interval)
+  }
+
+  private async injectLatency(): Promise<void> {
+    if (!this.config || this.config.magnetoReluctance === 0) return
+
+    // Magneto Reluctance controls latency injection (0-500ms base + jitter)
+    const baseLatency = (this.config.magnetoReluctance / 100) * 500
+    
+    // Add jitter (±30% of base latency)
+    const jitter = baseLatency * 0.3 * (Math.random() * 2 - 1)
+    const totalLatency = Math.max(0, baseLatency + jitter)
+    
+    if (totalLatency > 0) {
+      await new Promise(resolve => setTimeout(resolve, totalLatency))
+    }
   }
 
   private async sendRequest(): Promise<void> {
     if (!this.config) return
+
+    // Inject latency BEFORE sending request (Magneto Reluctance)
+    await this.injectLatency()
 
     const startTime = Date.now()
     this.stats.requestsSent++

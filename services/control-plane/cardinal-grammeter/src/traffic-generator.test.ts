@@ -21,7 +21,8 @@ describe('TrafficGenerator', () => {
     await generator.start({
       target: 'http://localhost:8080/test',
       pattern: 'steady',
-      magnetoReluctance: 50,
+      fluorescentScoreMotion: 50,
+      magnetoReluctance: 0,
       capacitiveDiractance: 50,
     })
 
@@ -35,7 +36,8 @@ describe('TrafficGenerator', () => {
     await generator.start({
       target: 'http://localhost:8080/test',
       pattern: 'steady',
-      magnetoReluctance: 50,
+      fluorescentScoreMotion: 50,
+      magnetoReluctance: 0,
       capacitiveDiractance: 50,
     })
 
@@ -49,7 +51,8 @@ describe('TrafficGenerator', () => {
     await generator.start({
       target: 'http://localhost:8080/test',
       pattern: 'steady',
-      magnetoReluctance: 50,
+      fluorescentScoreMotion: 50,
+      magnetoReluctance: 0,
       capacitiveDiractance: 50,
     })
 
@@ -57,7 +60,8 @@ describe('TrafficGenerator', () => {
       generator.start({
         target: 'http://localhost:8080/test',
         pattern: 'steady',
-        magnetoReluctance: 50,
+        fluorescentScoreMotion: 50,
+      magnetoReluctance: 0,
         capacitiveDiractance: 50,
       })
     ).rejects.toThrow('Traffic generation already active')
@@ -67,7 +71,8 @@ describe('TrafficGenerator', () => {
     await generator.start({
       target: 'http://localhost:8080/test',
       pattern: 'steady',
-      magnetoReluctance: 50,
+      fluorescentScoreMotion: 50,
+      magnetoReluctance: 0,
       capacitiveDiractance: 50,
     })
 

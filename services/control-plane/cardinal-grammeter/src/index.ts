@@ -29,7 +29,7 @@ app.get('/metrics', async (req, res) => {
 
 // Start traffic generation
 app.post('/traffic/start', async (req, res) => {
-  const { target, pattern, magnetoReluctance, capacitiveDiractance } = req.body
+  const { target, pattern, fluorescentScoreMotion, magnetoReluctance, capacitiveDiractance } = req.body
 
   if (!target) {
     return res.status(400).json({ error: 'Target URL is required' })
@@ -39,7 +39,8 @@ app.post('/traffic/start', async (req, res) => {
     await trafficGenerator.start({
       target,
       pattern: pattern || 'steady',
-      magnetoReluctance: magnetoReluctance || 50,
+      fluorescentScoreMotion: fluorescentScoreMotion || 50,
+      magnetoReluctance: magnetoReluctance || 0,
       capacitiveDiractance: capacitiveDiractance || 50,
     })
 
@@ -73,9 +74,10 @@ app.get('/traffic/status', (req, res) => {
 
 // Update traffic parameters
 app.post('/traffic/update', (req, res) => {
-  const { magnetoReluctance, capacitiveDiractance } = req.body
+  const { fluorescentScoreMotion, magnetoReluctance, capacitiveDiractance } = req.body
 
   trafficGenerator.updateParameters({
+    fluorescentScoreMotion,
     magnetoReluctance,
     capacitiveDiractance,
   })
