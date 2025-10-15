@@ -20,8 +20,8 @@ export type TrafficMode = 'simulated' | 'real'
 export class TrafficSimulationService {
   private serviceLinks: ServiceLink[] = []
   private baselineMetrics: Map<string, TrafficMetrics> = new Map()
-  private simulationEnabled: boolean = true
-  private trafficMode: TrafficMode = 'simulated'
+  private simulationEnabled: boolean = false
+  private trafficMode: TrafficMode = 'real'
 
   constructor() {
     this.initializeServiceTopology()

@@ -2,14 +2,23 @@ import express from 'express'
 import { register } from 'prom-client'
 import { TrafficGenerator } from './traffic-generator'
 import { MetricsCollector } from './metrics'
+import { RedisClient } from './redis-client'
 
 const app = express()
 const PORT = process.env.PORT || 8080
 
 app.use(express.json())
 
-const trafficGenerator = new TrafficGenerator()
+// Initialize Redis client
+const redis = new RedisClient()
+const trafficGenerator = new TrafficGenerator(redis)
 const metricsCollector = new MetricsCollector()
+
+// Connect to Redis on startup
+redis.connect().catch(err => {
+  console.error('Failed to connect to Redis:', err)
+  console.log('Continuing without Redis - traffic state will be per-pod')
+})
 
 // Health endpoint
 app.get('/health', (req, res) => {

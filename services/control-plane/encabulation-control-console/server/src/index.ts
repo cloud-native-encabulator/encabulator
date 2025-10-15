@@ -310,10 +310,39 @@ app.post('/api/traffic/mode', (req, res) => {
     }
     
     trafficService.setTrafficMode(mode)
+    // Sync metrics mode with traffic mode
+    metricsService.setMetricsMode(mode)
+    
     res.json({ mode, message: `Traffic mode set to ${mode}`, timestamp: new Date().toISOString() })
   } catch (error) {
     console.error('Set traffic mode error:', error)
     res.status(500).json({ error: 'Failed to set traffic mode', message: String(error) })
+  }
+})
+
+// Metrics mode endpoints
+app.get('/api/metrics/mode', (req, res) => {
+  try {
+    const mode = metricsService.getMetricsMode()
+    res.json({ mode, timestamp: new Date().toISOString() })
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to get metrics mode', message: String(error) })
+  }
+})
+
+app.post('/api/metrics/mode', (req, res) => {
+  try {
+    const { mode } = req.body
+    
+    if (!mode || !['simulated', 'real'].includes(mode)) {
+      return res.status(400).json({ error: 'Invalid mode. Must be "simulated" or "real"' })
+    }
+    
+    metricsService.setMetricsMode(mode)
+    res.json({ mode, message: `Metrics mode set to ${mode}`, timestamp: new Date().toISOString() })
+  } catch (error) {
+    console.error('Set metrics mode error:', error)
+    res.status(500).json({ error: 'Failed to set metrics mode', message: String(error) })
   }
 })
 
@@ -384,17 +413,28 @@ app.post('/api/actions/synchronize-grammeters', actionLimiter, async (req, res) 
   const end = actionDuration.startTimer({ action: 'synchronize-grammeters' })
   
   try {
+    // Get parameters from request body or use defaults
+    const {
+      fluorescentScoreMotion = 50,
+      magnetoReluctance = 0,
+      capacitiveDiractance = 50,
+      pattern = 'steady'
+    } = req.body
+    
     const response = await fetch('http://cardinal-grammeter.encabulator-control.svc.cluster.local:8080/traffic/start', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        target: 'http://dingle-arm-api-gateway.encabulator-processing.svc.cluster.local:8080',
-        pattern: 'steady',
-        magnetoReluctance: 50,
-        capacitiveDiractance: 50
+        target: 'http://dingle-arm-api-gateway.encabulator-processing.svc.cluster.local:8080/api/v1/encabulations',
+        pattern,
+        fluorescentScoreMotion,
+        magnetoReluctance,
+        capacitiveDiractance
       })
     })
     const data = await response.json()
+    
+    console.log(`Traffic started: ${fluorescentScoreMotion}% FSM, pattern: ${pattern}`)
     addToActionHistory('synchronize-grammeters', user, true, 'Cardinal Grammeters synchronized')
     end()
     
@@ -567,13 +607,15 @@ io.on('connection', (socket) => {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
-              target: 'http://dingle-arm-api-gateway.encabulator-processing.svc.cluster.local:8080',
-              pattern: 'steady',
-              magnetoReluctance: 50,
-              capacitiveDiractance: 50
+              target: 'http://dingle-arm-api-gateway.encabulator-processing.svc.cluster.local:8080/api/v1/encabulations',
+              pattern: data.payload?.pattern || 'steady',
+              fluorescentScoreMotion: data.payload?.fluorescentScoreMotion || 50,
+              magnetoReluctance: data.payload?.magnetoReluctance || 0,
+              capacitiveDiractance: data.payload?.capacitiveDiractance || 50
             })
           })
           await gramResponse.json()
+          console.log(`Traffic started via WebSocket: ${data.payload?.fluorescentScoreMotion || 50}% FSM`)
           addToActionHistory('synchronize_grammeters', user, true, 'Cardinal Grammeters synchronized')
           break
         case 'induce_fumbling':
@@ -650,7 +692,10 @@ setInterval(async () => {
   try {
     const status = await k8sService.getSystemStatus()
     const metrics = await metricsService.getSystemMetrics()
-    const trafficMetrics = trafficService.getTrafficMetrics()
+    
+    // Only send traffic metrics if in simulated mode
+    const trafficMode = trafficService.getTrafficMode()
+    const trafficMetrics = trafficMode === 'simulated' ? trafficService.getTrafficMetrics() : []
     
     io.emit('message', {
       type: 'system_status',

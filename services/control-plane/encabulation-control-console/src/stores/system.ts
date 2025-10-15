@@ -17,7 +17,7 @@ export const useSystemStore = defineStore('system', () => {
   const trafficMetrics = ref<TrafficMetrics[]>([])
   const connected = ref(false)
   const lastUpdate = ref<Date | null>(null)
-  const trafficMode = ref<TrafficMode>('simulated')
+  const trafficMode = ref<TrafficMode>('real')
   const trafficModeLoading = ref(false)
 
   const healthyServices = computed(() => 
@@ -43,6 +43,7 @@ export const useSystemStore = defineStore('system', () => {
 
   function updateMetrics(data: SystemMetrics) {
     metrics.value = data
+    lastUpdate.value = new Date()
   }
 
   function updateTrafficMetrics(data: TrafficMetrics[]) {

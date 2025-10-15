@@ -1,8 +1,23 @@
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, ref, onMounted, onUnmounted } from 'vue'
 import { useSystemStore } from '@/stores/system'
 
 const systemStore = useSystemStore()
+const currentTime = ref(Date.now())
+
+// Update current time every second for reactive "ago" text
+let timeInterval: number | null = null
+onMounted(() => {
+  timeInterval = window.setInterval(() => {
+    currentTime.value = Date.now()
+  }, 1000)
+})
+
+onUnmounted(() => {
+  if (timeInterval !== null) {
+    clearInterval(timeInterval)
+  }
+})
 
 const metrics = computed(() => [
   {
@@ -39,7 +54,8 @@ const metrics = computed(() => [
 
 const lastUpdateText = computed(() => {
   if (!systemStore.lastUpdate) return 'Never'
-  const seconds = Math.floor((Date.now() - systemStore.lastUpdate.getTime()) / 1000)
+  // Use currentTime.value to make this reactive
+  const seconds = Math.floor((currentTime.value - systemStore.lastUpdate.getTime()) / 1000)
   if (seconds < 60) return `${seconds}s ago`
   const minutes = Math.floor(seconds / 60)
   return `${minutes}m ago`

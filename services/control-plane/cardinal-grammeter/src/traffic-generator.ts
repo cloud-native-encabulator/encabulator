@@ -1,4 +1,9 @@
 import axios, { AxiosInstance } from 'axios'
+import { RedisClient } from './redis-client'
+
+const REDIS_KEY_ACTIVE = 'cardinal-grammeter:active'
+const REDIS_KEY_CONFIG = 'cardinal-grammeter:config'
+const STATE_CHECK_INTERVAL = 1000 // Check Redis every second
 
 export interface TrafficConfig {
   target: string
@@ -21,18 +26,24 @@ export class TrafficGenerator {
   private config?: TrafficConfig
   private active = false
   private intervalId?: NodeJS.Timeout
+  private stateCheckIntervalId?: NodeJS.Timeout
   private client: AxiosInstance
+  private redis: RedisClient
   private stats = {
     requestsSent: 0,
     requestsSucceeded: 0,
     totalLatency: 0,
   }
 
-  constructor() {
+  constructor(redis: RedisClient) {
+    this.redis = redis
     this.client = axios.create({
       timeout: 5000,
       validateStatus: () => true, // Accept all status codes
     })
+    
+    // Start checking Redis state periodically
+    this.startStateMonitoring()
   }
 
   async start(config: TrafficConfig): Promise<void> {
@@ -44,15 +55,68 @@ export class TrafficGenerator {
     this.active = true
     this.stats = { requestsSent: 0, requestsSucceeded: 0, totalLatency: 0 }
 
+    // Store state in Redis for all pods to see
+    await this.redis.set(REDIS_KEY_ACTIVE, 'true')
+    await this.redis.set(REDIS_KEY_CONFIG, JSON.stringify(config))
+    
+    console.log('Traffic generation started (shared state updated)')
     this.scheduleRequests()
   }
 
-  stop(): void {
+  async stop(): Promise<void> {
     this.active = false
     if (this.intervalId) {
       clearInterval(this.intervalId)
       this.intervalId = undefined
     }
+
+    // Update Redis to stop all pods
+    await this.redis.set(REDIS_KEY_ACTIVE, 'false')
+    console.log('Traffic generation stopped (shared state updated)')
+  }
+
+  private startStateMonitoring(): void {
+    // Check Redis state every second to sync with other pods
+    this.stateCheckIntervalId = setInterval(async () => {
+      await this.checkSharedState()
+    }, STATE_CHECK_INTERVAL)
+  }
+
+  private async checkSharedState(): Promise<void> {
+    try {
+      const activeState = await this.redis.get(REDIS_KEY_ACTIVE)
+      const shouldBeActive = activeState === 'true'
+
+      // If state changed, sync with Redis
+      if (shouldBeActive && !this.active) {
+        // Should be running but we're not - start traffic
+        const configStr = await this.redis.get(REDIS_KEY_CONFIG)
+        if (configStr) {
+          const config = JSON.parse(configStr) as TrafficConfig
+          this.config = config
+          this.active = true
+          this.scheduleRequests()
+          console.log('Traffic started from shared state')
+        }
+      } else if (!shouldBeActive && this.active) {
+        // Should be stopped but we're running - stop traffic
+        this.active = false
+        if (this.intervalId) {
+          clearInterval(this.intervalId)
+          this.intervalId = undefined
+        }
+        console.log('Traffic stopped from shared state')
+      }
+    } catch (error) {
+      // Silently handle Redis errors - don't disrupt traffic generation
+    }
+  }
+
+  async cleanup(): Promise<void> {
+    if (this.stateCheckIntervalId) {
+      clearInterval(this.stateCheckIntervalId)
+    }
+    await this.stop()
   }
 
   updateParameters(params: Partial<Pick<TrafficConfig, 'fluorescentScoreMotion' | 'magnetoReluctance' | 'capacitiveDiractance'>>): void {

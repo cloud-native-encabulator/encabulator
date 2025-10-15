@@ -349,22 +349,27 @@ function startParticleAnimation() {
   if (animationFrameId !== null) return
   animateParticles()
   
-  // Spawn particles periodically for each link
+  // Spawn particles periodically based on actual traffic metrics
   particleSpawnInterval = setInterval(() => {
     if (!showTraffic.value) return // Don't spawn if traffic is hidden
     if (document.hidden) return // Don't spawn when tab is hidden
     
-    links.value.forEach(link => {
-      const sourceId = typeof link.source === 'string' ? link.source : link.source.id
-      const targetId = typeof link.target === 'string' ? link.target : link.target.id
+    // Only spawn particles if we have traffic metrics with actual traffic
+    const hasTraffic = systemStore.trafficMetrics && systemStore.trafficMetrics.length > 0
+    if (!hasTraffic) return
+    
+    // Spawn particles based on actual traffic metrics
+    systemStore.trafficMetrics.forEach(metric => {
+      // Only spawn if there's actual traffic (requestsPerSecond > 0)
+      if (metric.requestsPerSecond <= 0) return
       
-      // Spawn particles based on traffic volume (link.value) and adaptive spawn rate
-      const baseParticleCount = Math.min(link.value, 3) // Base: 1-3 particles per interval
-      const particleCount = Math.ceil(baseParticleCount * particleSpawnRate)
+      // Scale particle count based on requests per second
+      const particleCount = Math.min(Math.ceil(metric.requestsPerSecond / 10), 3) // 1 particle per 10 req/s, max 3
+      const adjustedCount = Math.ceil(particleCount * particleSpawnRate)
       
-      for (let i = 0; i < particleCount; i++) {
+      for (let i = 0; i < adjustedCount; i++) {
         setTimeout(() => {
-          spawnParticle(sourceId, targetId)
+          spawnParticle(metric.source, metric.target)
         }, i * 100) // Stagger spawns
       }
     })
@@ -844,12 +849,33 @@ watch(showTraffic, (newValue) => {
   }
 })
 
-// Traffic mode toggle
-const toggleTrafficMode = async () => {
+// Watch for traffic metrics changes to control particle animation
+watch(() => systemStore.trafficMetrics, (metrics) => {
+  // Check if there's actual traffic data with non-zero requests
+  const hasTraffic = metrics && metrics.length > 0 && metrics.some(m => m.requestsPerSecond > 0)
+  
+  if (showTraffic.value) {
+    if (hasTraffic && animationFrameId === null) {
+      // Start animation if we have traffic and it's not running
+      startParticleAnimation()
+    } else if (!hasTraffic && particleSpawnInterval !== null) {
+      // Stop spawning new particles if no traffic (but let existing ones finish)
+      clearInterval(particleSpawnInterval)
+      particleSpawnInterval = null
+    }
+  }
+}, { deep: true })
+
+// Simulate traffic for testing
+const simulateTraffic = async () => {
   const newMode = systemStore.trafficMode === 'simulated' ? 'real' : 'simulated'
   const success = await systemStore.setTrafficMode(newMode)
   if (success) {
     console.log(`Traffic mode switched to: ${newMode}`)
+    // Auto-enable traffic view when simulating
+    if (newMode === 'simulated') {
+      showTraffic.value = true
+    }
   }
 }
 
@@ -884,16 +910,16 @@ onMounted(() => {
             {{ showTraffic ? 'Hide Traffic' : 'View Traffic' }}
           </button>
           <button
-            @click="toggleTrafficMode"
+            @click="simulateTraffic"
             :disabled="systemStore.trafficModeLoading"
             class="px-3 py-1.5 rounded-lg text-sm font-medium transition-colors flex items-center gap-2"
-            :class="systemStore.trafficMode === 'real'
-              ? 'bg-green-600 text-white hover:bg-green-700' 
-              : 'bg-purple-600 text-white hover:bg-purple-700'"
-            :title="systemStore.trafficMode === 'real' ? 'Real traffic from services' : 'Simulated traffic for demo'"
+            :class="systemStore.trafficMode === 'simulated'
+              ? 'bg-purple-600 text-white hover:bg-purple-700' 
+              : 'bg-surface border border-text-muted/30 text-text-secondary hover:bg-surface-hover'"
+            :title="systemStore.trafficMode === 'simulated' ? 'Stop simulation' : 'Simulate traffic for testing'"
           >
-            <span>{{ systemStore.trafficMode === 'real' ? '⚡' : '🎭' }}</span>
-            <span>{{ systemStore.trafficMode === 'real' ? 'Real' : 'Simulated' }}</span>
+            <span>🎭</span>
+            <span>{{ systemStore.trafficMode === 'simulated' ? 'Stop Simulation' : 'Simulate Traffic' }}</span>
           </button>
         </div>
         <div class="flex gap-4 text-sm">

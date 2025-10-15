@@ -1,14 +1,28 @@
 import { TrafficGenerator } from './traffic-generator'
+import { RedisClient } from './redis-client'
+
+// Mock Redis client
+jest.mock('./redis-client')
 
 describe('TrafficGenerator', () => {
   let generator: TrafficGenerator
+  let mockRedis: jest.Mocked<RedisClient>
 
   beforeEach(() => {
-    generator = new TrafficGenerator()
+    mockRedis = {
+      connect: jest.fn().mockResolvedValue(undefined),
+      get: jest.fn().mockResolvedValue(null),
+      set: jest.fn().mockResolvedValue(true),
+      del: jest.fn().mockResolvedValue(true),
+      isConnected: jest.fn().mockReturnValue(true),
+      disconnect: jest.fn().mockResolvedValue(undefined),
+    } as any
+
+    generator = new TrafficGenerator(mockRedis)
   })
 
-  afterEach(() => {
-    generator.stop()
+  afterEach(async () => {
+    await generator.cleanup()
   })
 
   test('should initialize with inactive status', () => {
@@ -41,7 +55,7 @@ describe('TrafficGenerator', () => {
       capacitiveDiractance: 50,
     })
 
-    generator.stop()
+    await generator.stop()
 
     const status = generator.getStatus()
     expect(status.active).toBe(false)
