@@ -346,10 +346,19 @@ function animateParticles() {
 }
 
 function startParticleAnimation() {
-  if (animationFrameId !== null) return
-  console.log('Starting particle animation')
-  animateParticles()
+  // Start animation loop if not running
+  if (animationFrameId === null) {
+    console.log('Starting particle animation loop')
+    animateParticles()
+  }
   
+  // Start spawn interval if not running (can be separate from animation loop)
+  if (particleSpawnInterval !== null) {
+    console.log('Particle spawn interval already running')
+    return
+  }
+  
+  console.log('Starting particle spawn interval')
   // Spawn particles periodically based on actual traffic metrics
   particleSpawnInterval = setInterval(() => {
     if (!showTraffic.value) {

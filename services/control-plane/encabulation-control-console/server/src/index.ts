@@ -725,6 +725,39 @@ setInterval(async () => {
             p99Latency: metrics.avgLatency * 2.5,
             errorRate: metrics.errorRate,
             healthStatus: metrics.errorRate > 0.01 ? 'error' : metrics.avgLatency > 100 ? 'warning' : 'healthy'
+          },
+          // Panametric Fam writes to PostgreSQL (hydrocoptic-datastore)
+          {
+            source: 'panametric-fam-processor',
+            target: 'hydrocoptic-datastore',
+            requestsPerSecond: metrics.totalRequests,
+            avgLatency: metrics.avgLatency * 0.5, // DB writes are typically faster
+            p50Latency: metrics.avgLatency * 0.4,
+            p99Latency: metrics.avgLatency * 1.2,
+            errorRate: metrics.errorRate,
+            healthStatus: metrics.errorRate > 0.01 ? 'error' : metrics.avgLatency > 100 ? 'warning' : 'healthy'
+          },
+          // Panametric Fam checks cache (prefabulated-cache)
+          {
+            source: 'panametric-fam-processor',
+            target: 'prefabulated-cache',
+            requestsPerSecond: metrics.totalRequests * 1.5, // Cache checks happen more frequently
+            avgLatency: metrics.avgLatency * 0.1, // Cache is very fast
+            p50Latency: metrics.avgLatency * 0.05,
+            p99Latency: metrics.avgLatency * 0.3,
+            errorRate: metrics.errorRate * 0.5, // Cache errors are less common
+            healthStatus: 'healthy'
+          },
+          // Panametric Fam writes metrics (sinusoidal-database)
+          {
+            source: 'panametric-fam-processor',
+            target: 'sinusoidal-database',
+            requestsPerSecond: metrics.totalRequests * 0.8, // Not every request writes metrics
+            avgLatency: metrics.avgLatency * 0.3, // Time-series writes are fast
+            p50Latency: metrics.avgLatency * 0.2,
+            p99Latency: metrics.avgLatency * 0.8,
+            errorRate: metrics.errorRate * 0.3,
+            healthStatus: 'healthy'
           }
         ]
         console.log(`Real mode: Generated ${trafficMetrics.length} traffic metrics from TPS=${metrics.totalRequests}`)
