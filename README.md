@@ -67,6 +67,7 @@ The system is organized into four main tiers with 13 microservices:
 An **encabulation** is the core data processing unit in this system. Each encabulation represents a request that flows through the entire microservices architecture, demonstrating real distributed system behavior.
 
 **Encabulation Structure:**
+
 ```json
 {
   "grammeters": 42,
@@ -74,6 +75,15 @@ An **encabulation** is the core data processing unit in this system. Each encabu
   "sinusoidalMode": "STANDARD"
 }
 ```
+
+**Parameters:**
+
+- `grammeters` - Cardinal grammeter count (affects processing complexity)
+- `prefabulation` - Whether to use cached prefabulated results
+- `sinusoidalMode` - Processing algorithm variant:
+  - `STANDARD` - Normal processing path
+  - `INVERSE` - Reverse-phase processing (higher latency)
+  - `LOGARITHMIC` - Compressed processing (lower latency)
 
 ### Processing Flow
 
@@ -87,22 +97,28 @@ An **encabulation** is the core data processing unit in this system. Each encabu
    - Records metrics in Sinusoidal Database (InfluxDB)
 4. **Observability** → Metrics flow to Prometheus for monitoring
 
-### Real System Metrics
+### Observability Metrics
 
-The system has been tested at production-scale loads:
-- **Peak Throughput**: 1400+ encabulations/second
-- **Processing Latency**: 3-4ms average (90ms+ under high load)
-- **Success Rate**: 99.99%+
-- **Total Processed**: 4.5M+ encabulations in testing
+The system collects real metrics for each encabulation:
+
+- **Throughput** - Encabulations processed per second
+- **Processing Latency** - Time to process each request
+- **Success Rate** - Percentage of successful encabulations
+- **Cache Hit Rate** - Prefabulation cache effectiveness
+- **Error Rate** - Failed encabulations per second
 
 ### Interactive Control
 
 Use the **Encabulation Control Console** to:
-- Start/stop traffic generation
-- Adjust throughput (0.5 to 1000 TPS)
-- Inject latency and failures (chaos engineering)
-- View real-time metrics and system topology
-- Browse processed encabulations in PostgreSQL
+
+- **Synchronize Cardinal Grammeters** - Start/stop traffic generation with fine-grained control:
+  - **Fluorescent Score Motion** (0-100) - Controls throughput (0.5 to 1000 TPS)
+  - **Magneto Reluctance** (0-100) - Injects latency (0-500ms) for testing resilience
+  - **Capacitive Diractance** (0-100) - Adjusts payload complexity and metadata
+- **Traffic Patterns** - Choose steady, burst, ramp, or sine wave patterns
+- **Chaos Engineering** - Inject failures and test system resilience
+- **Real-time Visualization** - View system topology with live traffic flow
+- **Data Explorer** - Browse processed encabulations in PostgreSQL
 
 This workload demonstrates real distributed system patterns: caching, persistence, async messaging, rate limiting, and observability—all with actual data flowing through the system.
 
