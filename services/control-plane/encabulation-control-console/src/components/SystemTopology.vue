@@ -229,8 +229,8 @@ function getParticleColor(sourceId: string, targetId: string): string {
 }
 
 function spawnParticle(sourceId: string, targetId: string, color?: string) {
-  // Cap at 100 particles for performance
-  if (particles.value.length >= 100) return
+  // Cap at 200 particles for performance (increased to support higher TPS visualization)
+  if (particles.value.length >= 200) return
   
   // Determine color based on traffic health if not explicitly provided
   const particleColor = color || getParticleColor(sourceId, targetId)
@@ -347,26 +347,49 @@ function animateParticles() {
 
 function startParticleAnimation() {
   if (animationFrameId !== null) return
+  console.log('Starting particle animation')
   animateParticles()
   
   // Spawn particles periodically based on actual traffic metrics
   particleSpawnInterval = setInterval(() => {
-    if (!showTraffic.value) return // Don't spawn if traffic is hidden
+    if (!showTraffic.value) {
+      console.log('Traffic hidden, not spawning')
+      return
+    }
     if (document.hidden) return // Don't spawn when tab is hidden
     
     // Only spawn particles if we have traffic metrics with actual traffic
     const hasTraffic = systemStore.trafficMetrics && systemStore.trafficMetrics.length > 0
-    if (!hasTraffic) return
+    console.log('Traffic metrics:', systemStore.trafficMetrics?.length || 0, 'metrics')
+    if (!hasTraffic) {
+      console.log('No traffic metrics available')
+      return
+    }
     
     // Spawn particles based on actual traffic metrics
     systemStore.trafficMetrics.forEach(metric => {
+      console.log(`Metric: ${metric.source} -> ${metric.target}, RPS: ${metric.requestsPerSecond}`)
       // Only spawn if there's actual traffic (requestsPerSecond > 0)
       if (metric.requestsPerSecond <= 0) return
       
-      // Scale particle count based on requests per second
-      const particleCount = Math.min(Math.ceil(metric.requestsPerSecond / 10), 3) // 1 particle per 10 req/s, max 3
+      // Scale particle count based on requests per second with better visual scaling
+      // Use logarithmic scaling for better visual representation across wide TPS range
+      // Low traffic (1-50 TPS): 1-3 particles
+      // Medium traffic (50-500 TPS): 3-8 particles  
+      // High traffic (500+ TPS): 8-15 particles
+      let particleCount: number
+      if (metric.requestsPerSecond < 50) {
+        particleCount = Math.max(1, Math.ceil(metric.requestsPerSecond / 20))
+      } else if (metric.requestsPerSecond < 500) {
+        particleCount = 3 + Math.ceil((metric.requestsPerSecond - 50) / 90)
+      } else {
+        particleCount = 8 + Math.ceil(Math.log10(metric.requestsPerSecond - 400) * 2)
+      }
+      particleCount = Math.min(particleCount, 15) // Cap at 15 for performance
+      
       const adjustedCount = Math.ceil(particleCount * particleSpawnRate)
       
+      console.log(`Spawning ${adjustedCount} particles for ${metric.source} -> ${metric.target} (${metric.requestsPerSecond} TPS)`)
       for (let i = 0; i < adjustedCount; i++) {
         setTimeout(() => {
           spawnParticle(metric.source, metric.target)
@@ -855,11 +878,48 @@ watch(() => systemStore.trafficMetrics, (metrics) => {
   const hasTraffic = metrics && metrics.length > 0 && metrics.some(m => m.requestsPerSecond > 0)
   
   if (showTraffic.value) {
-    if (hasTraffic && animationFrameId === null) {
+    if (hasTraffic) {
       // Start animation if we have traffic and it's not running
-      startParticleAnimation()
+      if (animationFrameId === null) {
+        startParticleAnimation()
+      }
+      // Restart spawn interval if it's not running (this handles the case where
+      // animation is running but spawn interval was stopped due to no metrics)
+      if (particleSpawnInterval === null) {
+        console.log('Restarting particle spawn interval due to new traffic metrics')
+        particleSpawnInterval = setInterval(() => {
+          if (!showTraffic.value) {
+            console.log('Traffic hidden, not spawning')
+            return
+          }
+          if (document.hidden) return
+          
+          const hasTraffic = systemStore.trafficMetrics && systemStore.trafficMetrics.length > 0
+          console.log('Traffic metrics:', systemStore.trafficMetrics?.length || 0, 'metrics')
+          if (!hasTraffic) {
+            console.log('No traffic metrics available')
+            return
+          }
+          
+          systemStore.trafficMetrics.forEach(metric => {
+            console.log(`Metric: ${metric.source} -> ${metric.target}, RPS: ${metric.requestsPerSecond}`)
+            if (metric.requestsPerSecond <= 0) return
+            
+            const particleCount = Math.min(Math.ceil(metric.requestsPerSecond / 10), 3)
+            const adjustedCount = Math.ceil(particleCount * particleSpawnRate)
+            
+            console.log(`Spawning ${adjustedCount} particles for ${metric.source} -> ${metric.target}`)
+            for (let i = 0; i < adjustedCount; i++) {
+              setTimeout(() => {
+                spawnParticle(metric.source, metric.target)
+              }, i * 100)
+            }
+          })
+        }, 1000)
+      }
     } else if (!hasTraffic && particleSpawnInterval !== null) {
       // Stop spawning new particles if no traffic (but let existing ones finish)
+      console.log('No traffic, stopping spawn interval')
       clearInterval(particleSpawnInterval)
       particleSpawnInterval = null
     }

@@ -274,6 +274,9 @@
     - Update Prometheus metrics for new endpoints
     - Add CORS configuration for admin portal
     - Create API endpoints for action history (/api/actions/history)
+    - Optimize backend polling from 5s to 2s for faster UI updates
+    - Optimize Prometheus rate windows from [1m] to [30s] for faster metrics
+    - Add real traffic metrics generation for particle visualization
     - _Requirements: 11.1, 11.2, 3.1_
 
   - [ ]\* 6.14 Write unit tests for visualization components

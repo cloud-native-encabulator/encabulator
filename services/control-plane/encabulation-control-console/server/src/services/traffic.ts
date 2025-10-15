@@ -39,7 +39,9 @@ export class TrafficSimulationService {
    */
   public setTrafficMode(mode: TrafficMode): void {
     this.trafficMode = mode
-    console.log(`Traffic mode set to: ${mode}`)
+    // Enable/disable simulation based on mode
+    this.simulationEnabled = (mode === 'simulated')
+    console.log(`Traffic mode set to: ${mode}, simulation enabled: ${this.simulationEnabled}`)
   }
 
   private initializeServiceTopology(): void {

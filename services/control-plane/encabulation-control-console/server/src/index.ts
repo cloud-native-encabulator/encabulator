@@ -693,9 +693,45 @@ setInterval(async () => {
     const status = await k8sService.getSystemStatus()
     const metrics = await metricsService.getSystemMetrics()
     
-    // Only send traffic metrics if in simulated mode
+    // Send traffic metrics based on mode
     const trafficMode = trafficService.getTrafficMode()
-    const trafficMetrics = trafficMode === 'simulated' ? trafficService.getTrafficMetrics() : []
+    let trafficMetrics: any[] = []
+    
+    if (trafficMode === 'simulated') {
+      // Use simulated traffic metrics
+      trafficMetrics = trafficService.getTrafficMetrics()
+      console.log(`Simulated mode: ${trafficMetrics.length} traffic metrics`)
+    } else {
+      // Generate traffic metrics from real system metrics for visualization
+      // This allows particles to show when there's real traffic
+      if (metrics.totalRequests > 0) {
+        trafficMetrics = [
+          {
+            source: 'cardinal-grammeter',
+            target: 'dingle-arm-api-gateway',
+            requestsPerSecond: metrics.totalRequests,
+            avgLatency: metrics.avgLatency,
+            p50Latency: metrics.avgLatency * 0.9,
+            p99Latency: metrics.avgLatency * 2.5,
+            errorRate: metrics.errorRate,
+            healthStatus: metrics.errorRate > 0.01 ? 'error' : metrics.avgLatency > 100 ? 'warning' : 'healthy'
+          },
+          {
+            source: 'dingle-arm-api-gateway',
+            target: 'panametric-fam-processor',
+            requestsPerSecond: metrics.totalRequests,
+            avgLatency: metrics.avgLatency,
+            p50Latency: metrics.avgLatency * 0.9,
+            p99Latency: metrics.avgLatency * 2.5,
+            errorRate: metrics.errorRate,
+            healthStatus: metrics.errorRate > 0.01 ? 'error' : metrics.avgLatency > 100 ? 'warning' : 'healthy'
+          }
+        ]
+        console.log(`Real mode: Generated ${trafficMetrics.length} traffic metrics from TPS=${metrics.totalRequests}`)
+      } else {
+        console.log(`Real mode: No traffic (TPS=0)`)
+      }
+    }
     
     io.emit('message', {
       type: 'system_status',
@@ -708,7 +744,7 @@ setInterval(async () => {
   } catch (error) {
     console.error('Error fetching system status:', error)
   }
-}, 5000)
+}, 2000) // Poll every 2 seconds for more responsive UI
 
 httpServer.listen(PORT, () => {
   console.log(`Control Console server listening on port ${PORT}`)

@@ -118,13 +118,14 @@ export class MetricsService {
       // - http_request_duration_seconds: from unilateral-phase-detractor
       const [totalRequests, avgLatency, errorRate, cpuUsage, memoryUsage] = await Promise.all([
         // Total encabulations processed per second (this is our main throughput metric)
-        this.queryPrometheus('sum(rate(encabulations_processed_total{namespace=~"encabulator-.*"}[1m]))'),
+        // Using 45s window (3x scrape interval of 15s) for faster response while maintaining accuracy
+        this.queryPrometheus('sum(rate(encabulations_processed_total{namespace=~"encabulator-.*"}[45s]))'),
         
         // Average encabulation processing latency in milliseconds
-        this.queryPrometheus('(sum(rate(encabulation_processing_duration_seconds_sum{namespace=~"encabulator-.*"}[1m])) / sum(rate(encabulation_processing_duration_seconds_count{namespace=~"encabulator-.*"}[1m]))) * 1000'),
+        this.queryPrometheus('(sum(rate(encabulation_processing_duration_seconds_sum{namespace=~"encabulator-.*"}[45s])) / sum(rate(encabulation_processing_duration_seconds_count{namespace=~"encabulator-.*"}[45s]))) * 1000'),
         
         // Error rate from encabulations (failed / total)
-        this.queryPrometheus('sum(rate(encabulations_processed_total{namespace=~"encabulator-.*",status="error"}[1m])) / sum(rate(encabulations_processed_total{namespace=~"encabulator-.*"}[1m]))'),
+        this.queryPrometheus('sum(rate(encabulations_processed_total{namespace=~"encabulator-.*",status="error"}[45s])) / sum(rate(encabulations_processed_total{namespace=~"encabulator-.*"}[45s]))'),
         
         // Average CPU usage across encabulator pods (as percentage)
         this.queryPrometheus('avg(rate(container_cpu_usage_seconds_total{namespace=~"encabulator-.*",container!="",container!="POD"}[5m])) * 100'),

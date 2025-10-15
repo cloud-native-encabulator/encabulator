@@ -29,6 +29,7 @@ export class KubernetesService {
         'encabulator-system', 
         'encabulator-data', 
         'encabulator-control',
+        'encabulator-processing',
         'encabulator',
         'encabulator-support'
       ]

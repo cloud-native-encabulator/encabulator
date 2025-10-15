@@ -65,7 +65,10 @@ export function useWebSocket() {
           systemStore.updateMetrics(data.payload.metrics)
         }
         if (data.payload.trafficMetrics) {
+          console.log('Received trafficMetrics:', data.payload.trafficMetrics.length, 'metrics')
           systemStore.updateTrafficMetrics(data.payload.trafficMetrics)
+        } else {
+          console.log('No trafficMetrics in payload')
         }
         break
       
