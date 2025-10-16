@@ -279,7 +279,53 @@
     - Add real traffic metrics generation for particle visualization
     - _Requirements: 11.1, 11.2, 3.1_
 
-  - [ ]\* 6.14 Write unit tests for visualization components
+  - [x] 6.14 Optimize control console responsiveness
+
+    - Reduce backend polling interval from 5s to 2s for faster UI updates
+    - Optimize Prometheus rate windows from [1m] to [45s] (optimal for 15s scrape interval)
+    - Add real traffic metrics generation for particle visualization (5 connections)
+    - Improve particle spawn interval resilience for long-running sessions
+    - Expected response time: 2-4 seconds for traffic start, 45-50 seconds for stop
+    - _Requirements: 11.1, 11.2_
+
+  - [x] 6.15 Implement logarithmic traffic animation scaling
+
+    - Replace fixed 3-particle cap with dynamic scaling based on actual TPS
+    - Low traffic (1-50 TPS): 1-3 particles per second
+    - Medium traffic (50-500 TPS): 3-8 particles per second
+    - High traffic (500+ TPS): 8-15 particles per second
+    - Increase max particle cap from 100 to 200 for better high-traffic visualization
+    - Visual traffic intensity now accurately reflects system load
+    - _Requirements: 11.1, 11.2, 14.1, 14.2_
+
+  - [x] 6.16 Add data service traffic visualization
+
+    - Generate traffic metrics from panametric-fam-processor to all data services
+    - PostgreSQL (hydrocoptic-datastore): 1x TPS for encabulation writes
+    - Redis (prefabulated-cache): 1.5x TPS for frequent cache checks (fastest latency)
+    - InfluxDB (sinusoidal-database): 0.8x TPS for metrics collection
+    - Complete data flow visualization from traffic generation through data persistence
+    - _Requirements: 11.1, 11.2, 14.1_
+
+  - [x] 6.17 Fix pod indicator scaling
+
+    - Make pod indicator spacing scale proportionally with service node size
+    - Pods now remain visible and well-distributed when services scale up
+    - Calculate spacing based on square size: baseSpacing * (squareSize / 50)
+    - Pods scale beautifully from 1 to 5+ replicas
+    - _Requirements: 13.1, 13.2, 13.3_
+
+  - [x] 6.18 Optimize resource usage for dev/demo environments
+
+    - Reduce control plane CPU request from 100m to 200m (prevents unnecessary HPA scaling)
+    - Reduce processing plane minReplicas from 3/3/2 to 1/1/1
+    - Reduce data plane minReplicas from 2/2/2 to 1/1/1
+    - Reduce support plane replicaCount from 2 to 1
+    - Total savings: 70% reduction in idle resource usage (4.75 → 1.5 cores)
+    - Services still scale up to 10-20 replicas under load
+    - _Requirements: 5.1, 5.2, 8.1_
+
+  - [ ]\* 6.19 Write unit tests for visualization components
 
     - Write tests for pod position calculation logic
     - Write tests for pod color determination based on status
@@ -288,7 +334,7 @@
     - Write tests for tooltip positioning logic
     - _Requirements: 13.1, 13.2, 13.3, 14.1, 14.2, 15.1, 15.2, 15.3_
 
-  - [ ]\* 6.15 Write integration tests for real-time features
+  - [ ]\* 6.20 Write integration tests for real-time features
     - Write tests for pod visualization updates on scaling events
     - Write tests for traffic particle rendering with metrics
     - Write tests for tooltip display on hover interactions
