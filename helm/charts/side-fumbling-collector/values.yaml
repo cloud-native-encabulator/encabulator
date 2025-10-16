@@ -2,7 +2,7 @@
 namespace: encabulator-support
 createNamespace: false
 
-replicaCount: 2
+replicaCount: 1  # Reduced from 2 for dev/demo environments
 
 image:
   repository: 510431938379.dkr.ecr.us-east-2.amazonaws.com/encabulator/side-fumbling-collector
