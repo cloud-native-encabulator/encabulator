@@ -193,11 +193,46 @@ After deployment, access the services:
 ```bash
 # Direct Helm deployment - no additional UI needed
 
+# Control Console (Main UI)
+kubectl port-forward -n encabulator-control svc/encabulation-control-console 8080:8080                 # Control Console
+# Open http://localhost:8080 in your browser
+
 # Observability Stack (Helm-based service names)
-kubectl port-forward -n encabulator-monitoring svc/prometheus-stack-grafana 3000:80                    # Grafana (admin/encabulator-dev-2024)
+kubectl port-forward -n encabulator-monitoring svc/prometheus-stack-grafana 3000:80                    # Grafana (admin/prom-operator)
 kubectl port-forward -n encabulator-monitoring svc/prometheus-stack-kube-prom-prometheus 9090:9090     # Prometheus
-kubectl port-forward -n encabulator-monitoring svc/prometheus-stack-kube-state-metrics 8080:8080       # Kube State Metrics
+kubectl port-forward -n encabulator-monitoring svc/prometheus-stack-kube-state-metrics 8081:8080       # Kube State Metrics
 ```
+
+## ✨ Key Features
+
+### Real-Time Visualization
+- **Interactive System Topology** - Live visualization of all 13 microservices with animated traffic flow
+- **Traffic Particles** - Visual representation of requests flowing through the system (1-15 particles based on actual TPS)
+- **Pod Indicators** - See individual pods within each service, with color-coded health status
+- **Auto-Scaling Visualization** - Watch services grow and shrink as HPA responds to load
+
+### Traffic Control
+- **Dual Mode Operation** - Toggle between simulated (demo) and real traffic modes
+- **Fine-Grained Control** - Adjust throughput (0.5-1000 TPS), latency (0-500ms), and payload complexity
+- **Traffic Patterns** - Steady, burst, ramp, or sine wave patterns for different test scenarios
+- **Real-Time Metrics** - See actual TPS, latency, error rates updated every 2 seconds
+
+### Complete Data Flow
+- **End-to-End Visibility** - Traffic flows from Cardinal Grammeter → API Gateway → Processor → Data Services
+- **Multi-Database Architecture** - PostgreSQL (persistence), Redis (caching), InfluxDB (metrics)
+- **Real Data Persistence** - Actual encabulations stored and queryable via REST API
+- **Cache Visualization** - See cache hits/misses in real-time (1.5x TPS for frequent checks)
+
+### Resource Efficiency
+- **Optimized for Dev/Demo** - 70% reduction in idle resource usage (1.5 cores vs 4.75 cores)
+- **Auto-Scaling** - Services scale from 1 to 10-20 replicas based on actual load
+- **Fast Response** - 2-4 second response time for traffic start, metrics update every 2 seconds
+
+### Admin Portal
+- **User Management** - Create and manage users with role-based access control (admin, operator, viewer)
+- **Grafana Integration** - Embedded dashboards for deep observability
+- **Action History** - Audit log of all control actions with timestamps
+- **JWT Authentication** - Secure access with token-based auth
 
 ### 🏗️ Platform Architecture (Current: Helm-First)
 
