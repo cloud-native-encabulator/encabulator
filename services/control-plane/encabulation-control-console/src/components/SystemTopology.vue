@@ -151,9 +151,8 @@ const planeColors = {
 }
 
 // Helper function to calculate pod positions in a grid
-function calculatePodPositions(podCount: number): { x: number, y: number }[] {
+function calculatePodPositions(podCount: number, spacing: number = 10): { x: number, y: number }[] {
   const positions: { x: number, y: number }[] = []
-  const spacing = 10
   
   if (podCount === 1) {
     positions.push({ x: 0, y: 0 })
@@ -741,7 +740,11 @@ function initializeVisualization() {
     
     if (pods.length <= 5) {
       // Draw individual pod circles in a grid
-      const positions = calculatePodPositions(pods.length)
+      // Scale spacing based on square size (which grows with replica count)
+      const squareSize = Math.max(50, 40 + (d.replicas * 8))
+      const baseSpacing = 10
+      const scaleFactor = squareSize / 50 // Scale relative to base size of 50
+      const positions = calculatePodPositions(pods.length, baseSpacing * scaleFactor)
       
       podGroup.selectAll('circle.pod')
         .data(pods)

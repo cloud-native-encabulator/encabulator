@@ -56,7 +56,7 @@ resources:
     cpu: 500m
     memory: 512Mi
   requests:
-    cpu: 100m
+    cpu: 200m  # Increased from 100m to accommodate 2s polling and traffic metrics generation
     memory: 128Mi
 
 autoscaling:
