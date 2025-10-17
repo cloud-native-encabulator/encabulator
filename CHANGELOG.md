@@ -2,9 +2,10 @@
 
 ## [Unreleased]
 
-## [0.2.0] - 2025-10-15
+## [0.2.0] - 2025-10-17
 
 ### Added
+
 - **Real-Time Traffic Visualization**: Complete data flow visualization from traffic generation through all data services
   - Traffic particles flow from Cardinal Grammeter → API Gateway → Processor → Data Services
   - PostgreSQL (hydrocoptic-datastore): 1x TPS for encabulation writes
@@ -20,6 +21,7 @@
 - **Testing Guide**: Comprehensive testing reference at `.kiro/TESTING_GUIDE.md`
 
 ### Changed
+
 - **Responsiveness Optimization**: Significantly faster UI updates
   - Backend polling reduced from 5s to 2s (2.5x faster)
   - Prometheus rate window optimized from 1m to 45s (optimal for 15s scrape interval)
@@ -34,26 +36,30 @@
 - **Improved Particle Spawn Resilience**: Better handling of long-running sessions
 
 ### Fixed
+
 - Pod indicators disappearing when services scaled up
 - Traffic particles not showing for data service connections
 - Control console unnecessary scaling at idle due to low CPU request
 
 ### Performance
+
 - **Response Time**: 2.5x faster (5-10s → 2-4s)
 - **Metrics Update**: 2.5x faster (5s → 2s polling)
 - **Resource Usage**: 70% reduction at idle (4.75 → 1.5 cores)
 - **Visual Accuracy**: Traffic intensity now reflects actual system load
 
 ### Documentation
+
 - Updated README with Key Features section
 - Added Control Console access instructions
 - Created comprehensive TESTING_GUIDE.md
 - Updated tasks.md with 5 new completed subtasks (6.14-6.18)
 - Cleaned up outdated TODO files
 
-## [0.1.0] - 2024-12-XX
+## [0.1.0] - 2025-10-12
 
 ### Added
+
 - **Versioning System**: Implemented unified semantic versioning across all services
   - `VERSION` file as single source of truth
   - Automated version bumping script (`scripts/version/bump-version.sh`)
@@ -72,10 +78,12 @@
 - **Documentation**: Added comprehensive image publishing guide at `docs/IMAGE_PUBLISHING.md`
 
 ### Changed
+
 - Updated all service-level Makefiles to use `$(CONTAINER_RUNTIME)` variable instead of hardcoded `finch`
 - Fixed Makefile syntax issues with for-loop variable escaping (`$$service`)
 
 ### Technical Details
+
 - All 13 microservices now support automated ECR publishing
 - Images are automatically built before publishing if not already present
 - Proper error handling with exit codes for CI/CD integration
@@ -84,21 +92,25 @@
 ## Services Updated
 
 ### Data Plane (3 services)
+
 - hydrocoptic-datastore
 - prefabulated-cache
 - sinusoidal-database
 
 ### Processing Plane (3 services)
+
 - panametric-fam-processor
 - logarithmic-casing-service
 - dingle-arm-api-gateway
 
 ### Support Plane (3 services)
+
 - unilateral-phase-detractor
 - differential-girdle
 - side-fumbling-collector
 
 ### Control Plane (4 services)
+
 - encabulation-control-console
 - malaise-injection-engine
 - cardinal-grammeter

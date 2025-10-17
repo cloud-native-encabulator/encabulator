@@ -1,6 +1,6 @@
 # Release v0.2.0 - Control Console Enhancements
 
-**Release Date**: October 15, 2025  
+**Release Date**: October 17, 2025  
 **Platform Version**: 0.2.0  
 **Git Tag**: v0.2.0
 
