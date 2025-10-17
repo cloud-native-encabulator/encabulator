@@ -2,8 +2,8 @@ apiVersion: v2
 name: sinusoidal-database
 description: Sinusoidal Database - InfluxDB wrapper service for Cloud Native Encabulator
 type: application
-version: 0.0.2
-appVersion: "0.0.1"
+version: 0.2.0
+appVersion: "0.2.0"
 keywords:
   - encabulator
   - data-plane
