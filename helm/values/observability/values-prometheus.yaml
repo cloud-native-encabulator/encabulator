@@ -88,9 +88,12 @@ grafana:
   persistence:
     enabled: true
     # No explicit storageClassName - uses cluster default
+    storageClassName: auto-ebs-sc  # Match existing PVC
     size: 1Gi
     accessModes:
       - ReadWriteOnce
+    # Use existing PVC to avoid immutable field conflicts
+    existingClaim: prometheus-stack-grafana
   
   # Security context for better compatibility
   securityContext:
