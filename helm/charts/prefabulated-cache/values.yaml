@@ -7,7 +7,7 @@ replicaCount: 2
 image:
   repository: 510431938379.dkr.ecr.us-east-2.amazonaws.com/encabulator/prefabulated-cache
   pullPolicy: Always
-  tag: "0.0.1"
+  tag: "0.2.1"
 
 service:
   type: ClusterIP
