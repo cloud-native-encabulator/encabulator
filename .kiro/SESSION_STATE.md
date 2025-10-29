@@ -515,40 +515,46 @@ All enhancements deployed and working! The control console now provides:
 - HPA scaling requires careful state management
 - Redis is excellent for distributed coordination
 
-## 🚀 Next Session - Quick Start
+## 🚀 Next Session - Task 7 Preparation
 
 ### Immediate Actions
-1. **Verify v0.2.0 Deployment**
-   ```bash
-   # Check all pods are running with new versions
-   kubectl get pods -A | grep encabulator
-   
-   # Verify control console is accessible
-   kubectl port-forward -n encabulator-control svc/encabulation-control-console 8080:8080
-   # Open http://localhost:8080
-   ```
+1. **Review Task 7 Preparation Document**
+   - Read `.kiro/TASK_7_PREP.md` for comprehensive overview
+   - Understand the three architectural shifts (GitOps, ACK, KRO)
+   - Review branch strategy and implementation options
 
-2. **Test New Features**
-   - Toggle traffic mode (⚡ button in UI)
-   - Start traffic and watch particles flow to all data services
-   - Verify 2-4 second response time
-   - Check pod indicators scale with service nodes
-   - Confirm resource usage is ~1.5 cores at idle
+2. **Make Key Decisions**
+   - **Scope**: Full implementation vs GitOps-only vs Skip to Task 8?
+   - **Timeline**: 2 weeks (full) vs 1 week (GitOps) vs few days (Task 8)?
+   - **AWS**: Ready for managed services (costs, permissions)?
+   - **Complexity**: Ready for advanced patterns (KRO)?
 
-3. **Review Documentation**
-   - `.kiro/RELEASE_v0.2.0.md` - Full release notes
-   - `.kiro/TESTING_GUIDE.md` - Testing procedures
-   - `CHANGELOG.md` - All changes
+3. **Prerequisites Check**
+   - For GitOps (7.1): ArgoCD deployment strategy
+   - For ACK (7.2): AWS credentials, IAM roles, data migration plan
+   - For KRO (7.3): Research ResourceGraphDefinitions
 
-### Next Steps Options
+### Recommended Approach
 
-#### Option A: Move to Task 7 (Architecture Evolution) - RECOMMENDED
+#### Option A: Full Task 7 Implementation (10-16 days)
 - Implement GitOps with ArgoCD
 - Migrate to AWS managed services with ACK
 - Implement KRO for platform engineering patterns
 - See `.kiro/specs/cloud-native-encabulator-microservices/tasks.md` for details
 
-#### Option C: Enhance Existing Features
+#### Option B: GitOps Only (3-5 days)
+- Implement 7.1 (ArgoCD GitOps workflow)
+- Document 7.2 and 7.3 as future work
+- Complete 7.4 with educational content
+- **Best for**: Learning GitOps fundamentals
+
+#### Option C: Skip to Task 8 (5-8 days)
+- Implement resilience patterns (circuit breakers, retries)
+- Add auto-scaling with custom metrics
+- Create resilience visualizations
+- **Best for**: Production-ready patterns without architectural changes
+
+#### Option D: Enhance Existing Features
 - Add more interactive controls to admin portal
 - Implement additional chaos engineering scenarios
 - Add more demo scenarios
