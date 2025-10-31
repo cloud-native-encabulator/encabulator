@@ -311,7 +311,7 @@
 
     - Make pod indicator spacing scale proportionally with service node size
     - Pods now remain visible and well-distributed when services scale up
-    - Calculate spacing based on square size: baseSpacing * (squareSize / 50)
+    - Calculate spacing based on square size: baseSpacing \* (squareSize / 50)
     - Pods scale beautifully from 1 to 5+ replicas
     - _Requirements: 13.1, 13.2, 13.3_
 
@@ -350,11 +350,85 @@
 
   - [ ] 7.1 Migrate to GitOps on main branch
 
-    - Create `helm-first` branch to preserve current Helm-only implementation
-    - Implement ArgoCD GitOps workflow on main branch
-    - Configure repository-based deployment automation
-    - Migrate from direct Helm commands to ArgoCD Applications
-    - _Requirements: 9.1, 9.2, 9.3, 9.4_
+    - [-] 7.1.1 Preserve current Helm-first implementation
+      - Create `helm-first` branch from current main branch
+      - Tag current state as `v0.2.0-helm-first` for reference
+      - Update branch README to document this is the Helm-first approach
+      - Verify all services are working before branching
+      - _Requirements: 9.1, 9.3_
+
+    - [ ] 7.1.2 Deploy ArgoCD to EKS cluster
+      - Install ArgoCD via Helm chart in `argocd` namespace
+      - Configure ArgoCD CLI access and authentication
+      - Set up initial ArgoCD admin credentials
+      - Expose ArgoCD UI via port-forward for access
+      - Verify ArgoCD installation and UI accessibility
+      - _Requirements: 9.2, 10.3_
+
+    - [ ] 7.1.3 Create ArgoCD directory structure
+      - Create `argocd/` directory in repository root
+      - Create `argocd/apps/` subdirectories for each plane (control, processing, data, support, monitoring)
+      - Create `argocd/README.md` with GitOps documentation
+      - Set up directory structure for App-of-Apps pattern
+      - _Requirements: 9.1, 9.3_
+
+    - [ ] 7.1.4 Create ArgoCD Application manifests for all services
+      - Create Application manifest for encabulation-control-console
+      - Create Application manifest for cardinal-grammeter
+      - Create Application manifest for malaise-injection-engine
+      - Create Application manifest for demo-scenario-orchestrator
+      - Create Application manifest for dingle-arm-api-gateway
+      - Create Application manifest for panametric-fam-processor
+      - Create Application manifest for logarithmic-casing-service
+      - Create Application manifest for hydrocoptic-datastore
+      - Create Application manifest for prefabulated-cache
+      - Create Application manifest for sinusoidal-database
+      - Create Application manifest for unilateral-phase-detractor
+      - Create Application manifest for differential-girdle
+      - Create Application manifest for side-fumbling-collector
+      - Create Application manifest for monitoring stack (Prometheus/Grafana)
+      - Each manifest should reference existing Helm charts in `helm/` directory
+      - _Requirements: 9.2, 9.3, 10.3_
+
+    - [ ] 7.1.5 Implement App-of-Apps root application
+      - Create `argocd/root-app.yaml` as parent Application
+      - Configure root app to manage all service Applications
+      - Set up sync policies (manual sync initially for safety)
+      - Configure health checks and sync waves for proper ordering
+      - Define namespace and project settings
+      - _Requirements: 9.2, 9.3_
+
+    - [ ] 7.1.6 Configure GitOps workflow and policies
+      - Configure ArgoCD to watch `argocd/` directory in Git repository
+      - Set up sync policies per application (auto-sync vs manual)
+      - Configure pruning policies for resource cleanup
+      - Set up self-healing policies for drift detection
+      - Configure sync waves to ensure proper deployment order (data → processing → control)
+      - _Requirements: 9.2, 9.4_
+
+    - [ ] 7.1.7 Migrate services to ArgoCD management
+      - Deploy root application to ArgoCD
+      - Sync one service (e.g., hydrocoptic-datastore) as proof-of-concept
+      - Validate ArgoCD-managed service works alongside existing deployments
+      - Gradually sync remaining services through ArgoCD
+      - Verify all services are healthy and synced in ArgoCD UI
+      - _Requirements: 9.2, 9.3, 9.4_
+
+    - [ ] 7.1.8 Update deployment documentation and scripts
+      - Mark old Helm deployment scripts as deprecated
+      - Create new deployment guide using ArgoCD
+      - Document GitOps workflow (commit → push → sync)
+      - Add troubleshooting guide for ArgoCD issues
+      - Update SESSION_STATE.md with GitOps migration status
+      - _Requirements: 9.3, 9.4, 6.1, 6.2_
+
+    - [ ]* 7.1.9 Test GitOps workflow end-to-end
+      - Test full deployment from scratch using ArgoCD
+      - Test application updates via Git commits
+      - Test rollback functionality
+      - Test sync failure scenarios and recovery
+      - Verify all 12+ services deploy correctly via GitOps
+      - _Requirements: 9.2, 9.4_
 
   - [ ] 7.2 Migrate to AWS managed services with ACK
 
