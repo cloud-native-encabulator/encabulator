@@ -2,7 +2,7 @@
 namespace: encabulator-control
 createNamespace: false
 
-replicaCount: 1
+replicaCount: 2
 
 image:
   repository: 510431938379.dkr.ecr.us-east-2.amazonaws.com/encabulator/encabulation-control-console
