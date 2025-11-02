@@ -350,14 +350,14 @@
 
   - [ ] 7.1 Migrate to GitOps on main branch
 
-    - [-] 7.1.1 Preserve current Helm-first implementation
+    - [x] 7.1.1 Preserve current Helm-first implementation
       - Create `helm-first` branch from current main branch
       - Tag current state as `v0.2.0-helm-first` for reference
       - Update branch README to document this is the Helm-first approach
       - Verify all services are working before branching
       - _Requirements: 9.1, 9.3_
 
-    - [ ] 7.1.2 Deploy ArgoCD to EKS cluster
+    - [x] 7.1.2 Deploy ArgoCD to EKS cluster
       - Install ArgoCD via Helm chart in `argocd` namespace
       - Configure ArgoCD CLI access and authentication
       - Set up initial ArgoCD admin credentials
@@ -365,14 +365,14 @@
       - Verify ArgoCD installation and UI accessibility
       - _Requirements: 9.2, 10.3_
 
-    - [ ] 7.1.3 Create ArgoCD directory structure
+    - [x] 7.1.3 Create ArgoCD directory structure
       - Create `argocd/` directory in repository root
       - Create `argocd/apps/` subdirectories for each plane (control, processing, data, support, monitoring)
       - Create `argocd/README.md` with GitOps documentation
       - Set up directory structure for App-of-Apps pattern
       - _Requirements: 9.1, 9.3_
 
-    - [ ] 7.1.4 Create ArgoCD Application manifests for all services
+    - [-] 7.1.4 Create ArgoCD Application manifests for all services
       - Create Application manifest for encabulation-control-console
       - Create Application manifest for cardinal-grammeter
       - Create Application manifest for malaise-injection-engine

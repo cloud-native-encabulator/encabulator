@@ -1,0 +1,24 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: malaise-injection-engine
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "3"
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/jlbutler/cloud-native-encabulator.git
+    targetRevision: HEAD
+    path: helm/charts/malaise-injection-engine
+    helm:
+      valueFiles:
+        - values.yaml
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: encabulator-control
+  syncPolicy:
+    syncOptions:
+      - CreateNamespace=true

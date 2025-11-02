@@ -1,0 +1,24 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: dingle-arm-api-gateway
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "2"
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/jlbutler/cloud-native-encabulator.git
+    targetRevision: HEAD
+    path: helm/charts/dingle-arm-api-gateway
+    helm:
+      valueFiles:
+        - values.yaml
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: encabulator-processing
+  syncPolicy:
+    syncOptions:
+      - CreateNamespace=true
