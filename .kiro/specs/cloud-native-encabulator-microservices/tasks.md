@@ -372,7 +372,7 @@
       - Set up directory structure for App-of-Apps pattern
       - _Requirements: 9.1, 9.3_
 
-    - [-] 7.1.4 Create ArgoCD Application manifests for all services
+    - [x] 7.1.4 Create ArgoCD Application manifests for all services
       - Create Application manifest for encabulation-control-console
       - Create Application manifest for cardinal-grammeter
       - Create Application manifest for malaise-injection-engine
@@ -390,7 +390,7 @@
       - Each manifest should reference existing Helm charts in `helm/` directory
       - _Requirements: 9.2, 9.3, 10.3_
 
-    - [ ] 7.1.5 Implement App-of-Apps root application
+    - [x] 7.1.5 Implement App-of-Apps root application
       - Create `argocd/root-app.yaml` as parent Application
       - Configure root app to manage all service Applications
       - Set up sync policies (manual sync initially for safety)
@@ -406,7 +406,7 @@
       - Configure sync waves to ensure proper deployment order (data → processing → control)
       - _Requirements: 9.2, 9.4_
 
-    - [ ] 7.1.7 Migrate services to ArgoCD management
+    - [x] 7.1.7 Migrate services to ArgoCD management
       - Deploy root application to ArgoCD
       - Sync one service (e.g., hydrocoptic-datastore) as proof-of-concept
       - Validate ArgoCD-managed service works alongside existing deployments
