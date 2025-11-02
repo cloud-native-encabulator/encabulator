@@ -1,13 +1,33 @@
 # Session State - Cloud Native Encabulator
 
 **Last Updated:** 2025-11-02
-**Current Phase:** Task 7.1 Complete! Moving to Task 7.2 🎉
+**Current Phase:** Task 7.1 Complete! Ready for Task 7.2 🎉
 
 ## 🎯 Current Status
 
 **Task 7.1: GitOps Migration - COMPLETE (9/9 subtasks - 100%)**
 **Deployment Method: ArgoCD GitOps (fully operational)**
 **Next Up: Task 7.2 - AWS Managed Services with ACK**
+
+### Task 7.2 Planning Complete - Ready to Execute
+
+**Migration Strategy: Graceful Replacement (Zero Downtime)**
+
+**Key Decisions:**
+- ✅ Data Migration: Fresh start (no data preservation)
+- ✅ IAM Strategy: ACK IAM Controller (full GitOps)
+- ✅ Deployment: Keep services running, add AWS resources alongside
+- ✅ Networking: VPC-only (private, secure)
+- ✅ Instance Sizes: db.t3.medium + cache.t3.medium (~$110/month)
+- ✅ High Availability: Single-AZ (simpler for demo)
+
+**Implementation Order:**
+1. Bootstrap IAM role for ACK IAM controller (manual, one-time)
+2. Install ACK controllers (IAM, RDS, ElastiCache) via GitOps
+3. Create IAM roles via ACK CRDs
+4. Create RDS PostgreSQL + ElastiCache Redis via ACK CRDs
+5. Update wrapper services to point to AWS endpoints
+6. Remove in-cluster databases
 
 ### Completed This Session (2025-11-02)
 
@@ -714,3 +734,131 @@ curl -X POST http://localhost:8081/traffic/start \
 8. **Full observability** - Metrics, logs, traces, action history
 9. **Modern architecture** - Vue 3, TypeScript, Go, Python, Redis, Prometheus
 10. **99.99%+ success rate** - Stable and performant under high load
+
+
+## 🚀 Task 7.2 Preparation - ACK Migration Strategy
+
+### Overview
+
+Migrating from in-cluster databases to AWS managed services using AWS Controllers for Kubernetes (ACK).
+
+### Target Architecture
+
+**Current (In-Cluster):**
+- PostgreSQL via Helm chart → Hydrocoptic DataStore wrapper
+- Redis via Helm chart → Prefabulated Cache wrapper
+- InfluxDB via Helm chart → Sinusoidal Database wrapper
+
+**Target (AWS Managed):**
+- RDS PostgreSQL (db.t3.medium) → Hydrocoptic DataStore wrapper
+- ElastiCache Redis (cache.t3.medium) → Prefabulated Cache wrapper
+- InfluxDB stays in-cluster (no AWS equivalent)
+
+### ACK Controllers to Install
+
+1. **ACK IAM Controller** - Manages IAM roles as Kubernetes CRDs
+2. **ACK RDS Controller** - Manages RDS databases
+3. **ACK ElastiCache Controller** - Manages ElastiCache clusters
+
+### Bootstrap Requirements
+
+**One-Time Manual Step:**
+Create admin IAM role for ACK IAM controller via AWS CLI:
+- Role: `ack-iam-controller-admin-role`
+- Permissions: IAM management (CreateRole, AttachRolePolicy, etc.)
+- EKS Pod Identity association to `ack-iam-controller` service account
+
+**Script:** `scripts/setup/bootstrap-ack-iam.sh` (to be created)
+
+### IAM Roles (Created via ACK)
+
+After bootstrap, these roles created via Kubernetes CRDs:
+1. `ack-rds-controller-role` - RDS management permissions
+2. `ack-elasticache-controller-role` - ElastiCache management permissions
+
+### AWS Resources (Created via ACK)
+
+**RDS PostgreSQL:**
+- Instance class: db.t3.medium (2 vCPU, 4GB RAM)
+- Engine: PostgreSQL 15
+- Storage: 20GB gp3
+- Single-AZ deployment
+- VPC-only (no public access)
+- Security group: Allow from EKS cluster
+
+**ElastiCache Redis:**
+- Node type: cache.t3.medium (2 vCPU, 3.09GB RAM)
+- Engine: Redis 7.x
+- Single-node (no cluster mode)
+- Single-AZ deployment
+- VPC-only (no public access)
+- Security group: Allow from EKS cluster
+
+### Migration Steps
+
+1. **Bootstrap** (manual):
+   ```bash
+   ./scripts/setup/bootstrap-ack-iam.sh
+   ```
+
+2. **Install ACK Controllers** (GitOps):
+   - Create ArgoCD Applications for ACK controllers
+   - Controllers install in `ack-system` namespace
+
+3. **Create IAM Roles** (GitOps):
+   - Apply ACK IAM CRDs for RDS and ElastiCache controller roles
+   - Roles created in AWS automatically
+
+4. **Create AWS Resources** (GitOps):
+   - Apply ACK RDS CRD for PostgreSQL instance
+   - Apply ACK ElastiCache CRD for Redis cluster
+   - Wait for resources to be ready (~10-15 minutes)
+
+5. **Update Services** (GitOps):
+   - Update Hydrocoptic DataStore Helm values (RDS endpoint)
+   - Update Prefabulated Cache Helm values (ElastiCache endpoint)
+   - ArgoCD syncs, services reconnect to AWS
+
+6. **Validate**:
+   - Test data flow through AWS resources
+   - Verify metrics and monitoring
+   - Generate traffic and confirm persistence
+
+7. **Cleanup** (GitOps):
+   - Delete in-cluster PostgreSQL ArgoCD app
+   - Delete in-cluster Redis ArgoCD app
+   - Reclaim cluster resources
+
+### Cost Estimate
+
+- RDS db.t3.medium: ~$55/month
+- ElastiCache cache.t3.medium: ~$55/month
+- Storage + data transfer: ~$10/month
+- **Total: ~$120/month**
+
+### Rollback Plan
+
+If issues arise:
+1. Revert Helm values to point back to in-cluster databases
+2. ArgoCD syncs automatically
+3. Services reconnect to in-cluster databases
+4. Delete AWS resources via ACK CRDs (or leave for investigation)
+
+### Documentation to Create
+
+- `docs/ACK_SETUP.md` - ACK installation and configuration guide
+- `docs/AWS_MIGRATION.md` - Migration process and troubleshooting
+- `scripts/setup/bootstrap-ack-iam.sh` - Bootstrap script
+- Update `README.md` with ACK deployment method
+
+### Next Session Actions
+
+1. Create bootstrap script
+2. Install ACK IAM controller
+3. Create IAM roles via CRDs
+4. Install RDS + ElastiCache controllers
+5. Create AWS resources
+6. Update wrapper services
+7. Test and validate
+8. Document everything
+
