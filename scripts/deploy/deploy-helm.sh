@@ -1,7 +1,16 @@
 #!/bin/bash
 
 # Cloud Native Encabulator - Helm-First Deployment
-# Deploys the complete platform using Helm charts with ArgoCD GitOps
+# ⚠️  DEPRECATED: This script uses the old Helm-first deployment method.
+# ✅  RECOMMENDED: Use GitOps deployment with ArgoCD instead.
+#
+# See docs/GITOPS_DEPLOYMENT.md for the new deployment method.
+# This script is preserved for reference and the helm-first branch.
+#
+# To deploy with GitOps:
+#   kubectl apply -f argocd/root-app.yaml
+#
+# Deploys the complete platform using Helm charts
 
 set -e
 

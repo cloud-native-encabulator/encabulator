@@ -159,31 +159,46 @@ Validate the entire platform with integration tests:
 
 See [TESTING.md](TESTING.md) for detailed testing guide and [scripts/README.md](scripts/README.md) for all available scripts.
 
-### ☁️ Development Cluster Deployment
+### ☁️ Cluster Deployment (GitOps)
 
-For full AWS integration testing:
+**Current Method:** ArgoCD GitOps (automated, Git-driven deployments)
 
 #### Prerequisites
 
 - EKS cluster (or any Kubernetes cluster)
 - kubectl configured with cluster access
-- AWS CLI configured
-- Helm
+- ArgoCD installed (see [docs/GITOPS_DEPLOYMENT.md](docs/GITOPS_DEPLOYMENT.md))
+- GitHub personal access token (for private repos)
 
-#### Setup and Deploy
+#### Quick Start
 
 ```bash
-# Ensure your EKS cluster context is active
+# 1. Ensure your cluster context is active
 aws eks update-kubeconfig --region <region> --name <cluster-name>
 
-# Verify setup and configure environment
-./scripts/setup/eks-setup.sh
+# 2. Deploy root application (manages all services)
+kubectl apply -f argocd/root-app.yaml
 
-# Deploy complete platform via Helm-first approach
+# 3. ArgoCD automatically deploys all 13 services
+argocd app list
+
+# 4. Access ArgoCD UI
+kubectl port-forward svc/argocd-server -n argocd 8080:443
+# Open https://localhost:8080
+```
+
+**Full Documentation:** [docs/GITOPS_DEPLOYMENT.md](docs/GITOPS_DEPLOYMENT.md)
+
+#### Legacy Helm-First Deployment
+
+The previous Helm-first deployment method is preserved in the `helm-first` branch:
+
+```bash
+# Switch to helm-first branch
+git checkout helm-first
+
+# Deploy via Helm
 ./scripts/deploy/deploy-helm.sh
-
-# Check deployment status
-./scripts/deploy/deploy-helm.sh --validate
 ```
 
 ### 🌐 Access the Platform
@@ -292,16 +307,18 @@ Deploy infrastructure and applications using direct Helm commands:
 
 This project demonstrates the evolution of cloud-native deployment strategies on the `main` branch:
 
-- **Current Phase**: **Helm-First Development** - Direct Helm deployment for rapid development
-- **Future Phase**: **GitOps Migration** - Add GitOps workflow (preserve Helm-first in `helm-first` branch)
-- **Final Phase**: **KRO Platform Engineering** - Advanced resource composition (preserve GitOps in `argo-first` branch)
+- ✅ **Phase 1 Complete**: **Helm-First Development** - Direct Helm deployment (preserved in `helm-first` branch)
+- ✅ **Phase 2 Complete**: **GitOps with ArgoCD** - Automated Git-driven deployments (current on `main`)
+- ⏭️ **Phase 3 Planned**: **AWS Managed Services (ACK)** - Migrate to RDS, ElastiCache, etc.
+- ⏭️ **Phase 4 Planned**: **KRO Platform Engineering** - Advanced resource composition (preserve GitOps in `argo-first` branch)
 
 **Educational Branches:**
 
-- **`helm-first`**: Preserved Helm-only implementation (created when GitOps added to main)
-- **`argo-first`**: Preserved GitOps implementation (created when KRO added to main)
+- **`helm-first`**: Preserved Helm-only implementation (v0.2.0-helm-first)
+- **`main`**: Current GitOps implementation with ArgoCD
+- **`argo-first`**: Will preserve GitOps implementation (created when KRO added to main)
 
-See [BRANCH_STRATEGY.md](BRANCH_STRATEGY.md) for detailed evolution plan and learning paths.
+**Current Deployment Method:** GitOps with ArgoCD - See [docs/GITOPS_DEPLOYMENT.md](docs/GITOPS_DEPLOYMENT.md)
 
 ## Demo Scenarios
 
