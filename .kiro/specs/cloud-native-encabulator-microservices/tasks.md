@@ -348,7 +348,7 @@
 
 - [ ] 7. Architecture Evolution on Main Branch
 
-  - [ ] 7.1 Migrate to GitOps on main branch
+  - [x] 7.1 Migrate to GitOps on main branch
 
     - [x] 7.1.1 Preserve current Helm-first implementation
       - Create `helm-first` branch from current main branch
@@ -398,7 +398,7 @@
       - Define namespace and project settings
       - _Requirements: 9.2, 9.3_
 
-    - [ ] 7.1.6 Configure GitOps workflow and policies
+    - [x] 7.1.6 Configure GitOps workflow and policies
       - Configure ArgoCD to watch `argocd/` directory in Git repository
       - Set up sync policies per application (auto-sync vs manual)
       - Configure pruning policies for resource cleanup
@@ -414,7 +414,7 @@
       - Verify all services are healthy and synced in ArgoCD UI
       - _Requirements: 9.2, 9.3, 9.4_
 
-    - [ ] 7.1.8 Update deployment documentation and scripts
+    - [x] 7.1.8 Update deployment documentation and scripts
       - Mark old Helm deployment scripts as deprecated
       - Create new deployment guide using ArgoCD
       - Document GitOps workflow (commit → push → sync)
@@ -422,7 +422,7 @@
       - Update SESSION_STATE.md with GitOps migration status
       - _Requirements: 9.3, 9.4, 6.1, 6.2_
 
-    - [ ]* 7.1.9 Test GitOps workflow end-to-end
+    - [x]* 7.1.9 Test GitOps workflow end-to-end
       - Test full deployment from scratch using ArgoCD
       - Test application updates via Git commits
       - Test rollback functionality
