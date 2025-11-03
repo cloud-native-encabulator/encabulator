@@ -30,7 +30,13 @@
 - Created `ack-elasticache-controller-role` with ElastiCache management permissions
 - Both roles configured with OIDC trust policies for EKS Pod Identity
 
-**Next Up:** Install ACK RDS and ElastiCache controllers via ArgoCD
+✅ **7.2.4** - Install ACK RDS and ElastiCache controllers via ArgoCD (COMPLETE)
+- Created ArgoCD Applications for RDS controller (v1.6.2) and ElastiCache controller (v1.2.3)
+- Both controllers deployed and running in `ack-system` namespace
+- All CRDs installed (DBInstance, CacheCluster, etc.)
+- Controllers authenticated with IAM roles via service account annotations
+
+**Next Up:** Create AWS resources (RDS PostgreSQL and ElastiCache Redis) via ACK CRDs
 
 **Migration Strategy: Graceful Replacement (Zero Downtime)**
 
