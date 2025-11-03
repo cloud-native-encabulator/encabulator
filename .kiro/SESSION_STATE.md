@@ -1,15 +1,36 @@
 # Session State - Cloud Native Encabulator
 
 **Last Updated:** 2025-11-02
-**Current Phase:** Task 7.1 Complete! Ready for Task 7.2 🎉
+**Current Phase:** Task 7.2 In Progress - ACK IAM Controller Deployed! 🚀
 
 ## 🎯 Current Status
 
 **Task 7.1: GitOps Migration - COMPLETE (9/9 subtasks - 100%)**
+**Task 7.2: AWS Managed Services with ACK - IN PROGRESS (2/9 subtasks - 22%)**
 **Deployment Method: ArgoCD GitOps (fully operational)**
-**Next Up: Task 7.2 - AWS Managed Services with ACK**
 
-### Task 7.2 Planning Complete - Ready to Execute
+### Task 7.2 Progress
+
+✅ **7.2.1** - Bootstrap IAM role for ACK IAM controller (COMPLETE)
+- Created `ack-system` namespace
+- Created IAM policy `ACKIAMControllerPolicy`
+- Created IAM role `ack-iam-controller-admin-role`
+- Created service account with IAM role annotation
+- Associated OIDC provider with EKS cluster
+
+✅ **7.2.2** - Install ACK IAM Controller via ArgoCD (COMPLETE)
+- Created ArgoCD Application for ACK IAM controller
+- Deployed ACK IAM controller v1.5.2
+- Controller running and healthy in `ack-system` namespace
+- All IAM CRDs installed (roles, policies, users, groups, etc.)
+
+✅ **7.2.3** - Create IAM roles for RDS and ElastiCache controllers (COMPLETE)
+- Created script to manually create IAM roles (ACK IAM controller has bootstrap complexity)
+- Created `ack-rds-controller-role` with RDS management permissions
+- Created `ack-elasticache-controller-role` with ElastiCache management permissions
+- Both roles configured with OIDC trust policies for EKS Pod Identity
+
+**Next Up:** Install ACK RDS and ElastiCache controllers via ArgoCD
 
 **Migration Strategy: Graceful Replacement (Zero Downtime)**
 
