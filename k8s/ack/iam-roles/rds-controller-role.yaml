@@ -1,0 +1,67 @@
+apiVersion: iam.services.k8s.aws/v1alpha1
+kind: Role
+metadata:
+  name: ack-rds-controller-role
+  namespace: ack-system
+spec:
+  name: ack-rds-controller-role
+  description: IAM role for ACK RDS controller to manage RDS resources
+  assumeRolePolicyDocument: |
+    {
+      "Version": "2012-10-17",
+      "Statement": [
+        {
+          "Effect": "Allow",
+          "Principal": {
+            "Federated": "arn:aws:iam::510431938379:oidc-provider/oidc.eks.us-east-2.amazonaws.com/id/63F3220620BF411D64B991CE6B661B38"
+          },
+          "Action": "sts:AssumeRoleWithWebIdentity",
+          "Condition": {
+            "StringEquals": {
+              "oidc.eks.us-east-2.amazonaws.com/id/63F3220620BF411D64B991CE6B661B38:sub": "system:serviceaccount:ack-system:ack-rds-controller",
+              "oidc.eks.us-east-2.amazonaws.com/id/63F3220620BF411D64B991CE6B661B38:aud": "sts.amazonaws.com"
+            }
+          }
+        }
+      ]
+    }
+  policies:
+    - policyName: ACKRDSControllerPolicy
+      policyDocument: |
+        {
+          "Version": "2012-10-17",
+          "Statement": [
+            {
+              "Effect": "Allow",
+              "Action": [
+                "rds:CreateDBInstance",
+                "rds:DeleteDBInstance",
+                "rds:DescribeDBInstances",
+                "rds:ModifyDBInstance",
+                "rds:AddTagsToResource",
+                "rds:RemoveTagsFromResource",
+                "rds:ListTagsForResource",
+                "rds:CreateDBSubnetGroup",
+                "rds:DeleteDBSubnetGroup",
+                "rds:DescribeDBSubnetGroups",
+                "rds:ModifyDBSubnetGroup",
+                "rds:CreateDBParameterGroup",
+                "rds:DeleteDBParameterGroup",
+                "rds:DescribeDBParameterGroups",
+                "rds:ModifyDBParameterGroup",
+                "rds:DescribeDBParameters",
+                "rds:ResetDBParameterGroup",
+                "ec2:DescribeSecurityGroups",
+                "ec2:DescribeSubnets",
+                "ec2:DescribeVpcs",
+                "ec2:DescribeAvailabilityZones"
+              ],
+              "Resource": "*"
+            }
+          ]
+        }
+  tags:
+    - key: ManagedBy
+      value: ACK
+    - key: Service
+      value: rds-controller
