@@ -1,9 +1,0 @@
-# Observability Namespace
-apiVersion: v1
-kind: Namespace
-metadata:
-  name: encabulator-monitoring
-  labels:
-    app.kubernetes.io/name: encabulator-monitoring
-    app.kubernetes.io/component: observability
-    encabulator.io/observability: "true"
