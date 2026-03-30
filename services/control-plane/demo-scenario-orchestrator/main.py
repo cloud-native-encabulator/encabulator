@@ -1,3 +1,4 @@
+import asyncio
 import os
 import time
 import logging
@@ -191,7 +192,7 @@ async def execute_scenario(scenario_name: str):
             await execute_step(step)
             
             if step.delay > 0:
-                time.sleep(step.delay)
+                await asyncio.sleep(step.delay)
         
         active_scenario.status = "completed"
         active_scenario.message = "Scenario completed successfully"
@@ -246,7 +247,7 @@ async def execute_step(step: ScenarioStep):
         
         # Wait for duration
         duration = step.parameters.get("duration", 10)
-        time.sleep(duration)
+        await asyncio.sleep(duration)
         
         # Stop traffic
         async with httpx.AsyncClient() as client:
@@ -270,7 +271,7 @@ async def execute_step(step: ScenarioStep):
     
     elif step.action == "wait":
         timeout = step.parameters.get("timeout", 10)
-        time.sleep(timeout)
+        await asyncio.sleep(timeout)
     
     elif step.action == "monitor_scaling":
         # Monitor deployment scaling
@@ -285,7 +286,7 @@ async def execute_step(step: ScenarioStep):
             )
             replicas = deployment.status.replicas or 0
             logger.info(f"Current replicas for {step.target}: {replicas}")
-            time.sleep(5)
+            await asyncio.sleep(5)
 
 
 if __name__ == "__main__":
