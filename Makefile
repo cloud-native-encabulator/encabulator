@@ -197,7 +197,7 @@ dev-deps: ## Install development dependencies
 	@command -v go >/dev/null 2>&1 || { echo "Go is not installed"; exit 1; }
 	@command -v node >/dev/null 2>&1 || { echo "Node.js is not installed"; exit 1; }
 	@command -v python3 >/dev/null 2>&1 || { echo "Python 3 is not installed"; exit 1; }
-	@command -v docker >/dev/null 2>&1 || { echo "Docker is not installed"; exit 1; }
+	@command -v $(CONTAINER_RUNTIME) >/dev/null 2>&1 || { echo "$(CONTAINER_RUNTIME) is not installed"; exit 1; }
 	@command -v helm >/dev/null 2>&1 || { echo "Helm is not installed"; exit 1; }
 	@echo "✓ All required tools are installed"
 
