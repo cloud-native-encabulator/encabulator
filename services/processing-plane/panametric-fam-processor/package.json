@@ -1,6 +1,6 @@
 {
   "name": "panametric-fam-processor",
-  "version": "0.1.0",
+  "version": "0.3.0",
   "description": "Core business logic processor for Cloud Native Encabulator",
   "main": "dist/index.js",
   "scripts": {

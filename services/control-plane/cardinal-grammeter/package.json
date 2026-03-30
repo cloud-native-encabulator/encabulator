@@ -1,6 +1,6 @@
 {
   "name": "cardinal-grammeter",
-  "version": "1.0.0",
+  "version": "0.3.0",
   "description": "Advanced traffic simulation and load generation engine",
   "main": "dist/index.js",
   "scripts": {

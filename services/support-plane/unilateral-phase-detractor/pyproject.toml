@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "unilateral-phase-detractor"
-version = "0.1.0"
+version = "0.3.0"
 description = "Authentication and authorization service for Cloud Native Encabulator"
 authors = ["Cloud Native Encabulator Team"]
 license = "Apache-2.0"

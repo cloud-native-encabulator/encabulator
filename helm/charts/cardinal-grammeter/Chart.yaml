@@ -2,8 +2,8 @@ apiVersion: v2
 name: cardinal-grammeter
 description: Advanced traffic simulation and load generation engine
 type: application
-version: 0.0.2
-appVersion: "0.0.2"
+version: 0.3.0
+appVersion: "0.3.0"
 keywords:
   - encabulator
   - control-plane

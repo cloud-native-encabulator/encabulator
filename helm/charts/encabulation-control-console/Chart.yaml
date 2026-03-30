@@ -2,10 +2,10 @@ apiVersion: v2
 name: encabulation-control-console
 description: Interactive web interface for Cloud Native Encabulator system control with Vue 3 and D3.js
 type: application
-version: 0.2.0
-appVersion: "0.2.0"
+version: 0.3.0
+appVersion: "0.3.0"
 annotations:
-  platform.version: "0.2.0"
+  platform.version: "0.3.0"
 keywords:
   - encabulator
   - control-plane

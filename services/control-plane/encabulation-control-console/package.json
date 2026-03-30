@@ -1,6 +1,6 @@
 {
   "name": "encabulation-control-console",
-  "version": "1.0.0",
+  "version": "0.3.0",
   "description": "Interactive web interface for Cloud Native Encabulator system control",
   "private": true,
   "type": "module",

@@ -2,8 +2,8 @@ apiVersion: v2
 name: logarithmic-casing-service
 description: Logarithmic Casing Service - Message broker wrapper for Cloud Native Encabulator
 type: application
-version: 0.2.0
-appVersion: "0.2.0"
+version: 0.3.0
+appVersion: "0.3.0"
 keywords:
   - encabulator
   - processing-plane

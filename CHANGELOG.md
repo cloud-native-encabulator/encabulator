@@ -2,6 +2,26 @@
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-03-30
+
+### Changed
+
+- **Go Dependency Updates**: Updated Go module dependencies across all 7 Go services
+- **Dockerfile Hardening**: Added non-root user, pinned Alpine base image versions, set WORKDIR /app across all service Dockerfiles
+- **Version Alignment**: Synchronized all service versions to 0.3.0 (VERSION file, package.json, pyproject.toml, Helm charts)
+
+### Fixed
+
+- Async sleep bug in side-fumbling-collector
+- Makefile target issues across services
+- Dependency pinning for reproducible builds
+- Logging configuration inconsistencies
+
+### Removed
+
+- Stale migration scripts and empty placeholder files
+- Unused Kubernetes resource directories
+
 ## [0.2.0] - 2025-10-17
 
 ### Added
