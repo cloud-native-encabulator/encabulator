@@ -68,8 +68,9 @@ Thumbs.db
 Chart.lock
 **/charts/*.tgz
 
-# Scramble
+# Scramble & Kiro (local agent state)
 .scramble/
+.kiro/
 
 # Environment files
 .env.eks
