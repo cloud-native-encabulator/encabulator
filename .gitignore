@@ -68,6 +68,15 @@ Thumbs.db
 Chart.lock
 **/charts/*.tgz
 
+# Scramble
+.scramble/
+
+# Environment files
+.env.eks
+
+# Backup files
+Makefile.bak
+
 # Temporary files
 tmp/
 temp/
