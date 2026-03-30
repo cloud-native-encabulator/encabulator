@@ -32,7 +32,8 @@ build: ## Build the service
 
 test: ## Run tests
 	@echo "Testing $(SERVICE_NAME)..."
-	@go test ./... -v
+	@pip install -q -r requirements.txt
+	@pytest test_main.py -v
 	@echo "✓ Tests complete"
 
 image: ## Build container image for local platform
