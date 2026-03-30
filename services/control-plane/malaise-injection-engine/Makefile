@@ -27,7 +27,7 @@ help: ## Show this help message
 
 build: ## Build the service
 	@echo "Building $(SERVICE_NAME)..."
-	@go build -o $(BINARY) ./cmd/server
+	@go build -o $(BINARY) .
 	@echo "✓ Build complete: $(BINARY)"
 
 test: ## Run tests
