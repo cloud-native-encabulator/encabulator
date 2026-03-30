@@ -1,5 +1,6 @@
 from datetime import datetime, timedelta
 from typing import Optional
+import logging
 from jose import JWTError, jwt
 import bcrypt
 from fastapi import Depends, HTTPException, status
@@ -7,6 +8,8 @@ from fastapi.security import OAuth2PasswordBearer
 
 from .models import TokenData, User, UserInDB
 from .config import settings
+
+logger = logging.getLogger(__name__)
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
 
@@ -99,12 +102,12 @@ async def get_current_user(token: str = Depends(oauth2_scheme)) -> User:
             raise credentials_exception
         token_data = TokenData(username=username, roles=payload.get("roles", []))
     except JWTError as e:
-        print(f"JWT decode error: {e}")
+        logger.debug(f"JWT decode error: {e}")
         raise credentials_exception
     
     user = get_user(username=token_data.username)
     if user is None:
-        print(f"User not found: {token_data.username}")
+        logger.debug(f"User not found: {token_data.username}")
         raise credentials_exception
     
     # Convert UserInDB to User (exclude hashed_password and timestamps)
