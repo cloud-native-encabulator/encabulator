@@ -196,48 +196,12 @@ install_kro_local() {
     log_success "KRO controller is ready"
 }
 
-# Test KRO ResourceGroups
-test_kro_resource_groups() {
-    log_info "Testing KRO ResourceGroups..."
-    
-    # Apply observability ResourceGroups
-    log_info "Applying observability ResourceGroups..."
-    kubectl apply -k k8s/platform/observability/resource-groups/
-    
-    # Wait for ResourceGroups to be ready
-    log_info "Waiting for ResourceGroups to be established..."
-    sleep 10
-    
-    # Check if custom resources are available
-    local custom_resources=(
-        "observabilitymetrics.observability.encabulator.io"
-        "observabilitytracing.observability.encabulator.io"
-        "observabilitylogs.observability.encabulator.io"
-        "observabilitystack.observability.encabulator.io"
-    )
-    
-    for resource in "${custom_resources[@]}"; do
-        if kubectl get crd "$resource" >/dev/null 2>&1; then
-            log_success "✓ Custom resource $resource is available"
-        else
-            log_error "✗ Custom resource $resource is not available"
-            return 1
-        fi
-    done
-    
-    log_success "All KRO ResourceGroups are ready"
-}
-
 # Test observability stack deployment
 test_observability_deployment() {
     log_info "Testing observability stack deployment..."
     
     # Create monitoring namespace
     kubectl create namespace encabulator-monitoring --dry-run=client -o yaml | kubectl apply -f -
-    
-    # Deploy development observability stack
-    log_info "Deploying development observability stack..."
-    kubectl apply -k k8s/platform/observability/instances/
     
     # Wait for deployment
     log_info "Waiting for observability components to be ready..."
@@ -397,7 +361,6 @@ main() {
     check_prerequisites
     setup_local_cluster
     install_kro_local
-    test_kro_resource_groups
     test_observability_deployment
     test_service_connectivity
     show_test_results

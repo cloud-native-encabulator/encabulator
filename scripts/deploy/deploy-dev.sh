@@ -168,10 +168,6 @@ deploy_development_instances() {
         kubectl create namespace "$namespace" --dry-run=client -o yaml | kubectl apply -f -
     done
     
-    # Deploy observability stack instance
-    log_info "Deploying observability stack..."
-    kubectl apply -k k8s/platform/observability/instances/
-    
     log_success "Development instances deployed"
 }
 

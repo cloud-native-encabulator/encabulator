@@ -290,7 +290,6 @@ Deploy infrastructure and applications using direct Helm commands:
 ### Infrastructure & Deployment
 
 - **[Helm Charts](helm/README.md)** - Custom and community Helm charts for all services
-- **[Observability Platform](k8s/platform/observability/README.md)** - Complete monitoring stack via kube-prometheus-stack
 - **[Image Publishing Guide](docs/IMAGE_PUBLISHING.md)** - Building and publishing container images to ECR
 - **[Versioning Strategy](docs/VERSIONING.md)** - Semantic versioning and release management
 - **[Makefile Reference](docs/MAKEFILE_REFERENCE.md)** - Complete reference for all Makefile targets
