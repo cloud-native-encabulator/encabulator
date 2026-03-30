@@ -515,8 +515,7 @@ aws eks update-kubeconfig --region <region> --name <cluster-name>
 
 ## 📖 Additional Resources
 
-- **Main Setup Guide**: `../SETUP.md`
-- **Build Guide**: `../BUILD.md`
+- **Development Guide**: `../docs/DEVELOPMENT.md`
 - **Architecture Overview**: `../docs/architecture/`
 - **Helm Charts**: `../helm/charts/`
 - **Makefile**: `../Makefile`

@@ -274,7 +274,7 @@ helm upgrade --install <service-name> helm/charts/<service-name> \
 - [Helm Charts README](./README.md) - Overview and usage
 - [Data Services Values](./values/data-services/README.md) - Backend configuration
 - [Deployment Scripts](../scripts/README.md) - Automated deployment
-- [Build Guide](../BUILD.md) - Building container images
+- [Development Guide](../docs/DEVELOPMENT.md) - Building and deploying
 
 ## Summary
 

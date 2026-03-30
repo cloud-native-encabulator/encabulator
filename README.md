@@ -157,7 +157,7 @@ Validate the entire platform with integration tests:
 ./scripts/test/test-data-services.sh                      # Data services only
 ```
 
-See [TESTING.md](TESTING.md) for detailed testing guide and [scripts/README.md](scripts/README.md) for all available scripts.
+See [Development Guide](docs/DEVELOPMENT.md) for detailed testing guide and [scripts/README.md](scripts/README.md) for all available scripts.
 
 ### ☁️ Cluster Deployment (GitOps)
 
@@ -275,9 +275,9 @@ Deploy infrastructure and applications using direct Helm commands:
 
 ### Getting Started
 
-- **[Setup Guide](SETUP.md)** - Environment setup and prerequisites
-- **[Build Guide](BUILD.md)** - Building services and container images
-- **[Testing Guide](TESTING.md)** - Local and development cluster testing
+- **[Setup Guide](docs/DEVELOPMENT.md)** - Environment setup and prerequisites
+- **[Build Guide](docs/DEVELOPMENT.md)** - Building services and container images
+- **[Testing Guide](docs/DEVELOPMENT.md)** - Local and development cluster testing
 - **[Scripts Documentation](scripts/README.md)** - Build, test, and deployment scripts
 
 ### Service Planes
@@ -296,8 +296,7 @@ Deploy infrastructure and applications using direct Helm commands:
 
 ### Architecture
 
-- **[Architecture Summary](ARCHITECTURE_SUMMARY.md)** - High-level architecture overview
-- **[Cloud Native Infrastructure](docs/architecture/cloud-native-infrastructure.md)** - Infrastructure patterns
+- **[Cloud Native Infrastructure](docs/architecture/cloud-native-infrastructure.md)** - Architecture overview and infrastructure patterns
 - [API Specifications](docs/api/) _(coming soon)_
 - [Cloud Native Encabulator Glossary](docs/glossary.md) _(coming soon)_
 
