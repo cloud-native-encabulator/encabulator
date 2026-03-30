@@ -265,12 +265,6 @@ make test-control-plane
 
 ---
 
-#### `cleanup-test.sh` - **TEST CLEANUP**
-**Purpose**: Clean up test resources  
-**Use Case**: Remove test deployments  
-
----
-
 #### `validate-storage.sh` - **STORAGE VALIDATION**
 **Purpose**: Validate storage configurations  
 **Use Case**: Check persistent volume claims  

@@ -128,8 +128,6 @@ For custom installations or specific requirements:
 ```bash
 # Install individual components
 ./scripts/infrastructure/install-ack-crds.sh
-kubectl apply -k k8s/infrastructure/ack-controllers/
-kubectl apply -k k8s/infrastructure/aws-resources/
 ```
 
 ## Configuration

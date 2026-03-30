@@ -190,14 +190,6 @@ test_aws_resources() {
     # Create data namespace
     kubectl create namespace encabulator-data --dry-run=client -o yaml | kubectl apply -f -
     
-    # Apply AWS resources
-    log_info "Applying AWS resources via ACK..."
-    kubectl apply -k k8s/infrastructure/aws-resources/
-    
-    # Wait for resources to be created
-    log_info "Waiting for AWS resources to be created..."
-    sleep 20
-    
     # Check for RDS database
     if kubectl get dbinstance hydrocoptic-datastore -n encabulator-data >/dev/null 2>&1; then
         log_success "✓ RDS Database: hydrocoptic-datastore created"
@@ -333,23 +325,6 @@ test_infrastructure_integration() {
             log_warning "⚠ Metrics service not found: $controller-metrics"
         fi
     done
-    
-    # Test that AWS resources can be created (dry-run)
-    log_info "Testing AWS resource creation (dry-run)..."
-    
-    # Test RDS instance creation
-    if kubectl apply --dry-run=client -f k8s/infrastructure/aws-resources/rds-database.yaml >/dev/null 2>&1; then
-        log_success "✓ RDS resource definition is valid"
-    else
-        log_warning "⚠ RDS resource definition has issues"
-    fi
-    
-    # Test ElastiCache creation
-    if kubectl apply --dry-run=client -f k8s/infrastructure/aws-resources/elasticache-cluster.yaml >/dev/null 2>&1; then
-        log_success "✓ ElastiCache resource definition is valid"
-    else
-        log_warning "⚠ ElastiCache resource definition has issues"
-    fi
     
     echo ""
 }

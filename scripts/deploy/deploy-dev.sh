@@ -172,12 +172,6 @@ deploy_development_instances() {
     log_info "Deploying observability stack..."
     kubectl apply -k k8s/platform/observability/instances/
     
-    # Deploy infrastructure instances (if they exist)
-    if [ -d "k8s/infrastructure/kro/examples" ]; then
-        log_info "Deploying infrastructure examples..."
-        kubectl apply -f k8s/infrastructure/kro/examples/development-cluster.yaml
-    fi
-    
     log_success "Development instances deployed"
 }
 
