@@ -32,7 +32,7 @@ RUN addgroup -S appgroup && adduser -S appuser -G appgroup
 WORKDIR /app
 
 # Copy the binary from builder
-COPY --from=builder /app/dingle-arm-api-gateway .
+COPY --from=builder --chown=appuser:appgroup /app/dingle-arm-api-gateway .
 
 USER appuser
 
