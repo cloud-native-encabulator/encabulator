@@ -94,22 +94,79 @@ jobs:
             fi
           done
 
-  # Container builds will be added when services are implemented
-  # This job is a placeholder for future service container builds
-  prepare-for-services:
+  test-go:
     runs-on: ubuntu-latest
     needs: detect-changes
     if: needs.detect-changes.outputs.services == 'true'
+    strategy:
+      matrix:
+        service:
+          - services/control-plane/malaise-injection-engine
+          - services/data-plane/hydrocoptic-datastore
+          - services/data-plane/prefabulated-cache
+          - services/data-plane/sinusoidal-database
+          - services/processing-plane/dingle-arm-api-gateway
+          - services/processing-plane/logarithmic-casing-service
+          - services/support-plane/differential-girdle
     steps:
       - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: ${{ matrix.service }}/go.mod
+      - name: Vet
+        run: go vet ./...
+        working-directory: ${{ matrix.service }}
+      - name: Test
+        run: go test ./...
+        working-directory: ${{ matrix.service }}
 
-      - name: Placeholder for service builds
+  test-node:
+    runs-on: ubuntu-latest
+    needs: detect-changes
+    if: needs.detect-changes.outputs.services == 'true'
+    strategy:
+      matrix:
+        service:
+          - services/control-plane/cardinal-grammeter
+          - services/control-plane/encabulation-control-console
+          - services/processing-plane/panametric-fam-processor
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: ${{ matrix.service }}/package-lock.json
+      - name: Install
+        run: npm ci
+        working-directory: ${{ matrix.service }}
+      - name: Test
+        run: npm test
+        working-directory: ${{ matrix.service }}
+
+  test-python:
+    runs-on: ubuntu-latest
+    needs: detect-changes
+    if: needs.detect-changes.outputs.services == 'true'
+    strategy:
+      matrix:
+        service:
+          - services/control-plane/demo-scenario-orchestrator
+          - services/support-plane/side-fumbling-collector
+          - services/support-plane/unilateral-phase-detractor
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install dependencies
         run: |
-          echo "Service builds will be implemented when services are created"
-          echo "This will include:"
-          echo "- Multi-language service testing (Go, Node.js, Python)"
-          echo "- Container image building and pushing"
-          echo "- Service-specific linting and validation"
+          pip install -r requirements.txt
+          pip install pytest pytest-asyncio
+        working-directory: ${{ matrix.service }}
+      - name: Test
+        run: pytest
+        working-directory: ${{ matrix.service }}
 
   validate-scripts:
     runs-on: ubuntu-latest
