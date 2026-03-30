@@ -23,7 +23,7 @@ RUN CGO_ENABLED=0 GOOS=linux go build \
     -o malaise-injection-engine .
 
 # Final stage - using alpine for minimal image with shell/utilities
-FROM public.ecr.aws/docker/library/alpine:latest
+FROM public.ecr.aws/docker/library/alpine:3.21
 
 RUN apk --no-cache add ca-certificates
 

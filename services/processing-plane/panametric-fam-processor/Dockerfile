@@ -30,8 +30,12 @@ RUN npm ci --only=production
 # Copy built application
 COPY --from=builder /app/dist ./dist
 
+ENV NODE_ENV=production
+
 # Expose port
 EXPOSE 8080
+
+USER node
 
 # Run the application
 CMD ["node", "dist/index.js"]

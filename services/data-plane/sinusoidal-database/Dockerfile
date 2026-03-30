@@ -23,14 +23,18 @@ RUN CGO_ENABLED=0 GOOS=linux go build \
     -o sinusoidal-database ./cmd/server
 
 # Final stage - using alpine for minimal image with shell/utilities
-FROM public.ecr.aws/docker/library/alpine:latest
+FROM public.ecr.aws/docker/library/alpine:3.21
 
 RUN apk --no-cache add ca-certificates
 
-WORKDIR /root/
+RUN addgroup -S appgroup && adduser -S appuser -G appgroup
+
+WORKDIR /app
 
 # Copy the binary from builder
 COPY --from=builder /app/sinusoidal-database .
+
+USER appuser
 
 # Expose port
 EXPOSE 8080
