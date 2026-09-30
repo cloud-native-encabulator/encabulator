@@ -108,7 +108,7 @@ the first request.
 | Metric | Type | Labels | Meaning |
 |---|---|---|---|
 | `encabulator_gateway_requests_total` | counter | `route`, `status` | Every request, by route template |
-| `encabulator_gateway_rate_limited_total` | counter | — | Requests the bucket rejected |
+| `encabulator_gateway_rate_limited_total` | counter | · | Requests the bucket rejected |
 | `http_server_request_duration_seconds` | histogram | `http_request_method`, `http_route`, `http_response_status_code` | Inbound, route template only |
 | `http_client_request_duration_seconds` | histogram | `http_request_method`, `server_address`, `http_response_status_code` | Outbound; `server_address` is the upstream **service name**, not `host:port` |
 | `encabulator_malaise_applied_total` | counter | `kind` | From the kit's malaise middleware |

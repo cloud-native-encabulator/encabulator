@@ -25,7 +25,7 @@ const PATTERNS: { value: TrafficPattern; label: string; real: string }[] = [
   {
     value: 'sine',
     label: 'Modial interaction',
-    real: 'rate × (1 + 0.8·sin(2πt/period)) — the modial interaction of magneto-reluctance.',
+    real: 'rate × (1 + 0.8·sin(2πt/period)) · the modial interaction of magneto-reluctance.',
   },
   {
     value: 'burst',
@@ -131,7 +131,7 @@ const statusRows = computed(() => {
 
           <label class="flex flex-col gap-1">
             <span class="engraved"
-              >Target rate — <Lexeme of="skorMotion" short /> (0.1 to 500 req/s)</span
+              >Target rate · <Lexeme of="skorMotion" short /> (0.1 to 500 req/s)</span
             >
             <div class="flex items-center gap-2">
               <input

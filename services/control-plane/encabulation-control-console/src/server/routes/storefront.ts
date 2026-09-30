@@ -1,7 +1,7 @@
 /**
  * The storefront.
  *
- * "so a person in a browser drives the same path as the grammeter" — the design
+ * "so a person in a browser drives the same path as the grammeter" · the design
  * means that literally. These routes go through the dingle-arm gateway with the
  * signed-in user's own bearer token, which means JWT verification, rate limiting,
  * the order saga, parts reservation and the event bus all behave exactly as they

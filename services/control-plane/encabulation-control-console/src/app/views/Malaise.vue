@@ -134,7 +134,7 @@ const activeByTarget = computed(() => {
             <select v-model="target" class="field" :disabled="locked">
               <option value="" disabled>Choose a workload…</option>
               <option v-for="t in targets" :key="t.name" :value="t.name">
-                {{ t.display }} — {{ t.plane }}
+                {{ t.display }} · {{ t.plane }}
               </option>
             </select>
           </label>

@@ -1,5 +1,5 @@
 /**
- * `@encabulator/kit` — the shared TypeScript service kit for the Cloud Native
+ * `@encabulator/kit` · the shared TypeScript service kit for the Cloud Native
  * Encabulator. It implements design section 7 (cross-cutting conventions) for Node 24 on
  * Fastify 5, so each service only has to contain its own domain.
  *

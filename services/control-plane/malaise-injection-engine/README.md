@@ -11,7 +11,7 @@ malaise (`pod-kill`, `partition`, `scale`) is applied by this service against th
 
 Every malaise has an expiry, and a 2-second reconcile loop honours it. The loop does not trust its
 own memory: the objects it touches carry the malaise id as a label and the expiry as an annotation,
-so a restart — even a restart with a wiped Valkey — finds the evidence and reverts it. A stranded
+so a restart · even a restart with a wiped Valkey · finds the evidence and reverts it. A stranded
 NetworkPolicy would be a much worse demo than a broken one.
 
 ## Kinds
@@ -26,7 +26,7 @@ NetworkPolicy would be a much worse demo than a broken one.
 | `cpu-burn` | `millicores` (1 to 8000) | Burn CPU in the background until expiry |
 
 App-level targets must be services in the catalog that actually run the middleware. The control
-plane — console, grammeter, engine, orchestrator — does not inject malaise into itself, so naming one
+plane · console, grammeter, engine, orchestrator · does not inject malaise into itself, so naming one
 of those is a `400 unknown_target`.
 
 ### Kubernetes-level
@@ -38,7 +38,7 @@ of those is a `400 unknown_target`.
 | `scale` | `replicas` (0 to 20) | Patch the target Deployment's replicas |
 
 Kubernetes-level targets may be **any** workload in the namespace labelled
-`encabulator.io/malaise-target=true` — Pod, Deployment or StatefulSet — which is how the backing
+`encabulator.io/malaise-target=true` · Pod, Deployment or StatefulSet · which is how the backing
 stores (`postgres`, `valkey`, `nats`, `influxdb`) become targetable even though they are not
 services in the catalog.
 
@@ -75,7 +75,7 @@ by the `app.kubernetes.io/name` label, so a Helm release name that differs from 
 still works.
 
 **`pod-kill`** is instant: the record comes back with `state: "completed"`, `endedAt` set, and the
-pods it deleted in `detail.killedPods`. There is nothing to revert — the ReplicaSet makes the
+pods it deleted in `detail.killedPods`. There is nothing to revert · the ReplicaSet makes the
 replacement, which is the point.
 
 ## API
@@ -124,7 +124,7 @@ parameter it does not honour.
 | `GET` | `/v1/malaises?state=active\|all&limit=100` | `{malaises: [...], count}`; active is soonest-expiry first, history is newest first |
 | `GET` | `/v1/malaises/{id}` | One record, or 404 |
 | `DELETE` | `/v1/malaises/{id}` | Ends one early, reverting any cluster change |
-| `DELETE` | `/v1/malaises` | `{cleared: n}` — ends everything active |
+| `DELETE` | `/v1/malaises` | `{cleared: n}` · ends everything active |
 | `GET` | `/v1/directives?service=` | `{directives: [{id, kind, params, expiresAt}]}` for the middleware |
 | `GET` | `/v1/targets` | The catalog, the app-level subset, the kinds, and whether Kubernetes is armed |
 
@@ -167,8 +167,8 @@ suffering.
 
 ## Readiness
 
-- `valkey` — a `PING`. The engine's own database, so a hard dependency.
-- `kubernetes` — a one-item pod list, registered only when the in-cluster config was found.
+- `valkey` · a `PING`. The engine's own database, so a hard dependency.
+- `kubernetes` · a one-item pod list, registered only when the in-cluster config was found.
 
 Outside a cluster the engine logs a warning, skips the Kubernetes readiness check, and serves the
 app-level kinds normally, which makes `make run` useful.

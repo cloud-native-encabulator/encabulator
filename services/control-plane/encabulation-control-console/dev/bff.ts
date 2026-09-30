@@ -2,8 +2,8 @@
  * DEV ONLY. Never copied into the production image.
  *
  * The production `buildApp`, wired to the fixture cluster reader instead of the
- * real Kubernetes API. Everything else — the BFF routes, the role checks, the
- * SSE collector, the topology assembler — is exactly the shipped code, so what
+ * real Kubernetes API. Everything else · the BFF routes, the role checks, the
+ * SSE collector, the topology assembler · is exactly the shipped code, so what
  * you develop against is the real thing with one seam replaced.
  *
  *   npm run dev:bff

@@ -193,7 +193,7 @@ async function signOut(): Promise<void> {
       <p>
         “The original machine had a base-plate of prefabulated amulite, surmounted by a malleable
         logarithmic casing in such a way that the two main spurving bearings were in a direct line
-        with the pentametric fan.” — J. H. Quick, 1944. The names are nonsense; the system is not.
+        with the pentametric fan.” · J. H. Quick, 1944. The names are nonsense; the system is not.
       </p>
     </footer>
   </div>

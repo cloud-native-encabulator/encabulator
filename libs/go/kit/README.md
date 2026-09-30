@@ -1,4 +1,4 @@
-# `libs/go/kit` — the Go service kit
+# `libs/go/kit` · the Go service kit
 
 > The differential girdlespring is fitted to the "up" end of the grammeters; this package is fitted
 > to the "up" end of every Go service.
@@ -57,12 +57,12 @@ malaise middleware. `Run` starts the flag and malaise pollers, serves, and drain
 |---|---|
 | `kit` | `Bootstrap`, `Runtime`, `Runtime.Client`, `Runtime.Run` |
 | `kit/config` | `String`, `Int`, `Float`, `Bool`, `Duration`, `Require`, `ServiceURL`, `URLVar` |
-| `kit/logging` | `New`, `WithRequestID`, `RequestID` — JSON slog handler that decorates records from the context |
-| `kit/telemetry` | `Setup` — OTLP/HTTP tracing, no-op when `OTEL_EXPORTER_OTLP_ENDPOINT` is unset |
+| `kit/logging` | `New`, `WithRequestID`, `RequestID` · JSON slog handler that decorates records from the context |
+| `kit/telemetry` | `Setup` · OTLP/HTTP tracing, no-op when `OTEL_EXPORTER_OTLP_ENDPOINT` is unset |
 | `kit/httpx` | `Server`, `Client`, middleware, `WriteJSON`, `WriteError`, `DecodeJSON`, `StatusError` |
 | `kit/identity` | `Identity`, `FromRequest`, `Apply`, `Strip`, role constants |
-| `kit/malaise` | `Injector` — directive poller, HTTP middleware, `Apply` / `WrapMessage` for consumers |
-| `kit/flags` | `Client` — ETag-polling girdlespring client, `Defaults`, `InRollout` |
+| `kit/malaise` | `Injector` · directive poller, HTTP middleware, `Apply` / `WrapMessage` for consumers |
+| `kit/flags` | `Client` · ETag-polling girdlespring client, `Defaults`, `InRollout` |
 | `kit/events` | `Connect`, `EnsureStream`, `Publisher`, `Consume`, `Envelope`, subject constants |
 | `kit/testsupport` | test-only: `RequireContainerRuntime`, `StartContainer`, `FreePort` |
 
@@ -97,7 +97,7 @@ second panic-recovery net wrap the whole mux.
 `Bootstrap` already does this for the malaise middleware.
 
 `AddReadyCheck(name, fn)` adds a readiness probe. Readiness must only check the service's *own* hard
-dependencies — its database, its NATS connection — never a downstream service. Checks run in
+dependencies · its database, its NATS connection · never a downstream service. Checks run in
 parallel with a 2s budget; `/readyz` reports each one by name. On SIGTERM, `/readyz` fails first,
 then the listener closes, then in-flight requests drain for up to 20 seconds.
 
@@ -182,7 +182,7 @@ defer cc.Stop()
 `Publish` sets `Nats-Msg-Id` to the event id for the stream's 2-minute duplicate window, injects
 W3C trace context into the NATS headers, and records a `PRODUCER` span. `Consume` creates a durable
 pull consumer with explicit ack, `AckWait` 30s and `MaxDeliver` 5, extracts the trace context, and
-runs the handler inside a `CONSUMER` span that is a child of the producer's — which is what makes
+runs the handler inside a `CONSUMER` span that is a child of the producer's · which is what makes
 the console's service graph draw the messaging edges. A handler returning an error naks; returning
 nil acks; an undecodable message is terminated rather than looped.
 

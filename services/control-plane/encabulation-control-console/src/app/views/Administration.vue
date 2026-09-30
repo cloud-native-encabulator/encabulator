@@ -96,7 +96,7 @@ function toggleRole(user: { username: string; roles: string[] }, role: string): 
                 class="border-b border-rule/40 last:border-0"
               >
                 <td class="py-1.5 pr-3 font-[family-name:var(--font-gauge)]">{{ user.username }}</td>
-                <td class="py-1.5 pr-3">{{ user.displayName ?? '—' }}</td>
+                <td class="py-1.5 pr-3">{{ user.displayName ?? '-' }}</td>
                 <td class="py-1.5 pr-3">
                   <span class="flex flex-wrap gap-1">
                     <button

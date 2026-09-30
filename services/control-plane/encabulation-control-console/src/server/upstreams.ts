@@ -249,7 +249,7 @@ export function readOrderFeed(body: unknown): FeedItem[] {
         id: `order:${id}:${status}:${stage ?? ''}`,
         at: pickString(row, ['updatedAt', 'createdAt']) ?? new Date().toISOString(),
         kind: 'order' as const,
-        headline: `${model} ×${quantity ?? '?'} — ${status}`,
+        headline: `${model} ×${quantity ?? '?'} · ${status}`,
         detail: stage === null ? null : `stage: ${stage}`,
         fields,
       }
@@ -298,7 +298,7 @@ export function readShipmentFeed(body: unknown): FeedItem[] {
         id: `shipment:${id}:${status}`,
         at: pickString(row, ['updatedAt', 'dispatchedAt', 'time']) ?? new Date().toISOString(),
         kind: 'shipment' as const,
-        headline: `${carrier} — ${status}`,
+        headline: `${carrier} · ${status}`,
         detail: tracking === null ? null : `tracking ${tracking}`,
         fields: {
           order: orderId ?? 'unknown',

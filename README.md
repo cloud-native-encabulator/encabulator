@@ -102,19 +102,19 @@ Full instructions, including running services natively against `dev/compose.yaml
 
 A 1940s instrument panel for a 2020s distributed system.
 
-- **Factory Floor** — live topology built from OpenTelemetry service-graph metrics, with particle
+- **Factory Floor**: live topology built from OpenTelemetry service-graph metrics, with particle
   flows scaled to real request rates and colored by real latency and error rates. Pods appear as
   dots and come and go as Kubernetes scales them.
-- **Grammeters** — drive synthetic customer traffic: steady, burst, ramp, or sine patterns, with a
+- **Grammeters**: drive synthetic customer traffic: steady, burst, ramp, or sine patterns, with a
   configurable mix of browse, quote, order, and track journeys.
-- **Malaise** — inject latency, errors, congestion, or CPU burn into any service; kill pods;
+- **Malaise**: inject latency, errors, congestion, or CPU burn into any service; kill pods;
   partition the network; or scale a deployment to zero. Everything expires and reverts on its own,
   so a forgotten fault never strands the demo.
-- **Scenarios** — scripted, narrated demos (`marzlevane-shortage`, `hydrocoptic-outage`,
+- **Scenarios**: scripted, narrated demos (`marzlevane-shortage`, `hydrocoptic-outage`,
   `side-fumbling-outbreak`, `grand-tour`) that drive traffic, induce malaise, flip flags, and wait
   on Prometheus conditions.
-- **Girdlespring** — feature flags with percentage rollouts, read live by five services.
-- **Works** — a storefront where you can place a real order yourself and watch it traverse the
+- **Girdlespring**: feature flags with percentage rollouts, read live by five services.
+- **Works**: a storefront where you can place a real order yourself and watch it traverse the
   entire system, plus live order, shipment, and incident feeds.
 
 ## Architecture
@@ -147,10 +147,10 @@ between them.
 
 ## Documentation
 
-- [System Design](docs/design.md) — the contract: services, APIs, events, conventions
-- [Development Guide](docs/DEVELOPMENT.md) — build, test, run, and debug
-- [Glossary](docs/GLOSSARY.md) — what every piece of nonsense actually means
-- [Contributing](CONTRIBUTING.md) — including the DCO sign-off requirement
+- [System Design](docs/design.md): the contract: services, APIs, events, conventions
+- [Development Guide](docs/DEVELOPMENT.md): build, test, run, and debug
+- [Glossary](docs/GLOSSARY.md): what every piece of nonsense actually means
+- [Contributing](CONTRIBUTING.md): including the DCO sign-off requirement
 
 ## A note on the jargon
 

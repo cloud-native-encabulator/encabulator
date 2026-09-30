@@ -1,6 +1,6 @@
 /**
  * Formatting, with the console's one non-negotiable rule built in: a `null`
- * measurement formats as "no data", never as "0", "—", or a blank.
+ * measurement formats as "no data", never as "0", "-", or a blank.
  *
  * Every number the panel prints goes through one of these. That is what makes
  * "no Math.random on screen" verifiable rather than aspirational: there is no

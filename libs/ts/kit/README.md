@@ -72,7 +72,7 @@ export async function main(telemetry: Telemetry): Promise<void> {
 
 ## API
 
-### `app.ts` — the Fastify factory
+### `app.ts` · the Fastify factory
 
 | Export | Purpose |
 |---|---|

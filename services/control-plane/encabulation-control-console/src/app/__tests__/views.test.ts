@@ -200,7 +200,7 @@ const HEADLINE: HeadlineStats = {
 const FEED: FeedBatch = {
   at: new Date().toISOString(),
   items: [
-    { id: 'order:ord_1', at: new Date().toISOString(), kind: 'order', headline: 'turbo ×2 — fabricating', detail: null, fields: { order: 'ord_1', model: 'turbo', quantity: '2', status: 'fabricating', stage: 'fit-marzlevanes' } },
+    { id: 'order:ord_1', at: new Date().toISOString(), kind: 'order', headline: 'turbo ×2 · fabricating', detail: null, fields: { order: 'ord_1', model: 'turbo', quantity: '2', status: 'fabricating', stage: 'fit-marzlevanes' } },
     { id: 'incident:inc_1', at: new Date().toISOString(), kind: 'incident', headline: 'Side fumbling', detail: 'z above 4', fields: { serial: 'ENC-1', stage: 'fit-marzlevanes', metric: 'repleneration', score: '4.82', strict: 'false' } },
     { id: 'shipment:shp_1', at: new Date().toISOString(), kind: 'shipment', headline: 'Waneshaft Express', detail: null, fields: { order: 'ord_3', carrier: 'Waneshaft Express', tracking: 'NT1', status: 'dispatched' } },
     { id: 'narration:1', at: new Date().toISOString(), kind: 'narration', headline: 'The morning shift arrives.', detail: null, fields: {} },

@@ -21,9 +21,9 @@ the flags.
 | GET | `/v1/flags/{key}` | any | One flag |
 | GET | `/v1/flags/{key}/evaluate?subject=` | any | The value a given subject sees, plus the reason |
 | PUT | `/v1/flags/{key}` | operator, admin | Set a flag's value, rollout and description |
-| GET | `/healthz` | — | Liveness |
-| GET | `/readyz` | — | Readiness: Postgres |
-| GET | `/metrics` | — | Prometheus text |
+| GET | `/healthz` | · | Liveness |
+| GET | `/readyz` | · | Readiness: Postgres |
+| GET | `/metrics` | · | Prometheus text |
 
 Flag JSON:
 
@@ -40,7 +40,7 @@ Flag JSON:
 ```
 
 `PUT` body: `{"value": <boolean|number>, "rolloutPercent": 0-100, "description": "..."}`. The value
-must match the flag's declared type, `rolloutPercent` is booleans only, and unknown keys are `404` —
+must match the flag's declared type, `rolloutPercent` is booleans only, and unknown keys are `404` -
 the flag set is the one in the design, not whatever a caller invents. Omitting `description` keeps
 the existing text; omitting `rolloutPercent` clears it. Every edit records `updatedBy` from
 `X-Encabulator-Subject` and `updatedAt` from the database clock.
@@ -67,7 +67,7 @@ server and the client agree subject by subject.
 
 ## Flags it serves
 
-Seeded on first start, insert-if-missing, and never overwritten afterwards — a restart will not undo
+Seeded on first start, insert-if-missing, and never overwritten afterwards · a restart will not undo
 an operator's change.
 
 | Key | Type | Default | Read by |

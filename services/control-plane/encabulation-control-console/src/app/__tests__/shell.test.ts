@@ -4,7 +4,7 @@
  * A smoke test for the thing every page sits inside: it must mount, render the
  * seven pages, open exactly one stream, respect the guest banner, and hold the
  * enamel / control-room finish. `EventSource` does not exist in the test DOM, so
- * it is stubbed — which also lets the test assert that the shell opens one
+ * it is stubbed · which also lets the test assert that the shell opens one
  * connection and releases it when the tab goes away.
  */
 

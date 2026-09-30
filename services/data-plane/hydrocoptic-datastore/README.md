@@ -37,7 +37,7 @@ every event is applied exactly once.
 }
 ```
 
-`201` with the created order, or `200` with the stored order when the id has been seen before — the
+`201` with the created order, or `200` with the stored order when the id has been seen before · the
 processor can retry safely. Validation failures are `400 invalid_order`: `model` must be `turbo`,
 `retro` or `hyper`, and `quantity` must be 1 to 10.
 

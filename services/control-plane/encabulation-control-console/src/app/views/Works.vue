@@ -79,7 +79,7 @@ const selectedModel = computed(() => MODELS.find((m) => m.id === model.value) ??
             <span class="engraved">Model</span>
             <select v-model="model" class="field" :disabled="!signedIn">
               <option v-for="m in MODELS" :key="m.id" :value="m.id">
-                {{ m.name }} — {{ money(m.basePrice) }}
+                {{ m.name }} · {{ money(m.basePrice) }}
               </option>
             </select>
             <span class="typed text-[0.7rem] text-ink-faint">{{ selectedModel.note }}</span>

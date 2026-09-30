@@ -217,7 +217,7 @@ function podColour(node: NodeView, index: number): string {
   >
     <header class="mb-2 flex flex-wrap items-baseline justify-between gap-2">
       <div>
-        <h2 class="engraved text-ink">Factory floor — live topology</h2>
+        <h2 class="engraved text-ink">Factory floor · live topology</h2>
         <p class="typed text-[0.7rem] text-ink-faint">
           Plates are the static registry; dots are live pods; lines are only drawn where the
           OpenTelemetry service graph has seen a call in the last minute.

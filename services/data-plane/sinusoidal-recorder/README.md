@@ -114,8 +114,8 @@ Besides `http_server_request_duration_seconds` and the Go runtime metrics:
 
 | Metric | Type | Labels | Meaning |
 |---|---|---|---|
-| `encabulator_readings_written_total` | counter | — | Samples stored |
-| `encabulator_readings_write_seconds` | histogram | — | Batch write duration |
+| `encabulator_readings_written_total` | counter | · | Samples stored |
+| `encabulator_readings_write_seconds` | histogram | · | Batch write duration |
 | `encabulator_recorder_queries_total` | counter | `endpoint`, `result` | `endpoint` is `write`, `readings` or `summary`; `result` is `ok` or `error` |
 | `encabulator_malaise_applied_total` | counter | `kind` | From the kit's malaise middleware |
 

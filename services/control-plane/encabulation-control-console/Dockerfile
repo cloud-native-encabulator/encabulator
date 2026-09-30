@@ -9,8 +9,8 @@
 #
 # Four stages: the kit, the installed dependency tree, the two builds, and a
 # runtime that carries compiled JavaScript and production dependencies only.
-# Every COPY names explicit paths, so `dev/` — the fixture server, the fake
-# cluster reader, dev.env — cannot reach the image even by accident.
+# Every COPY names explicit paths, so `dev/` · the fixture server, the fake
+# cluster reader, dev.env · cannot reach the image even by accident.
 
 # ─────────────────────────────────────────────────────────────── stage 1: kit ──
 FROM node:24-slim AS kit

@@ -4,7 +4,7 @@
  * This suite exists because of a bug that unit tests with `serveStatic: false`
  * could never have caught: `@fastify/static`'s `setHeaders` hook is handed a
  * FastifyReply, not a raw `ServerResponse`, and calling `setHeader` on it throws
- * inside the send stream where Fastify's error handler cannot reach it — taking
+ * inside the send stream where Fastify's error handler cannot reach it · taking
  * the process down on the first page load. So these tests serve real files from a
  * temporary directory laid out exactly like `dist/web`, and assert the headers.
  */

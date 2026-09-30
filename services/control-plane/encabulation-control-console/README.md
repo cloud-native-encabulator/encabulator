@@ -2,11 +2,11 @@
 
 > "The original machine had a base-plate of prefabulated amulite, surmounted by a malleable
 > logarithmic casing in such a way that the two main spurving bearings were in a direct line
-> with the pentametric fan." — J. H. Quick, *The Turbo-Encabulator in Industry*, 1944
+> with the pentametric fan." · J. H. Quick, *The Turbo-Encabulator in Industry*, 1944
 
 The instrument panel of the Cloud Native Encabulator: a Vue 3 single-page app served by a
 Fastify backend-for-frontend in one container, on one port. It is the only way a person
-drives the factory — live topology, synthetic traffic, fault injection, scripted demos,
+drives the factory · live topology, synthetic traffic, fault injection, scripted demos,
 feature flags, the storefront, and user administration.
 
 Specified by [design section 8.15](../../../docs/design.md#815-encabulation-control-console).
@@ -41,7 +41,7 @@ the build on a `Math.random` call or a hard-coded host in the SPA,
 |---|---|---|
 | **Factory Floor** | `/` | Animated topology: particles per edge at a rate proportional to its measured requests per second, coloured by health (green under 100 ms p99 and 1% errors, amber under 500 ms, red beyond, grey for no data). Pod dots on each plate, hover for details. Headline gauges and the scenario narration tape. |
 | **Grammeters** | `/grammeters` | Traffic controls: rate, pattern (steady, sine, burst, ramp), period, customer count, journey mix. Live per-journey counts, errors, p50, p99, and status codes. |
-| **Malaise** | `/malaise` | Induce a fault by target and kind — latency, error, congestion, CPU burn, pod-kill, partition, scale — with countdowns to expiry, and node health beside it so cause and effect are visible together. |
+| **Malaise** | `/malaise` | Induce a fault by target and kind · latency, error, congestion, CPU burn, pod-kill, partition, scale · with countdowns to expiry, and node health beside it so cause and effect are visible together. |
 | **Scenarios** | `/scenarios` | The scenario library, run and cancel, step progress, and the orchestrator's narration as it arrives. |
 | **Girdlespring** | `/girdlespring` | Every feature flag, what reads it, and what it actually changes. Edits reach services within five seconds. |
 | **Works** | `/works` | The storefront (quote, order, track) placing **real** orders through the real gateway with your own token, plus live order, incident and shipment feeds, and the parts cage with restock. |
@@ -52,7 +52,7 @@ so `/works` survives a refresh and a pasted URL. An unknown `/bff/*` path still 
 404, because handing HTML to a `fetch()` would be a lie.
 
 Two finishes, switched from the nameplate and remembered in `localStorage`: **enamel**
-(cream panel, brass bezels, green phosphor gauge faces — a 1944 GE data sheet) and
+(cream panel, brass bezels, green phosphor gauge faces · a 1944 GE data sheet) and
 **control room** (the same instrument at night). Type is a system stack, so nothing is fetched
 from a font CDN when the conference wifi drops.
 
@@ -60,7 +60,7 @@ from a font CDN when the conference wifi drops.
 
 Labels are in the vocabulary of Quick's paper, the 1977 Rockwell film, and the 1988 SANS ICS
 hyper-encabulator. Every one carries a tooltip with what it really means: "Fluorescent skor
-motion" hovers to *Requests per second —
+motion" hovers to *Requests per second -
 `rate(http_server_request_duration_seconds_count[1m])` from Prometheus*. The joke is the
 label; the tooltip is not a joke. `src/app/lib/lexicon.ts` holds both halves, and a test
 asserts the explanation is never just a restatement of the term.
@@ -112,7 +112,7 @@ Open <http://127.0.0.1:5173> and sign in as `dev` / `dev` (admin); `operator`, `
 `customer` work too, with any password.
 
 Everything dev-only lives under **`dev/`**, and nothing under `dev/` enters the production
-image — the Dockerfile copies explicit paths, and a test asserts the absence.
+image · the Dockerfile copies explicit paths, and a test asserts the absence.
 
 | File | What it is |
 |---|---|
@@ -136,7 +136,7 @@ docker run --rm --read-only --tmpfs /tmp -u 65532:65532 -p 8080:8080 \
 ```
 
 Unset upstreams are not an error: the console starts, the affected plates say which variable
-is missing, and everything else works. That is deliberate — a half-configured console is more
+is missing, and everything else works. That is deliberate · a half-configured console is more
 useful on stage than one that will not boot.
 
 ## Environment variables
@@ -155,7 +155,7 @@ Console-specific:
 
 | Variable | Default | Required | Notes |
 |---|---|---|---|
-| `SESSION_SECRET` | — | **yes** | Signs the session cookie. At least 16 characters; the process refuses to start without it. |
+| `SESSION_SECRET` | · | **yes** | Signs the session cookie. At least 16 characters; the process refuses to start without it. |
 | `COOKIE_SECURE` | `false` | | Set `true` behind TLS |
 | `SESSION_COOKIE_NAME` | `encabulator_session` | | |
 | `POD_NAMESPACE` | `encabulator` | | Downward API. Namespace for the pod list and the Prometheus `namespace` label. |
@@ -196,7 +196,7 @@ works identically behind a port-forward, an ingress, or a sub-path.
 else the SPA.
 
 Readiness registers **no checks**. The console has no database and no NATS connection, so per
-the design it must not check downstream services — and that is also what stops one sick
+the design it must not check downstream services · and that is also what stops one sick
 upstream from taking the console out of service exactly when an operator needs to look at it.
 
 ## Deployment notes
@@ -216,8 +216,8 @@ For the Helm chart author:
 - **Resources**: `requests: 100m / 192Mi`, `limits: 500m / 512Mi`. The BFF's work is one poll
   cycle every three seconds per *deployment*, not per client, and the particle animation runs
   in the browser.
-- **Replicas**: one is enough and is the simplest thing to explain. More than one works — the
-  BFF holds no state a client depends on beyond its own cached snapshot — but each replica
+- **Replicas**: one is enough and is the simplest thing to explain. More than one works · the
+  BFF holds no state a client depends on beyond its own cached snapshot · but each replica
   polls independently, and an SSE client reconnecting lands on whichever pod the Service
   picks, so keep a `PodDisruptionBudget` if you scale up.
 - **Ingress and SSE**: `/bff/stream` is a long-lived response. The BFF sends
@@ -233,7 +233,7 @@ For the Helm chart author:
 - **ServiceMonitor**: label `encabulator.io/scrape=true`, scrape `/metrics` on the HTTP port.
   The console's own per-pod row on the Factory Floor comes from this scrape, so without it the
   console honestly reports no data about itself.
-- `SESSION_SECRET` from a generated `Secret` — `randAlphaNum 32`, preserved on upgrade with
+- `SESSION_SECRET` from a generated `Secret` · `randAlphaNum 32`, preserved on upgrade with
   `lookup`. Rotating it logs everyone out, which is harmless.
 - `POD_NAMESPACE` from the downward API (`metadata.namespace`).
 
@@ -252,7 +252,7 @@ console does not apply malaise to itself.
 
 The topology is two layers over one geometry. An SVG layer carries everything structural and
 re-renders only when a snapshot changes, once every three seconds. A canvas layer directly on
-top carries the particles, drawn by a single `requestAnimationFrame` loop — never a DOM update
+top carries the particles, drawn by a single `requestAnimationFrame` loop · never a DOM update
 per particle. The loop caps particles at 900 globally and 24 per second per edge, stops
 entirely when the tab is hidden, honours `prefers-reduced-motion`, and backs its spawn rate
 off if frame times exceed 26 ms rather than letting the frame rate collapse. Lateral jitter
@@ -268,25 +268,25 @@ current spawn multiplier.
 make test     # 263 tests, no containers, no cluster, no network
 ```
 
-- **BFF role enforcement** — the whole proxy route table × every role.
-- **Topology assembly** — recorded Prometheus and Kubernetes responses in, snapshot out;
+- **BFF role enforcement** · the whole proxy route table × every role.
+- **Topology assembly** · recorded Prometheus and Kubernetes responses in, snapshot out;
   including NaN, missing series, unreachable sources, alias collapsing, and peers outside the
   registry.
-- **SSE** — framing, fan-out, cached replay, heartbeat, and that polling starts on the first
+- **SSE** · framing, fan-out, cached replay, heartbeat, and that polling starts on the first
   client and stops on the last.
-- **Sessions** — cookie flags, expiry, a tampered signature, and that no token ever reaches a
+- **Sessions** · cookie flags, expiry, a tampered signature, and that no token ever reaches a
   response body.
-- **Static serving** — real files from a temp directory: cache headers, the history fallback,
+- **Static serving** · real files from a temp directory: cache headers, the history fallback,
   and that an API path never gets HTML.
-- **Stores and components** — SSE application, feed deduplication, failure messages, and that
+- **Stores and components** · SSE application, feed deduplication, failure messages, and that
   a `null` measurement renders as "no data" everywhere it can appear.
-- **The shell** — the app mounts, all seven pages resolve, exactly one stream is opened and it
+- **The shell** · the app mounts, all seven pages resolve, exactly one stream is opened and it
   is released on unmount, and an unconfigured external link is hidden rather than broken.
-- **Every view** — each page mounted twice, once with no data and once with a full snapshot;
+- **Every view** · each page mounted twice, once with no data and once with a full snapshot;
   neither may throw, and neither may print `undefined`, `NaN` or `[object Object]` at a reader.
-- **Honesty guards** — no `Math.random` call, no hard-coded host, and a real explanation behind
+- **Honesty guards** · no `Math.random` call, no hard-coded host, and a real explanation behind
   every joke term.
-- **Packaging guards** — the Dockerfile copies explicit paths and never `dev/`, ships no source
+- **Packaging guards** · the Dockerfile copies explicit paths and never `dev/`, ships no source
   maps, runs as 65532, and declares no `HEALTHCHECK`.
 
 `docs/design.md` also calls for a Playwright smoke test. It is not here: it needs a running

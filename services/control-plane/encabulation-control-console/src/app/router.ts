@@ -72,7 +72,7 @@ export function createConsoleRouter() {
   const router = createRouter({ history: createWebHistory(), routes })
   router.afterEach((to) => {
     const title = typeof to.meta.title === 'string' ? to.meta.title : 'Console'
-    document.title = `${title} — Encabulation Control Console`
+    document.title = `${title} · Encabulation Control Console`
   })
   return router
 }

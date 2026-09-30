@@ -1,6 +1,6 @@
 # cardinal-grammeter
 
-> "Synchronize the cardinal grammeters." — stage seven of every encabulator ever built.
+> "Synchronize the cardinal grammeters." · stage seven of every encabulator ever built.
 
 The grammeter is the Encabulator Works' crowd. It keeps a pool of synthetic customers who register
 and log in through `dingle-arm-gateway` and then browse, quote, order and track, at a rate and shape
@@ -34,8 +34,8 @@ run (or the pattern) started.
 | Pattern | Instantaneous rate |
 |---|---|
 | `steady` | `rps` |
-| `sine` | `rps × (1 + 0.8·sin(2πt/period))` — the modial interaction of magneto-reluctance |
-| `burst` | `rps` for 80% of each period, `5 × rps` for the other 20% — capacitive diractance |
+| `sine` | `rps × (1 + 0.8·sin(2πt/period))` · the modial interaction of magneto-reluctance |
+| `burst` | `rps` for 80% of each period, `5 × rps` for the other 20% · capacitive diractance |
 | `ramp` | 0 to `rps` linearly over one period, then hold |
 
 `sine` averages out to `rps` over a period; `burst` averages 1.8 × `rps`; `ramp` holds at `rps`
@@ -70,7 +70,7 @@ including those, shows up in the `statuses` map and in
 ## API
 
 One port serves the API, `/healthz`, `/readyz` and `/metrics`. The grammeter has no hard
-dependencies of its own — the gateway is downstream — so `/readyz` is green as soon as the process
+dependencies of its own · the gateway is downstream · so `/readyz` is green as soon as the process
 is up.
 
 ### `GET /v1/traffic`

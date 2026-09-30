@@ -17,7 +17,7 @@ HyperEncabulator, 2022. **New** means we made it up in the same spirit.
 | **cardinal grammeter** | Q44 ("differential girdlespring on the 'up' end of the grammeters") | Synthetic load generator |
 | **malaise injection engine** | RR ("prevent internal precombobulation") | Chaos engineering: fault injection, both application-level and Kubernetes-level |
 | **demo scenario orchestrator** | New | Scripted, narrated demo runner |
-| **dingle arm gateway** | T46 ("What is a 'dingle arm'?" — "employed whenever a barescent skor motion is required") | API gateway: JWT authentication, rate limiting, routing |
+| **dingle arm gateway** | T46 (a reader asked "What is a 'dingle arm'?"; the editors answered "employed whenever a barescent skor motion is required") | API gateway: JWT authentication, rate limiting, routing |
 | **panametric fam processor** | Q44 as "pentametric fan"; BH77/RR say "panametric fam" | Saga orchestrator for the order workflow |
 | **spurving bearing quoter** | Q44 ("two main spurving bearings") | Pricing engine, CPU-bound on purpose |
 | **logarithmic casing line** | Q44 ("malleable logarithmic casing") | Worker pool simulating manufacturing, emitting telemetry |
