@@ -1,9 +1,0 @@
-{{- if .Values.createNamespace }}
-apiVersion: v1
-kind: Namespace
-metadata:
-  name: {{ .Values.namespace | default "encabulator-control" }}
-  labels:
-    name: {{ .Values.namespace | default "encabulator-control" }}
-    {{- include "encabulation-control-console.labels" . | nindent 4 }}
-{{- end }}

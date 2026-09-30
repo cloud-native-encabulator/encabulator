@@ -1,83 +1,42 @@
-# Binaries for programs and plugins
-*.exe
-*.exe~
-*.dll
-*.so
-*.dylib
-
-# Test binary, built with `go test -c`
+# Build output
+bin/
+dist/
+target/
+coverage/
+*.out
 *.test
 
-# Output of the go coverage tool
-*.out
-
-# Go workspace file
-go.work
-
-# Compiled binaries
-services/data-plane/hydrocoptic-datastore/hydrocoptic-datastore
-services/data-plane/prefabulated-cache/prefabulated-cache
-services/data-plane/sinusoidal-database/sinusoidal-database
-services/processing-plane/logarithmic-casing-service/logarithmic-casing-service
-services/processing-plane/dingle-arm-api-gateway/dingle-arm-api-gateway
-services/processing-plane/panametric-fam-processor/panametric-fam-processor
-services/support-plane/differential-girdle/differential-girdle
-services/control-plane/malaise-injection-engine/malaise-injection-engine
-
-# Node.js
+# Node
 node_modules/
-dist/
-*.log
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
-.npm
+*.tsbuildinfo
 .eslintcache
 
 # Python
 __pycache__/
 *.py[cod]
-*$py.class
-*.so
-.Python
-venv/
-env/
-ENV/
-.venv
-*.egg-info/
+.venv/
 .pytest_cache/
+.ruff_cache/
+.mypy_cache/
 .coverage
 htmlcov/
 
-# IDE
+# Helm
+charts/*/charts/*.tgz
+
+# Local state
+.env
+.env.*
+!.env.example
+*.kubeconfig
+tmp/
+
+# Editors / OS
 .idea/
 .vscode/
 *.swp
-*.swo
-*~
-
-# OS
 .DS_Store
-Thumbs.db
 
-# Kubernetes
-*.kubeconfig
-
-# Helm
-*.tgz
-Chart.lock
-**/charts/*.tgz
-
-# Scramble & Kiro (local agent state)
-.scramble/
+# Agent tooling
 .kiro/
-
-# Environment files
-.env.eks
-
-# Backup files
-Makefile.bak
-
-# Temporary files
-tmp/
-temp/
+.scramble/
