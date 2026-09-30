@@ -295,7 +295,7 @@ jobs:
     steps:
       - name: fail if anything failed
         run: |
-          results='${{ join(needs.*.result, " ") }}'
+          results='${{ join(needs.*.result, ' ') }}'
           echo "job results: $results"
           for r in $results; do
             case "$r" in
