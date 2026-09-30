@@ -28,6 +28,11 @@ rules:
   - apiGroups: ["apps"]
     resources: ["deployments/scale"]
     verbs: ["get", "patch"]
+  # target validation: the backing stores are StatefulSets, so they can be named
+  # as malaise targets even though only their pods are ever touched
+  - apiGroups: ["apps"]
+    resources: ["statefulsets"]
+    verbs: ["get", "list"]
   # partition
   - apiGroups: ["networking.k8s.io"]
     resources: ["networkpolicies"]
@@ -62,13 +67,14 @@ metadata:
   labels:
     {{- include "encabulator.labels" (dict "root" $ "name" "encabulation-control-console" "plane" "control" "component" "rbac") | nindent 4 }}
 rules:
-  # Read only. The console never mutates the cluster; it asks the malaise engine to.
+  # Read only, and list only: the console polls on a timer, it does not watch.
+  # The console never mutates the cluster; it asks the malaise engine to.
   - apiGroups: [""]
     resources: ["pods"]
-    verbs: ["get", "list", "watch"]
+    verbs: ["get", "list"]
   - apiGroups: ["apps"]
     resources: ["deployments"]
-    verbs: ["get", "list", "watch"]
+    verbs: ["get", "list"]
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: RoleBinding
