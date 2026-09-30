@@ -807,3 +807,67 @@ Each phase is a tag on `main` with a working system.
 | `v3.x` | Managed services | ACK provisions RDS, ElastiCache, and Timestream for InfluxDB; the chart's `external:` blocks point at them |
 | `v4.x` | Composition | kro packages each service and its AWS dependencies behind one `Encabulator*` custom resource |
 | later | Cells | Multiple cells across accounts and regions, with progressive rollouts between them |
+
+## Appendix A. Environment variables
+
+Common to every service:
+
+| Variable | Default | Notes |
+|---|---|---|
+| `PORT` | `8080` | |
+| `LOG_LEVEL` | `info` | `debug`, `info`, `warn`, `error` |
+| `OTEL_SERVICE_NAME` | service name | |
+| `OTEL_EXPORTER_OTLP_ENDPOINT` | unset | e.g. `http://otel-collector.encabulator-observability:4318`; unset disables tracing |
+| `MALAISE_ENGINE_URL` | unset | Unset disables the malaise middleware |
+| `DIFFERENTIAL_GIRDLESPRING_URL` | unset | Flag clients use defaults when unset |
+| `NATS_URL` | `nats://nats:4222` | Only services that use NATS |
+
+Service URLs are `<SERVICE_NAME_IN_UPPER_SNAKE>_URL`, for example
+`SPURVING_BEARING_QUOTER_URL=http://spurving-bearing-quoter:8080`.
+
+Backing stores:
+
+| Variable | Example | Used by |
+|---|---|---|
+| `DATABASE_URL` | `postgres://hydrocoptic:<pw>@postgres:5432/hydrocoptic?sslmode=disable` | datastore, detractor, girdlespring |
+| `VALKEY_URL` | `redis://default:<pw>@valkey:6379/0` | depot, quoter, dispatch, detector, malaise engine |
+| `INFLUXDB_URL` | `http://influxdb:8181` | recorder |
+| `INFLUXDB_TOKEN` | secret, may be empty | recorder |
+| `INFLUXDB_DATABASE` | `sinusoidal` | recorder |
+
+The chart builds `DATABASE_URL` and `VALKEY_URL` with Kubernetes `$(VAR)` expansion from secret-backed
+`PGPASSWORD` and `VALKEY_PASSWORD` variables.
+
+Service-specific:
+
+| Service | Variables |
+|---|---|
+| unilateral-phase-detractor | `JWT_PRIVATE_KEY` (PEM), `JWT_TTL_SECONDS` (3600), `BOOTSTRAP_ADMIN_PASSWORD`, `BOOTSTRAP_OPERATOR_PASSWORD` |
+| logarithmic-casing-line | `LINE_CAPACITY` (2), `SINUSOIDAL_RECORDER_URL`, `PREFABULATED_AMULITE_DEPOT_URL` |
+| cardinal-grammeter | `DINGLE_ARM_GATEWAY_URL`, `CUSTOMERS` (50), `CUSTOMER_PASSWORD_SEED` (secret; synthetic customer passwords are derived from it), `MAX_IN_FLIGHT` (256), `AUTOSTART` (false), `AUTOSTART_RPS` (5) |
+| malaise-injection-engine | `VALKEY_URL`, `POD_NAMESPACE` (downward API), `OBSERVABILITY_NAMESPACE` (`encabulator-observability`) |
+| demo-scenario-orchestrator | `CARDINAL_GRAMMETER_URL`, `MALAISE_ENGINE_URL`, `DIFFERENTIAL_GIRDLESPRING_URL`, `PREFABULATED_AMULITE_DEPOT_URL`, `PROMETHEUS_URL`, `SCENARIO_DIR` (`/etc/scenarios`) |
+| encabulation-control-console | every service URL, `PROMETHEUS_URL`, `GRAFANA_EXTERNAL_URL`, `JAEGER_EXTERNAL_URL`, `SESSION_SECRET`, `POD_NAMESPACE`, `COOKIE_SECURE` (false) |
+
+## Appendix B. Service directories
+
+| Service | Directory |
+|---|---|
+| encabulation-control-console | `services/control-plane/encabulation-control-console` |
+| cardinal-grammeter | `services/control-plane/cardinal-grammeter` |
+| malaise-injection-engine | `services/control-plane/malaise-injection-engine` |
+| demo-scenario-orchestrator | `services/control-plane/demo-scenario-orchestrator` |
+| dingle-arm-gateway | `services/processing-plane/dingle-arm-gateway` |
+| panametric-fam-processor | `services/processing-plane/panametric-fam-processor` |
+| spurving-bearing-quoter | `services/processing-plane/spurving-bearing-quoter` |
+| logarithmic-casing-line | `services/processing-plane/logarithmic-casing-line` |
+| nofer-trunnion-dispatch | `services/processing-plane/nofer-trunnion-dispatch` |
+| hydrocoptic-datastore | `services/data-plane/hydrocoptic-datastore` |
+| prefabulated-amulite-depot | `services/data-plane/prefabulated-amulite-depot` |
+| sinusoidal-recorder | `services/data-plane/sinusoidal-recorder` |
+| unilateral-phase-detractor | `services/support-plane/unilateral-phase-detractor` |
+| differential-girdlespring | `services/support-plane/differential-girdlespring` |
+| side-fumbling-detector | `services/support-plane/side-fumbling-detector` |
+
+Every service directory contains `README.md`, `Dockerfile`, and a `Makefile` with the targets
+`build`, `test`, `lint`, and `run`. The root Makefile iterates over them.
