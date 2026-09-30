@@ -141,8 +141,11 @@ jobs:
           cache-from: type=gha,scope=${{ matrix.service.name }}
           cache-to: type=gha,scope=${{ matrix.service.name }},mode=max
 
+      # GitHub only stores artifact attestations for public repositories (or
+      # organization repositories on paid plans), so skip it while this one is
+      # private rather than failing a build that already pushed its image.
       - name: attest
-        if: steps.exists.outputs.present == 'true'
+        if: steps.exists.outputs.present == 'true' && github.event.repository.visibility == 'public'
         uses: actions/attest-build-provenance@v4
         with:
           subject-name: ${{ env.IMAGE_PREFIX }}/${{ matrix.service.name }}

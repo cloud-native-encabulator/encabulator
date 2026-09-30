@@ -143,7 +143,17 @@ jobs:
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: npm
-          cache-dependency-path: ${{ matrix.service.dir }}/package-lock.json
+          cache-dependency-path: |
+            libs/ts/kit/package-lock.json
+            ${{ matrix.service.dir }}/package-lock.json
+      # Services consume the kit as a file: dependency and typecheck against its
+      # compiled dist/, so it has to be built before the service's npm ci.
+      - if: steps.exists.outputs.present == 'true'
+        name: build the kit
+        working-directory: libs/ts/kit
+        run: |
+          npm ci
+          npm run build
       - if: steps.exists.outputs.present == 'true'
         working-directory: ${{ matrix.service.dir }}
         run: |
@@ -163,7 +173,7 @@ jobs:
           if [ -f libs/python/encabulator-kit/pyproject.toml ]; then echo "present=true" >> "$GITHUB_OUTPUT";
           else echo "present=false" >> "$GITHUB_OUTPUT"; echo "libs/python/encabulator-kit has no pyproject.toml yet"; fi
       - if: steps.exists.outputs.present == 'true'
-        uses: astral-sh/setup-uv@v10
+        uses: astral-sh/setup-uv@v10.2.0
         with:
           python-version: ${{ env.PYTHON_VERSION }}
           enable-cache: true
@@ -192,7 +202,7 @@ jobs:
           if [ -f "${{ matrix.service.dir }}/pyproject.toml" ]; then echo "present=true" >> "$GITHUB_OUTPUT";
           else echo "present=false" >> "$GITHUB_OUTPUT"; echo "${{ matrix.service.dir }} is not written yet"; fi
       - if: steps.exists.outputs.present == 'true'
-        uses: astral-sh/setup-uv@v10
+        uses: astral-sh/setup-uv@v10.2.0
         with:
           python-version: ${{ env.PYTHON_VERSION }}
           enable-cache: true

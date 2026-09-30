@@ -14,8 +14,9 @@ replicaCount: 1
 fullnameOverride: opentelemetry-collector
 
 image:
-  # The k8s distribution carries k8sattributes, service_graph and span_metrics.
-  repository: otel/opentelemetry-collector-k8s
+  # contrib, not k8s: the k8s distribution has k8sattributes and the connectors
+  # but no prometheus exporter, so the service-graph metrics could not be scraped.
+  repository: otel/opentelemetry-collector-contrib
 
 # k8sattributes needs to read pods, namespaces and replicasets cluster-wide.
 clusterRole:
