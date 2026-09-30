@@ -1,0 +1,94 @@
+
+  The base-plate is prefamulated. The Encabulator Works is coming up in namespace
+  {{ .Release.Namespace }} as release {{ .Release.Name }}, version {{ include "encabulator.imageTag" . }}.
+
+  Wait for the factory to settle:
+
+    kubectl -n {{ .Release.Namespace }} rollout status deploy/encabulation-control-console --timeout=5m
+    kubectl -n {{ .Release.Namespace }} get pods -l app.kubernetes.io/part-of=encabulator
+
+1. Reach the instrument panel
+{{ if .Values.ingress.enabled }}
+   The console is exposed through an Ingress ({{ .Values.ingress.className }}):
+{{- $scheme := ternary "https" "http" (not (empty .Values.ingress.tls)) }}
+{{- $defaultPaths := list (dict "path" "/" "pathType" "Prefix") }}
+{{- range .Values.ingress.hosts }}
+{{- $host := default "<load-balancer-address>" .host }}
+{{- range (default $defaultPaths .paths) }}
+     {{ $scheme }}://{{ $host }}{{ .path }}
+{{- end }}
+{{- end }}
+
+   An ALB or an Ingress controller can take a couple of minutes to publish an address:
+
+     kubectl -n {{ .Release.Namespace }} get ingress encabulation-control-console -w
+{{- else }}
+   The console is ClusterIP only. Port-forward it:
+
+     kubectl -n {{ .Release.Namespace }} port-forward svc/encabulation-control-console 8080:8080
+
+   then open http://localhost:8080 . (`make console` from the repository root does the same.)
+{{- end }}
+
+2. Sign in
+
+   Unauthenticated visitors get the `viewer` role and can watch, but not touch. The bootstrap
+   `admin` and `operator` passwords were generated on first install and preserved on upgrade:
+
+     kubectl -n {{ .Release.Namespace }} get secret {{ include "encabulator.appSecretName" . }} \
+       -o jsonpath='{.data.bootstrap-admin-password}' | base64 -d; echo
+
+     kubectl -n {{ .Release.Namespace }} get secret {{ include "encabulator.appSecretName" . }} \
+       -o jsonpath='{.data.bootstrap-operator-password}' | base64 -d; echo
+
+   Log in as `admin` or `operator` with those.
+
+3. Start the factory
+
+   Traffic starts stopped. Either turn it on from the Grammeters tab, or:
+
+     kubectl -n {{ .Release.Namespace }} port-forward svc/cardinal-grammeter 8081:8080 &
+     curl -XPUT localhost:8081/v1/traffic -H 'content-type: application/json' \
+       -d '{"running":true,"rps":5,"pattern":"sine","periodSeconds":120}'
+
+   Then run a scenario from the Scenarios tab. `grand-tour` narrates the whole thing.
+
+4. Observability
+{{ if .Values.observability.otlpEndpoint }}
+   Traces go to {{ .Values.observability.otlpEndpoint }} and metrics are scraped from the
+   ServiceMonitors labelled encabulator.io/scrape=true. If you have not installed the platform
+   yet, run `make platform` from the repository root.
+{{- else }}
+   observability.otlpEndpoint is empty, so tracing is a no-op and the console's topology edges
+   will read "no data". Set it to your collector to light them up.
+{{- end }}
+
+     Grafana: {{ .Values.observability.grafanaExternalUrl | default "(set observability.grafanaExternalUrl)" }}
+     Jaeger:  {{ .Values.observability.jaegerExternalUrl | default "(set observability.jaegerExternalUrl)" }}
+
+{{- $missing := list }}
+{{- if and .Values.keda.enabled (not .Values.nats.enabled) (not .Values.nats.external.enabled) }}
+{{- $missing = append $missing "keda.enabled is on but NATS is disabled: the JetStream scaler has nothing to poll." }}
+{{- end }}
+{{- if and (not .Values.postgres.enabled) (not .Values.postgres.external.enabled) }}
+{{- $missing = append $missing "PostgreSQL is disabled and no external endpoint is configured: the datastore, detractor and girdlespring will not become ready." }}
+{{- end }}
+{{- if and (not .Values.valkey.enabled) (not .Values.valkey.external.enabled) }}
+{{- $missing = append $missing "Valkey is disabled and no external endpoint is configured: the depot, quoter, dispatch, detector and malaise engine will not become ready." }}
+{{- end }}
+{{- if and (not .Values.influxdb.enabled) (not .Values.influxdb.external.enabled) }}
+{{- $missing = append $missing "InfluxDB is disabled and no external endpoint is configured: the sinusoidal recorder will not become ready." }}
+{{- end }}
+{{- if and .Values.influxdb.enabled (not .Values.influxdb.auth.enabled) }}
+{{- $missing = append $missing "InfluxDB is running with INFLUXDB3_WITHOUT_AUTH. Fine for a scratch cluster, not for anything else." }}
+{{- end }}
+{{- if $missing }}
+
+  Warnings:
+{{- range $missing }}
+   !  {{ . }}
+{{- end }}
+{{- end }}
+
+  "In the interest of brevity, we shall confine ourselves to the operation of the
+   nofer trunnions." Enjoy the malaise.

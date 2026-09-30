@@ -1,0 +1,201 @@
+{{/*
+InfluxDB 3 Core as a single-replica StatefulSet.
+
+Authentication, the awkward part, solved without an init job:
+
+  InfluxDB 3 Core has no "set the admin token from an environment variable" option. The
+  operator token is normally minted interactively with `influxdb3 create token --admin`
+  against a *running* server. For automated deployments it also accepts an **offline admin
+  token file** (`--admin-token-file` / `INFLUXDB3_ADMIN_TOKEN_FILE`): a JSON document
+  `{"token": "apiv3_...", "name": "..."}` that the server SHA-512-hashes into its catalog at
+  startup. It is idempotent -- a token of the same name already in the catalog is skipped --
+  so it survives restarts and upgrades, and the token must begin with `apiv3_`.
+
+  So the chart generates `apiv3_<randAlphaNum 48>` once, preserves it with `lookup`, and puts
+  it in one Secret twice: the raw string that the recorder reads as INFLUXDB_TOKEN, and the
+  JSON file mounted here. No init job, no interactive step, no --without-auth.
+
+  Two knock-on details:
+   * InfluxDB warns when the token file's permissions allow group or other access. Secret
+     volumes are owned root:fsGroup, so the file has to be group-readable (0440) for uid 1500
+     to read it at all. The warning is cosmetic.
+   * /health, /ping and /metrics are exempted from authz (`--disable-authz`) so the kubelet
+     probes and Prometheus do not need to carry the token. Writes and queries stay authenticated.
+
+  Set influxdb.auth.enabled=false to fall back to INFLUXDB3_WITHOUT_AUTH, which is only there
+  for throwaway clusters.
+*/}}
+{{- if and .Values.influxdb.enabled (not .Values.influxdb.external.enabled) }}
+{{- $ix := .Values.influxdb }}
+{{- $secret := include "encabulator.influxdb.secretName" . }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: influxdb-headless
+  namespace: {{ include "encabulator.namespace" . }}
+  labels:
+    {{- include "encabulator.storeLabels" (dict "root" $ "name" "influxdb") | nindent 4 }}
+spec:
+  type: ClusterIP
+  clusterIP: None
+  publishNotReadyAddresses: true
+  ports:
+    - name: http
+      port: {{ $ix.service.port }}
+      targetPort: http
+      protocol: TCP
+  selector:
+    {{- include "encabulator.selectorLabels" (dict "root" $ "name" "influxdb") | nindent 4 }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: influxdb
+  namespace: {{ include "encabulator.namespace" . }}
+  labels:
+    {{- include "encabulator.storeLabels" (dict "root" $ "name" "influxdb") | nindent 4 }}
+spec:
+  type: ClusterIP
+  ports:
+    - name: http
+      port: {{ $ix.service.port }}
+      targetPort: http
+      protocol: TCP
+      appProtocol: http
+  selector:
+    {{- include "encabulator.selectorLabels" (dict "root" $ "name" "influxdb") | nindent 4 }}
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: influxdb
+  namespace: {{ include "encabulator.namespace" . }}
+  labels:
+    {{- include "encabulator.storeLabels" (dict "root" $ "name" "influxdb") | nindent 4 }}
+spec:
+  serviceName: influxdb-headless
+  replicas: 1
+  selector:
+    matchLabels:
+      {{- include "encabulator.selectorLabels" (dict "root" $ "name" "influxdb") | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "encabulator.storePodLabels" (dict "root" $ "name" "influxdb") | nindent 8 }}
+    spec:
+      automountServiceAccountToken: false
+      {{- with $.Values.global.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      securityContext:
+        {{- toYaml $ix.podSecurityContext | nindent 8 }}
+      terminationGracePeriodSeconds: 60
+      {{- with $ix.nodeSelector }}
+      nodeSelector: {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with $ix.tolerations }}
+      tolerations: {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with $ix.affinity }}
+      affinity: {{- toYaml . | nindent 8 }}
+      {{- end }}
+      containers:
+        - name: influxdb
+          image: {{ printf "%s:%s" $ix.image.repository $ix.image.tag | quote }}
+          imagePullPolicy: {{ $ix.image.pullPolicy }}
+          securityContext:
+            {{- toYaml $ix.containerSecurityContext | nindent 12 }}
+          # The image's CMD is already ["influxdb3", "serve"]; everything else is env.
+          ports:
+            - name: http
+              containerPort: {{ $ix.service.port }}
+              protocol: TCP
+          env:
+            - name: INFLUXDB3_NODE_ID
+              value: {{ $ix.nodeId | quote }}
+            - name: INFLUXDB3_OBJECT_STORE
+              value: file
+            # Overrides the image default of /home/influxdb3/.influxdb3, which is not the PVC.
+            - name: INFLUXDB3_DATA_DIR
+              value: {{ $ix.dataDir | quote }}
+            - name: INFLUXDB3_HTTP_BIND_ADDR
+              value: {{ printf "0.0.0.0:%v" $ix.service.port | quote }}
+            {{- if $ix.auth.enabled }}
+            - name: INFLUXDB3_ADMIN_TOKEN_FILE
+              value: {{ printf "/etc/influxdb3/%s" $ix.auth.tokenFileKey | quote }}
+            {{- with $ix.auth.disableAuthzFor }}
+            - name: INFLUXDB3_DISABLE_AUTHZ
+              value: {{ . | quote }}
+            {{- end }}
+            {{- else }}
+            - name: INFLUXDB3_WITHOUT_AUTH
+              value: "true"
+            {{- end }}
+            {{- range $k, $v := $ix.extraEnv }}
+            - name: {{ $k }}
+              value: {{ tpl (toString $v) $ | quote }}
+            {{- end }}
+          startupProbe:
+            httpGet:
+              path: /health
+              port: http
+            periodSeconds: 5
+            failureThreshold: 60
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: http
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 6
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: http
+            periodSeconds: 5
+            timeoutSeconds: 3
+            failureThreshold: 3
+          resources:
+            {{- toYaml $ix.resources | nindent 12 }}
+          volumeMounts:
+            - name: data
+              mountPath: {{ $ix.dataDir }}
+            {{- if $ix.auth.enabled }}
+            - name: admin-token
+              mountPath: /etc/influxdb3
+              readOnly: true
+            {{- end }}
+            - name: plugins
+              mountPath: /plugins
+            - name: tmp
+              mountPath: /tmp
+      volumes:
+        {{- if $ix.auth.enabled }}
+        - name: admin-token
+          secret:
+            secretName: {{ $secret | quote }}
+            items:
+              - key: {{ $ix.auth.tokenFileKey | quote }}
+                path: {{ $ix.auth.tokenFileKey | quote }}
+            # Group-readable so uid 1500 can read a root:fsGroup-owned Secret file.
+            defaultMode: 0440
+        {{- end }}
+        - name: plugins
+          emptyDir: {}
+        - name: tmp
+          emptyDir: {}
+        {{- if not $ix.persistence.enabled }}
+        - name: data
+          emptyDir: {}
+        {{- end }}
+  {{- if $ix.persistence.enabled }}
+  volumeClaimTemplates:
+    - metadata:
+        name: data
+        labels:
+          {{- include "encabulator.storeLabels" (dict "root" $ "name" "influxdb") | nindent 10 }}
+      spec:
+        {{- include "encabulator.pvc" (dict "persistence" $ix.persistence) | nindent 8 }}
+  {{- end }}
+{{- end }}

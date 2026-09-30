@@ -1,0 +1,24 @@
+# Canonical service registry for the Cloud Native Encabulator.
+#
+# This file is the single source of truth for "what are the fifteen services".
+# The root Makefile, scripts/services.sh, and the GitHub Actions matrices all
+# derive from it. Keep it in sync with docs/design.md sections 2 and Appendix B.
+#
+# Format: name<TAB>directory<TAB>language<TAB>plane
+# Order: control, processing, data, support (as in the design's service catalog).
+
+encabulation-control-console	services/control-plane/encabulation-control-console	node	control
+cardinal-grammeter	services/control-plane/cardinal-grammeter	go	control
+malaise-injection-engine	services/control-plane/malaise-injection-engine	go	control
+demo-scenario-orchestrator	services/control-plane/demo-scenario-orchestrator	python	control
+dingle-arm-gateway	services/processing-plane/dingle-arm-gateway	go	processing
+panametric-fam-processor	services/processing-plane/panametric-fam-processor	node	processing
+spurving-bearing-quoter	services/processing-plane/spurving-bearing-quoter	rust	processing
+logarithmic-casing-line	services/processing-plane/logarithmic-casing-line	python	processing
+nofer-trunnion-dispatch	services/processing-plane/nofer-trunnion-dispatch	node	processing
+hydrocoptic-datastore	services/data-plane/hydrocoptic-datastore	go	data
+prefabulated-amulite-depot	services/data-plane/prefabulated-amulite-depot	node	data
+sinusoidal-recorder	services/data-plane/sinusoidal-recorder	go	data
+unilateral-phase-detractor	services/support-plane/unilateral-phase-detractor	python	support
+differential-girdlespring	services/support-plane/differential-girdlespring	go	support
+side-fumbling-detector	services/support-plane/side-fumbling-detector	python	support

@@ -1,0 +1,309 @@
+/*
+ * The Encabulator Works instrument panel.
+ *
+ * Two finishes. `.enamel` is the daylight one: cream enamel plate, brass
+ * bezels, black engraved lettering, dark green phosphor gauge faces. Light and
+ * legible, the look of a General Electric data sheet from 1944.
+ * `.control-room` is the same instrument at night: the enamel goes to oiled
+ * steel, the phosphor comes up, the brass stays brass.
+ *
+ * Every colour is a variable defined twice, so a single class on <html> flips
+ * the whole panel and no component knows which finish it is wearing.
+ *
+ * Type is system-only on purpose: the container must render identically on a
+ * conference wifi that has dropped, so nothing is fetched from a font CDN.
+ */
+
+@import 'tailwindcss';
+
+/* A variant for the rare rule that genuinely differs at night. */
+@custom-variant room (&:where(.control-room, .control-room *));
+
+:root,
+.enamel {
+  --c-enamel: #eee5d0;
+  --c-enamel-deep: #ded1b4;
+  --c-plate: #f8f2e3;
+  --c-plate-sunk: #e6dcc3;
+  --c-ink: #221e17;
+  --c-ink-soft: #5b5343;
+  --c-ink-faint: #8b8270;
+  --c-brass: #a2802f;
+  --c-brass-bright: #d9bb72;
+  --c-brass-dark: #6b5219;
+  --c-screw: #b9a05a;
+  --c-gauge-face: #12241a;
+  --c-gauge-rim: #8a6f2c;
+  --c-phosphor: #5fe895;
+  --c-phosphor-dim: #23593a;
+  --c-lacquer: #a6332a;
+  --c-amber: #bd7c12;
+  --c-slate: #8e8676;
+  --c-rule: #c3b593;
+  --c-shadow: rgb(34 30 23 / 18%);
+  --c-glow: transparent;
+}
+
+.control-room {
+  --c-enamel: #191510;
+  --c-enamel-deep: #100d09;
+  --c-plate: #221d15;
+  --c-plate-sunk: #15110c;
+  --c-ink: #ece2c8;
+  --c-ink-soft: #b3a685;
+  --c-ink-faint: #7d735c;
+  --c-brass: #c8a24a;
+  --c-brass-bright: #e8cd8c;
+  --c-brass-dark: #7a5f22;
+  --c-gauge-face: #0a1610;
+  --c-gauge-rim: #a2822f;
+  --c-phosphor: #6bf0a0;
+  --c-lacquer: #d9584a;
+  --c-amber: #e0a534;
+  --c-slate: #6f6858;
+  --c-rule: #3a3125;
+  --c-shadow: rgb(0 0 0 / 55%);
+  --c-glow: rgb(107 240 160 / 12%);
+}
+
+@theme inline {
+  --color-enamel: var(--c-enamel);
+  --color-enamel-deep: var(--c-enamel-deep);
+  --color-plate: var(--c-plate);
+  --color-plate-sunk: var(--c-plate-sunk);
+  --color-ink: var(--c-ink);
+  --color-ink-soft: var(--c-ink-soft);
+  --color-ink-faint: var(--c-ink-faint);
+  --color-brass: var(--c-brass);
+  --color-brass-bright: var(--c-brass-bright);
+  --color-brass-dark: var(--c-brass-dark);
+  --color-gauge: var(--c-gauge-face);
+  --color-gauge-rim: var(--c-gauge-rim);
+  --color-phosphor: var(--c-phosphor);
+  --color-lacquer: var(--c-lacquer);
+  --color-amber: var(--c-amber);
+  --color-slate: var(--c-slate);
+  --color-rule: var(--c-rule);
+
+  --font-plate:
+    'Futura', 'Century Gothic', 'Avenir Next', 'Trebuchet MS', 'Segoe UI', system-ui, sans-serif;
+  --font-type:
+    'American Typewriter', 'Courier New', 'Nimbus Mono PS', ui-monospace, monospace;
+  --font-gauge: ui-monospace, 'SF Mono', 'Cascadia Mono', 'Courier New', monospace;
+
+  --radius-bezel: 0.25rem;
+}
+
+/* ── Base ─────────────────────────────────────────────────────────────────── */
+
+@layer base {
+  html {
+    color-scheme: light;
+    background: var(--c-enamel-deep);
+  }
+
+  .control-room {
+    color-scheme: dark;
+  }
+
+  body {
+    margin: 0;
+    min-height: 100vh;
+    background-color: var(--c-enamel-deep);
+    /* Faint hatching, like the ground on an engineering drawing. */
+    background-image:
+      repeating-linear-gradient(
+        135deg,
+        transparent 0 7px,
+        color-mix(in srgb, var(--c-ink) 4%, transparent) 7px 8px
+      );
+    color: var(--c-ink);
+    font-family: var(--font-plate);
+    -webkit-font-smoothing: antialiased;
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--c-brass);
+    outline-offset: 2px;
+  }
+
+  ::selection {
+    background: color-mix(in srgb, var(--c-brass) 45%, transparent);
+  }
+}
+
+/* ── Panel furniture ──────────────────────────────────────────────────────── */
+
+@layer components {
+  /* A screwed-down enamel plate. The workhorse container. */
+  .plate {
+    position: relative;
+    background: var(--c-plate);
+    border: 1px solid var(--c-rule);
+    border-radius: var(--radius-bezel);
+    box-shadow:
+      inset 0 1px 0 color-mix(in srgb, white 45%, transparent),
+      0 1px 2px var(--c-shadow);
+  }
+
+  .control-room .plate {
+    box-shadow:
+      inset 0 1px 0 color-mix(in srgb, var(--c-brass) 12%, transparent),
+      0 2px 6px var(--c-shadow);
+  }
+
+  /* Brass corner screws. Decorative, and the reason the panel reads as metal. */
+  .plate-screws::before,
+  .plate-screws::after {
+    content: '';
+    position: absolute;
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background:
+      linear-gradient(135deg, var(--c-brass-bright), var(--c-brass-dark));
+    box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--c-ink) 30%, transparent);
+  }
+
+  .plate-screws::before {
+    top: 6px;
+    left: 6px;
+  }
+
+  .plate-screws::after {
+    top: 6px;
+    right: 6px;
+  }
+
+  /* An engraved label: small, letter-spaced, the way a legend plate is stamped. */
+  .engraved {
+    font-family: var(--font-plate);
+    font-size: 0.6875rem;
+    font-weight: 600;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--c-ink-soft);
+  }
+
+  /* A sunken reading window with a green glass face. */
+  .window {
+    background: var(--c-gauge-face);
+    border: 1px solid var(--c-gauge-rim);
+    border-radius: 2px;
+    box-shadow:
+      inset 0 2px 5px rgb(0 0 0 / 55%),
+      0 0 0 1px color-mix(in srgb, var(--c-brass) 30%, transparent);
+    color: var(--c-phosphor);
+    font-family: var(--font-gauge);
+    font-variant-numeric: tabular-nums;
+    text-shadow: 0 0 6px color-mix(in srgb, var(--c-phosphor) 55%, transparent);
+  }
+
+  /* Typewritten body copy, for narration and log lines. */
+  .typed {
+    font-family: var(--font-type);
+    letter-spacing: 0.01em;
+  }
+
+  /* A brass rocker or pushbutton. */
+  .knob {
+    font-family: var(--font-plate);
+    font-size: 0.75rem;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--c-ink);
+    background: linear-gradient(
+      180deg,
+      color-mix(in srgb, var(--c-brass-bright) 55%, var(--c-plate)),
+      color-mix(in srgb, var(--c-brass) 38%, var(--c-plate))
+    );
+    border: 1px solid var(--c-brass-dark);
+    border-radius: 3px;
+    padding: 0.375rem 0.875rem;
+    box-shadow:
+      inset 0 1px 0 color-mix(in srgb, white 55%, transparent),
+      0 1px 2px var(--c-shadow);
+    cursor: pointer;
+    transition:
+      transform 90ms ease,
+      filter 120ms ease;
+  }
+
+  .knob:hover:not(:disabled) {
+    filter: brightness(1.08);
+  }
+
+  .knob:active:not(:disabled) {
+    transform: translateY(1px);
+    box-shadow: inset 0 2px 4px var(--c-shadow);
+  }
+
+  .knob:disabled {
+    cursor: not-allowed;
+    filter: saturate(0.25) opacity(0.6);
+  }
+
+  .knob-danger {
+    background: linear-gradient(
+      180deg,
+      color-mix(in srgb, var(--c-lacquer) 70%, var(--c-plate)),
+      color-mix(in srgb, var(--c-lacquer) 48%, var(--c-plate))
+    );
+    border-color: color-mix(in srgb, var(--c-lacquer) 70%, black);
+    color: #fff;
+  }
+
+  /* A field on a form plate. */
+  .field {
+    font-family: var(--font-gauge);
+    font-size: 0.875rem;
+    color: var(--c-ink);
+    background: var(--c-plate-sunk);
+    border: 1px solid var(--c-rule);
+    border-radius: 2px;
+    padding: 0.375rem 0.5rem;
+    box-shadow: inset 0 1px 3px var(--c-shadow);
+  }
+
+  .field:focus {
+    border-color: var(--c-brass);
+    outline: none;
+  }
+
+  /* A term from the 1944 vocabulary, with a tooltip that translates it. */
+  .lexeme {
+    border-bottom: 1px dotted var(--c-brass);
+    cursor: help;
+  }
+
+  /* Paper tape for the narration ticker. */
+  .tape {
+    background:
+      repeating-linear-gradient(
+        90deg,
+        var(--c-plate) 0 26px,
+        color-mix(in srgb, var(--c-ink) 4%, var(--c-plate)) 26px 27px
+      );
+    border-top: 1px solid var(--c-rule);
+    border-bottom: 1px solid var(--c-rule);
+  }
+}
+
+@layer utilities {
+  .no-data {
+    color: var(--c-slate);
+    font-family: var(--font-plate);
+    font-size: 0.6875rem;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+  }
+
+  /* Honour a stated preference for less motion: the ticker and the particle
+     canvas both check this too, in script. */
+  @media (prefers-reduced-motion: reduce) {
+    .ticker-run {
+      animation: none !important;
+    }
+  }
+}

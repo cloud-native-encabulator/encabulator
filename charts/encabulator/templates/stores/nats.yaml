@@ -1,0 +1,206 @@
+{{/*
+NATS 2.12 with JetStream as a StatefulSet written here rather than pulled in as the official
+`nats` chart dependency. Reasons:
+
+  * design section 10 lists nats as one of the four StatefulSets *in this chart*, alongside
+    postgres/valkey/influxdb, and wants the same `external:` block treatment;
+  * the chart's shared labels (encabulator.io/plane, encabulator.io/malaise-target) and the
+    uniform pod security context have to apply to it, which a subchart would not honour;
+  * a single-replica JetStream node needs about sixty lines, against the official chart's
+    config-reloader + prometheus-exporter + accounts surface that v1 does not use;
+  * no `helm dependency update` step, so `helm lint`/`helm template`/kubeconform run in CI
+    with nothing vendored.
+
+Swap in the upstream chart (or Amazon MQ / a NATS cluster) later via nats.external.
+*/}}
+{{- if and .Values.nats.enabled (not .Values.nats.external.enabled) }}
+{{- $nats := .Values.nats }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: nats-config
+  namespace: {{ include "encabulator.namespace" . }}
+  labels:
+    {{- include "encabulator.storeLabels" (dict "root" $ "name" "nats") | nindent 4 }}
+data:
+  nats-server.conf: |
+    # $POD_NAME is substituted by nats-server itself from the environment.
+    server_name: $POD_NAME
+    port: {{ $nats.service.port }}
+    # The monitoring endpoint serves /healthz and /jsz. KEDA's nats-jetstream scaler reads
+    # consumer lag from here, so it is not optional.
+    http: {{ $nats.service.monitoringPort }}
+
+    max_payload: 2MB
+    write_deadline: 10s
+    # Needed by the preStop lame-duck signal below.
+    pid_file: /tmp/nats.pid
+
+    {{- if $nats.jetstream.enabled }}
+    jetstream {
+      # nats-server appends "jetstream" itself, so this becomes /data/jetstream.
+      store_dir: /data
+      max_memory_store: {{ $nats.jetstream.maxMemoryStore }}
+      max_file_store: {{ $nats.jetstream.maxFileStore }}
+    }
+    {{- end }}
+    {{- with $nats.extraConfig }}
+    {{- tpl . $ | nindent 4 }}
+    {{- end }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: nats-headless
+  namespace: {{ include "encabulator.namespace" . }}
+  labels:
+    {{- include "encabulator.storeLabels" (dict "root" $ "name" "nats") | nindent 4 }}
+spec:
+  type: ClusterIP
+  clusterIP: None
+  publishNotReadyAddresses: true
+  ports:
+    - name: client
+      port: {{ $nats.service.port }}
+      targetPort: client
+      protocol: TCP
+    - name: monitor
+      port: {{ $nats.service.monitoringPort }}
+      targetPort: monitor
+      protocol: TCP
+  selector:
+    {{- include "encabulator.selectorLabels" (dict "root" $ "name" "nats") | nindent 4 }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: nats
+  namespace: {{ include "encabulator.namespace" . }}
+  labels:
+    {{- include "encabulator.storeLabels" (dict "root" $ "name" "nats") | nindent 4 }}
+spec:
+  type: ClusterIP
+  ports:
+    - name: client
+      port: {{ $nats.service.port }}
+      targetPort: client
+      protocol: TCP
+    - name: monitor
+      port: {{ $nats.service.monitoringPort }}
+      targetPort: monitor
+      protocol: TCP
+      appProtocol: http
+  selector:
+    {{- include "encabulator.selectorLabels" (dict "root" $ "name" "nats") | nindent 4 }}
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: nats
+  namespace: {{ include "encabulator.namespace" . }}
+  labels:
+    {{- include "encabulator.storeLabels" (dict "root" $ "name" "nats") | nindent 4 }}
+spec:
+  serviceName: nats-headless
+  replicas: 1
+  selector:
+    matchLabels:
+      {{- include "encabulator.selectorLabels" (dict "root" $ "name" "nats") | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "encabulator.storePodLabels" (dict "root" $ "name" "nats") | nindent 8 }}
+    spec:
+      automountServiceAccountToken: false
+      {{- with $.Values.global.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      securityContext:
+        {{- toYaml $nats.podSecurityContext | nindent 8 }}
+      # Long enough for JetStream to flush and step down cleanly.
+      terminationGracePeriodSeconds: 60
+      {{- with $nats.nodeSelector }}
+      nodeSelector: {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with $nats.tolerations }}
+      tolerations: {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with $nats.affinity }}
+      affinity: {{- toYaml . | nindent 8 }}
+      {{- end }}
+      containers:
+        - name: nats
+          image: {{ printf "%s:%s" $nats.image.repository $nats.image.tag | quote }}
+          imagePullPolicy: {{ $nats.image.pullPolicy }}
+          securityContext:
+            {{- toYaml $nats.containerSecurityContext | nindent 12 }}
+          args:
+            - --config
+            - /etc/nats-config/nats-server.conf
+          ports:
+            - name: client
+              containerPort: {{ $nats.service.port }}
+              protocol: TCP
+            - name: monitor
+              containerPort: {{ $nats.service.monitoringPort }}
+              protocol: TCP
+          env:
+            - name: POD_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+          lifecycle:
+            preStop:
+              exec:
+                command: ["nats-server", "-sl=ldm=/tmp/nats.pid"]
+          startupProbe:
+            httpGet:
+              path: /healthz
+              port: monitor
+            periodSeconds: 3
+            failureThreshold: 30
+          livenessProbe:
+            httpGet:
+              path: /healthz?js-enabled-only=true
+              port: monitor
+            periodSeconds: 10
+            timeoutSeconds: 3
+            failureThreshold: 6
+          readinessProbe:
+            httpGet:
+              path: /healthz?js-server-only=true
+              port: monitor
+            periodSeconds: 5
+            timeoutSeconds: 3
+            failureThreshold: 3
+          resources:
+            {{- toYaml $nats.resources | nindent 12 }}
+          volumeMounts:
+            - name: data
+              mountPath: /data
+            - name: config
+              mountPath: /etc/nats-config
+              readOnly: true
+            - name: tmp
+              mountPath: /tmp
+      volumes:
+        - name: config
+          configMap:
+            name: nats-config
+        - name: tmp
+          emptyDir: {}
+        {{- if not $nats.persistence.enabled }}
+        - name: data
+          emptyDir: {}
+        {{- end }}
+  {{- if $nats.persistence.enabled }}
+  volumeClaimTemplates:
+    - metadata:
+        name: data
+        labels:
+          {{- include "encabulator.storeLabels" (dict "root" $ "name" "nats") | nindent 10 }}
+      spec:
+        {{- include "encabulator.pvc" (dict "persistence" $nats.persistence) | nindent 8 }}
+  {{- end }}
+{{- end }}

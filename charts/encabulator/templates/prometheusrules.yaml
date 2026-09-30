@@ -1,0 +1,140 @@
+{{/*
+Alerts per design section 9: high error ratio, high p99, casing line backlog, stock
+depletion, pod crash loops. Requires the Prometheus Operator CRDs.
+*/}}
+{{- if .Values.observability.prometheusRule.enabled }}
+{{- $r := .Values.observability.prometheusRule }}
+{{- $ns := include "encabulator.namespace" . }}
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: encabulator
+  namespace: {{ $ns }}
+  labels:
+    {{- include "encabulator.labels" (dict "root" $ "name" "encabulator" "plane" "" "component" "alerts") | nindent 4 }}
+    {{- toYaml $r.labels | nindent 4 }}
+spec:
+  groups:
+    - name: encabulator.availability
+      rules:
+        - alert: EncabulatorHighErrorRatio
+          expr: |
+            (
+              sum by (service) (
+                rate(http_server_request_duration_seconds_count{namespace="{{ $ns }}",http_response_status_code=~"5.."}[5m])
+              )
+              /
+              clamp_min(
+                sum by (service) (rate(http_server_request_duration_seconds_count{namespace="{{ $ns }}"}[5m])),
+                0.001
+              )
+            ) > {{ $r.errorRatio }}
+          for: {{ $r.for }}
+          labels:
+            severity: warning
+            plane: unknown
+          annotations:
+            summary: "{{ `{{ $labels.service }}` }} is returning 5xx for {{ `{{ $value | humanizePercentage }}` }} of requests"
+            description: >-
+              The 5xx ratio for {{ `{{ $labels.service }}` }} has been above {{ $r.errorRatio }} for
+              {{ $r.for }}. Check the Malaise tab on the console first: this may be an injected fault
+              rather than a real one.
+
+        - alert: EncabulatorHighLatencyP99
+          expr: |
+            histogram_quantile(
+              0.99,
+              sum by (service, le) (
+                rate(http_server_request_duration_seconds_bucket{namespace="{{ $ns }}"}[5m])
+              )
+            ) > {{ $r.latencyP99Seconds }}
+          for: {{ $r.for }}
+          labels:
+            severity: warning
+          annotations:
+            summary: "{{ `{{ $labels.service }}` }} p99 latency is {{ `{{ $value | humanizeDuration }}` }}"
+            description: >-
+              The 99th percentile inbound request duration for {{ `{{ $labels.service }}` }} has been above
+              {{ $r.latencyP99Seconds }}s for {{ $r.for }}.
+
+        - alert: EncabulatorPodCrashLooping
+          expr: |
+            increase(kube_pod_container_status_restarts_total{namespace="{{ $ns }}"}[15m]) > 3
+          for: 5m
+          labels:
+            severity: critical
+          annotations:
+            summary: "{{ `{{ $labels.pod }}` }} is crash looping"
+            description: >-
+              Container {{ `{{ $labels.container }}` }} in {{ `{{ $labels.pod }}` }} has restarted more than
+              three times in the last fifteen minutes.
+
+        - alert: EncabulatorServiceDown
+          expr: |
+            max by (service) (up{namespace="{{ $ns }}",job=~".+"}) == 0
+          for: 5m
+          labels:
+            severity: critical
+          annotations:
+            summary: "No endpoint of {{ `{{ $labels.service }}` }} is being scraped successfully"
+            description: >-
+              Prometheus cannot scrape {{ `{{ $labels.service }}` }}. Either every replica is down or the
+              ServiceMonitor no longer matches.
+
+    - name: encabulator.factory
+      rules:
+        - alert: EncabulatorCasingLineBacklog
+          expr: |
+            max(keda_scaler_metrics_value{scaledObject="logarithmic-casing-line"}) > {{ $r.casingLineBacklog }}
+              or
+            max(nats_consumer_num_pending{stream_name="ENCABULATOR",consumer_name="logarithmic-casing-line"})
+              > {{ $r.casingLineBacklog }}
+          for: {{ $r.for }}
+          labels:
+            severity: warning
+          annotations:
+            summary: "The logarithmic casing line is {{ `{{ $value | humanize }}` }} orders behind"
+            description: >-
+              Unacknowledged `encabulator.fabrication.requested` messages exceed
+              {{ $r.casingLineBacklog }}. If KEDA is installed the line should already be scaling out;
+              if it is not, the line is the bottleneck.
+
+        - alert: EncabulatorPartsStockLow
+          expr: |
+            min by (sku) (encabulator_parts_stock{namespace="{{ $ns }}"}) < {{ $r.partsStockFloor }}
+          for: 2m
+          labels:
+            severity: warning
+          annotations:
+            summary: "Only {{ `{{ $value | humanize }}` }} of {{ `{{ $labels.sku }}` }} left in the parts cage"
+            description: >-
+              Stock of {{ `{{ $labels.sku }}` }} has fallen below {{ $r.partsStockFloor }}. Orders will start
+              being rejected with `insufficient_parts`. Raise the `amulite-foundry-rate` flag or restock
+              from the Works tab.
+
+        - alert: EncabulatorPartsStockExhausted
+          expr: |
+            min by (sku) (encabulator_parts_stock{namespace="{{ $ns }}"}) == 0
+          for: 1m
+          labels:
+            severity: critical
+          annotations:
+            summary: "{{ `{{ $labels.sku }}` }} is out of stock"
+            description: >-
+              The amulite foundry has stopped keeping up, or `amulite-foundry-rate` is 0.
+
+        - alert: EncabulatorRefabricationRateHigh
+          expr: |
+            (
+              sum(rate(encabulator_units_inspected_total{namespace="{{ $ns }}",result="failed"}[10m]))
+              /
+              clamp_min(sum(rate(encabulator_units_inspected_total{namespace="{{ $ns }}"}[10m])), 0.001)
+            ) > 0.25
+          for: 10m
+          labels:
+            severity: warning
+          annotations:
+            summary: "{{ `{{ $value | humanizePercentage }}` }} of units are failing inspection"
+            description: >-
+              Side fumbling is not being prevented. Check whether the `strict-side-fumbling` flag is on.
+{{- end }}

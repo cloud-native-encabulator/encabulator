@@ -1,0 +1,305 @@
+name: ci
+
+on:
+  push:
+    branches: [main]
+    tags-ignore: ["**"]
+  pull_request:
+  workflow_dispatch:
+
+# Nothing in CI writes anywhere. Image publishing lives in images.yml, which asks for
+# packages: write on its own.
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  # docs/design.md sections 8.2, 8.4 and 8.15.
+  NODE_VERSION: "24"
+  PYTHON_VERSION: "3.14"
+  GO_VERSION: "1.27"
+  KUBERNETES_VERSION: "1.31.0"
+  KUBECONFORM_VERSION: v0.8.0
+
+jobs:
+  # One place decides which services exist: scripts/services.txt. Every language job below
+  # fans out over the slice of it that matches.
+  discover:
+    name: discover services
+    runs-on: ubuntu-24.04
+    outputs:
+      go: ${{ steps.matrix.outputs.go }}
+      node: ${{ steps.matrix.outputs.node }}
+      python: ${{ steps.matrix.outputs.python }}
+      rust: ${{ steps.matrix.outputs.rust }}
+    steps:
+      - uses: actions/checkout@v7
+      - id: matrix
+        run: |
+          for lang in go node python rust; do
+            echo "$lang=$(./scripts/services.sh matrix "$lang")" >> "$GITHUB_OUTPUT"
+          done
+      - name: show what was discovered
+        run: ./scripts/services.sh pairs
+
+  # ----------------------------------------------------------------------------- Go
+  go-kit:
+    name: go kit
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v7
+      # setup-go fails outright when cache-dependency-path matches nothing, so look first.
+      - name: is the kit written yet
+        id: exists
+        run: |
+          if [ -f libs/go/kit/go.sum ]; then echo "present=true" >> "$GITHUB_OUTPUT";
+          else echo "present=false" >> "$GITHUB_OUTPUT"; echo "libs/go/kit has no go.sum yet"; fi
+      - if: steps.exists.outputs.present == 'true'
+        uses: actions/setup-go@v7
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache-dependency-path: libs/go/kit/go.sum
+      - if: steps.exists.outputs.present == 'true'
+        working-directory: libs/go/kit
+        run: |
+          go build ./...
+          go vet ./...
+          go test -race -count=1 ./...
+
+  go-services:
+    name: go ${{ matrix.service.name }}
+    needs: discover
+    if: needs.discover.outputs.go != '[]'
+    runs-on: ubuntu-24.04
+    strategy:
+      fail-fast: false
+      matrix:
+        service: ${{ fromJSON(needs.discover.outputs.go) }}
+    steps:
+      - uses: actions/checkout@v7
+      - id: exists
+        run: |
+          if [ -f "${{ matrix.service.dir }}/go.sum" ]; then echo "present=true" >> "$GITHUB_OUTPUT";
+          else echo "present=false" >> "$GITHUB_OUTPUT"; echo "${{ matrix.service.dir }} is not written yet"; fi
+      - if: steps.exists.outputs.present == 'true'
+        uses: actions/setup-go@v7
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache-dependency-path: ${{ matrix.service.dir }}/go.sum
+      - if: steps.exists.outputs.present == 'true'
+        working-directory: ${{ matrix.service.dir }}
+        run: |
+          go build ./...
+          go vet ./...
+          # Integration tests use Testcontainers and skip cleanly with no container runtime
+          # (design section 7), so a plain `go test` is the right command either way.
+          go test -race -count=1 ./...
+
+  # --------------------------------------------------------------------------- Node
+  node-kit:
+    name: node kit
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v7
+      # `cache: npm` needs a lock file to hash, so look before leaping.
+      - id: exists
+        run: |
+          if [ -f libs/ts/kit/package-lock.json ]; then echo "present=true" >> "$GITHUB_OUTPUT";
+          else echo "present=false" >> "$GITHUB_OUTPUT"; echo "libs/ts/kit has no package-lock.json yet"; fi
+      - if: steps.exists.outputs.present == 'true'
+        uses: actions/setup-node@v7
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: libs/ts/kit/package-lock.json
+      - if: steps.exists.outputs.present == 'true'
+        working-directory: libs/ts/kit
+        run: |
+          npm ci
+          npm run --if-present lint
+          npm run --if-present build
+          npm test
+
+  node-services:
+    name: node ${{ matrix.service.name }}
+    needs: discover
+    if: needs.discover.outputs.node != '[]'
+    runs-on: ubuntu-24.04
+    strategy:
+      fail-fast: false
+      matrix:
+        service: ${{ fromJSON(needs.discover.outputs.node) }}
+    steps:
+      - uses: actions/checkout@v7
+      - id: exists
+        run: |
+          if [ -f "${{ matrix.service.dir }}/package-lock.json" ]; then echo "present=true" >> "$GITHUB_OUTPUT";
+          else echo "present=false" >> "$GITHUB_OUTPUT"; echo "${{ matrix.service.dir }} is not written yet"; fi
+      - if: steps.exists.outputs.present == 'true'
+        uses: actions/setup-node@v7
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: ${{ matrix.service.dir }}/package-lock.json
+      - if: steps.exists.outputs.present == 'true'
+        working-directory: ${{ matrix.service.dir }}
+        run: |
+          npm ci
+          npm run --if-present lint
+          npm run --if-present build
+          npm test
+
+  # ------------------------------------------------------------------------- Python
+  python-kit:
+    name: python kit
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v7
+      - id: exists
+        run: |
+          if [ -f libs/python/encabulator-kit/pyproject.toml ]; then echo "present=true" >> "$GITHUB_OUTPUT";
+          else echo "present=false" >> "$GITHUB_OUTPUT"; echo "libs/python/encabulator-kit has no pyproject.toml yet"; fi
+      - if: steps.exists.outputs.present == 'true'
+        uses: astral-sh/setup-uv@v10
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          enable-cache: true
+          cache-dependency-glob: libs/python/encabulator-kit/uv.lock
+      - if: steps.exists.outputs.present == 'true'
+        working-directory: libs/python/encabulator-kit
+        run: |
+          uv sync --all-extras --dev
+          uv run ruff check .
+          uv run ruff format --check .
+          uv run pytest -q
+
+  python-services:
+    name: python ${{ matrix.service.name }}
+    needs: discover
+    if: needs.discover.outputs.python != '[]'
+    runs-on: ubuntu-24.04
+    strategy:
+      fail-fast: false
+      matrix:
+        service: ${{ fromJSON(needs.discover.outputs.python) }}
+    steps:
+      - uses: actions/checkout@v7
+      - id: exists
+        run: |
+          if [ -f "${{ matrix.service.dir }}/pyproject.toml" ]; then echo "present=true" >> "$GITHUB_OUTPUT";
+          else echo "present=false" >> "$GITHUB_OUTPUT"; echo "${{ matrix.service.dir }} is not written yet"; fi
+      - if: steps.exists.outputs.present == 'true'
+        uses: astral-sh/setup-uv@v10
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          enable-cache: true
+          cache-dependency-glob: ${{ matrix.service.dir }}/uv.lock
+      - if: steps.exists.outputs.present == 'true'
+        working-directory: ${{ matrix.service.dir }}
+        run: |
+          uv sync --all-extras --dev
+          uv run ruff check .
+          uv run ruff format --check .
+          uv run pytest -q
+
+  # --------------------------------------------------------------------------- Rust
+  rust:
+    name: rust ${{ matrix.service.name }}
+    needs: discover
+    if: needs.discover.outputs.rust != '[]'
+    runs-on: ubuntu-24.04
+    strategy:
+      fail-fast: false
+      matrix:
+        service: ${{ fromJSON(needs.discover.outputs.rust) }}
+    steps:
+      - uses: actions/checkout@v7
+      - id: exists
+        run: |
+          if [ -f "${{ matrix.service.dir }}/Cargo.toml" ]; then echo "present=true" >> "$GITHUB_OUTPUT";
+          else echo "present=false" >> "$GITHUB_OUTPUT"; echo "${{ matrix.service.dir }} is not written yet"; fi
+      - if: steps.exists.outputs.present == 'true'
+        uses: actions-rust-lang/setup-rust-toolchain@v2
+        with:
+          toolchain: stable
+          components: rustfmt, clippy
+          cache-workspaces: ${{ matrix.service.dir }}
+      - if: steps.exists.outputs.present == 'true'
+        working-directory: ${{ matrix.service.dir }}
+        run: |
+          cargo fmt --all --check
+          cargo clippy --all-targets --all-features -- -D warnings
+          cargo test --all-features
+
+  # -------------------------------------------------------------------------- charts
+  charts:
+    name: helm lint, template and kubeconform
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v7
+      - uses: azure/setup-helm@v5
+        with:
+          version: v3.21.3
+      - uses: actions/setup-go@v7
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache: false
+      - name: install kubeconform
+        run: go install github.com/yannh/kubeconform/cmd/kubeconform@${{ env.KUBECONFORM_VERSION }}
+      - name: validate charts/encabulator
+        # Renders the chart across a dozen value combinations and schema-checks every
+        # object, including the ServiceMonitor/PrometheusRule/ScaledObject CRDs.
+        run: ./scripts/helm-validate.sh
+        env:
+          KUBERNETES_VERSION: ${{ env.KUBERNETES_VERSION }}
+      - name: render the pinned platform charts
+        # Catches a values key that the upstream charts have renamed or a schema they reject,
+        # which is how a pinned-version bump usually breaks.
+        run: ./scripts/platform.sh template > /dev/null
+
+  # --------------------------------------------------------------------------- shell
+  shell:
+    name: shellcheck scripts
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v7
+      - name: shellcheck
+        run: |
+          sudo apt-get update -qq && sudo apt-get install -y --no-install-recommends shellcheck
+          # dev-env.sh is sourced, not executed, so it has no shebang for shellcheck to read.
+          shellcheck --severity=warning scripts/*.sh
+          shellcheck --severity=warning --shell=bash --exclude=SC2148 dev-env.sh
+
+  # Single required check, so branch protection does not need editing every time a service
+  # is added to scripts/services.txt.
+  ci:
+    name: ci
+    if: always()
+    needs:
+      [
+        discover,
+        go-kit,
+        go-services,
+        node-kit,
+        node-services,
+        python-kit,
+        python-services,
+        rust,
+        charts,
+        shell,
+      ]
+    runs-on: ubuntu-24.04
+    steps:
+      - name: fail if anything failed
+        run: |
+          results='${{ join(needs.*.result, " ") }}'
+          echo "job results: $results"
+          for r in $results; do
+            case "$r" in
+              success|skipped) ;;
+              *) echo "a required job reported '$r'"; exit 1 ;;
+            esac
+          done

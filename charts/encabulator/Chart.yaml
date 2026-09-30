@@ -1,0 +1,31 @@
+apiVersion: v2
+name: encabulator
+description: |
+  The Cloud Native Encabulator: fifteen polyglot microservices in four planes, plus their
+  backing stores (PostgreSQL, Valkey, NATS JetStream, InfluxDB 3 Core). Deploys the whole
+  Encabulator Works factory into one namespace. Observability and KEDA are installed
+  separately from upstream charts with values in platform/.
+type: application
+
+# Chart version tracks the chart; appVersion tracks the application images and is the
+# default tag for every service image. Keep appVersion in sync with the repo VERSION file.
+version: 1.0.0
+appVersion: "1.0.0"
+
+kubeVersion: ">=1.27.0-0"
+
+home: https://github.com/jlbutler/cloud-native-encabulator
+sources:
+  - https://github.com/jlbutler/cloud-native-encabulator
+keywords:
+  - microservices
+  - demo
+  - observability
+  - polyglot
+  - encabulator
+maintainers:
+  - name: jlbutler
+    url: https://github.com/jlbutler
+annotations:
+  encabulator.io/planes: "control,processing,data,support"
+  encabulator.io/services: "15"

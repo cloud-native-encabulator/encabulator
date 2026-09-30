@@ -1,0 +1,800 @@
+# Cloud Native Encabulator: default values.
+#
+# The shape of this file follows docs/design.md section 10. Everything the templates
+# render for an application workload comes out of the `services:` map; everything they
+# render for a backing store comes out of the matching top-level store block.
+
+# -----------------------------------------------------------------------------
+# Global
+# -----------------------------------------------------------------------------
+global:
+  # Images are ${registry}/<service>:<tag>. tag defaults to .Chart.AppVersion.
+  registry: ghcr.io/jlbutler/cloud-native-encabulator
+  imageTag: ""
+  imagePullPolicy: IfNotPresent
+  imagePullSecrets: []
+  # Applied to every object the chart renders.
+  labels: {}
+  annotations: {}
+
+# LOG_LEVEL for every service unless overridden per service.
+logLevel: info
+
+# -----------------------------------------------------------------------------
+# Observability wiring (the platform itself lives in platform/)
+# -----------------------------------------------------------------------------
+observability:
+  namespace: encabulator-observability
+  # OTEL_EXPORTER_OTLP_ENDPOINT. Set to "" to turn tracing into a no-op everywhere.
+  otlpEndpoint: http://opentelemetry-collector.encabulator-observability:4318
+  # Read by the console and the orchestrator (waitFor steps).
+  prometheusUrl: http://prometheus-operated.encabulator-observability:9090
+  # Browser-facing links shown by the console. Defaults match `make grafana` / `make jaeger`.
+  grafanaExternalUrl: http://localhost:3000
+  jaegerExternalUrl: http://localhost:16686
+
+  serviceMonitor:
+    enabled: true
+    interval: 15s
+    scrapeTimeout: 10s
+    # Prometheus in platform/kube-prometheus-stack.values.yaml selects exactly this label.
+    labels:
+      encabulator.io/scrape: "true"
+    relabelings: []
+    metricRelabelings: []
+
+  prometheusRule:
+    enabled: true
+    # Extra labels so the rules are also picked up by a stock kube-prometheus-stack
+    # install that still uses ruleSelectorNilUsesHelmValues: true.
+    labels:
+      release: prometheus-stack
+    # Thresholds for the alerts in design section 9.
+    errorRatio: 0.05
+    latencyP99Seconds: 1.0
+    casingLineBacklog: 100
+    partsStockFloor: 50
+    for: 5m
+
+# -----------------------------------------------------------------------------
+# KEDA (installed separately; see platform/keda.values.yaml)
+# -----------------------------------------------------------------------------
+keda:
+  # When true the chart renders a ScaledObject for logarithmic-casing-line instead of
+  # relying on its (CPU) HPA. Requires the KEDA CRDs to be present.
+  enabled: false
+  casingLine:
+    minReplicaCount: 1
+    maxReplicaCount: 10
+    pollingInterval: 10
+    cooldownPeriod: 120
+    # Average unacknowledged messages per replica before KEDA scales out.
+    lagThreshold: "10"
+    activationLagThreshold: "5"
+    # $G is the default NATS account when no accounts are configured.
+    account: "$G"
+
+# -----------------------------------------------------------------------------
+# Pod security (design section 10)
+# -----------------------------------------------------------------------------
+# Applied to every application pod. Service images run as UID/GID 65532.
+podSecurityContext:
+  runAsNonRoot: true
+  runAsUser: 65532
+  runAsGroup: 65532
+  fsGroup: 65532
+  seccompProfile:
+    type: RuntimeDefault
+
+containerSecurityContext:
+  allowPrivilegeEscalation: false
+  readOnlyRootFilesystem: true
+  runAsNonRoot: true
+  capabilities:
+    drop: ["ALL"]
+
+# -----------------------------------------------------------------------------
+# Defaults inherited by every entry in `services:`
+# -----------------------------------------------------------------------------
+defaults:
+  replicas: 1
+  port: 8080
+  terminationGracePeriodSeconds: 30
+  # Design section 7: graceful shutdown drains for up to 20s.
+  revisionHistoryLimit: 3
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 0
+      maxSurge: 1
+  resources:
+    requests:
+      cpu: 50m
+      memory: 64Mi
+    limits:
+      cpu: 500m
+      memory: 256Mi
+  # Probes hit /healthz and /readyz on the single service port.
+  probes:
+    liveness:
+      path: /healthz
+      initialDelaySeconds: 5
+      periodSeconds: 10
+      timeoutSeconds: 2
+      failureThreshold: 3
+    readiness:
+      path: /readyz
+      initialDelaySeconds: 3
+      periodSeconds: 5
+      timeoutSeconds: 2
+      failureThreshold: 3
+    startup:
+      enabled: true
+      path: /healthz
+      periodSeconds: 3
+      failureThreshold: 30
+  autoscaling:
+    enabled: false
+    minReplicas: 2
+    maxReplicas: 10
+    targetCPUUtilizationPercentage: 70
+    targetMemoryUtilizationPercentage: null
+    behavior: {}
+  podDisruptionBudget:
+    # Rendered only when the workload can run more than one replica (design section 9).
+    enabled: true
+    maxUnavailable: 1
+    minAvailable: null
+  serviceAccount:
+    create: true
+    # Design section 10: no token unless the workload talks to the Kubernetes API.
+    automountServiceAccountToken: false
+    annotations: {}
+  service:
+    type: ClusterIP
+    port: 8080
+    annotations: {}
+  # encabulator.io/malaise-target=true lets the malaise engine act on the workload.
+  malaiseTarget: true
+  nodeSelector: {}
+  tolerations: []
+  affinity: {}
+  topologySpreadConstraints: []
+  podAnnotations: {}
+  podLabels: {}
+  extraEnv: {}
+  extraEnvFrom: []
+  extraVolumes: []
+  extraVolumeMounts: []
+  command: []
+  args: []
+
+# -----------------------------------------------------------------------------
+# The fifteen services
+# -----------------------------------------------------------------------------
+# Per-service keys:
+#   plane      encabulator.io/plane label; also the `service.namespace`-adjacent grouping
+#   language   informational label, shown in the console's static registry
+#   stores     which backing stores this service needs; drives DATABASE_URL, VALKEY_URL,
+#              NATS_URL, INFLUXDB_* injection
+#   env        service-specific environment (Appendix A). Values are run through `tpl`.
+#   secretEnv  environment sourced from a Secret key
+services:
+
+  # ---------------------------------------------------------------- control plane
+  encabulation-control-console:
+    enabled: true
+    plane: control
+    language: typescript
+    replicas: 1
+    # The console lists pods and deployments, so it needs a projected token and a Role.
+    serviceAccount:
+      automountServiceAccountToken: true
+    kubernetesReader: true
+    resources:
+      requests: { cpu: 100m, memory: 192Mi }
+      limits: { cpu: 1000m, memory: 512Mi }
+    # The BFF is not a malaise target: it must stay reachable to clear the malaise.
+    malaiseTarget: false
+    applyMalaise: false
+    env:
+      COOKIE_SECURE: "false"
+    secretEnv:
+      SESSION_SECRET:
+        secret: app
+        key: session-secret
+
+  cardinal-grammeter:
+    enabled: true
+    plane: control
+    language: go
+    # Single replica by design (section 8.12): one scheduler owns the target RPS.
+    replicas: 1
+    autoscaling:
+      enabled: false
+    podDisruptionBudget:
+      enabled: false
+    malaiseTarget: false
+    applyMalaise: false
+    resources:
+      requests: { cpu: 100m, memory: 128Mi }
+      limits: { cpu: 1000m, memory: 384Mi }
+    env:
+      CUSTOMERS: "50"
+      MAX_IN_FLIGHT: "256"
+      AUTOSTART: "false"
+      AUTOSTART_RPS: "5"
+    secretEnv:
+      CUSTOMER_PASSWORD_SEED:
+        secret: app
+        key: customer-password-seed
+
+  malaise-injection-engine:
+    enabled: true
+    plane: control
+    language: go
+    # Single replica: one reconcile loop owns expiry and revert.
+    replicas: 1
+    podDisruptionBudget:
+      enabled: false
+    serviceAccount:
+      automountServiceAccountToken: true
+    malaiseTarget: false
+    applyMalaise: false
+    stores:
+      valkey: {}
+    resources:
+      requests: { cpu: 50m, memory: 64Mi }
+      limits: { cpu: 500m, memory: 192Mi }
+    env:
+      OBSERVABILITY_NAMESPACE: "{{ .Values.observability.namespace }}"
+
+  demo-scenario-orchestrator:
+    enabled: true
+    plane: control
+    language: python
+    # Single replica: run history is in memory (section 8.14).
+    replicas: 1
+    podDisruptionBudget:
+      enabled: false
+    malaiseTarget: false
+    applyMalaise: false
+    resources:
+      requests: { cpu: 50m, memory: 128Mi }
+      limits: { cpu: 500m, memory: 384Mi }
+    env:
+      SCENARIO_DIR: /etc/scenarios
+
+  # ------------------------------------------------------------- processing plane
+  dingle-arm-gateway:
+    enabled: true
+    plane: processing
+    language: go
+    replicas: 2
+    resources:
+      requests: { cpu: 200m, memory: 128Mi }
+      limits: { cpu: 1000m, memory: 384Mi }
+
+  panametric-fam-processor:
+    enabled: true
+    plane: processing
+    language: typescript
+    replicas: 2
+    stores:
+      nats: {}
+    # Design section 9: CPU HPA.
+    autoscaling:
+      enabled: true
+      minReplicas: 2
+      maxReplicas: 8
+      targetCPUUtilizationPercentage: 70
+    resources:
+      requests: { cpu: 150m, memory: 256Mi }
+      limits: { cpu: 1000m, memory: 512Mi }
+
+  spurving-bearing-quoter:
+    enabled: true
+    plane: processing
+    language: rust
+    replicas: 2
+    stores:
+      valkey: {}
+    # Pricing deliberately burns CPU (section 8.3), which makes this the model HPA target.
+    autoscaling:
+      enabled: true
+      minReplicas: 2
+      maxReplicas: 12
+      targetCPUUtilizationPercentage: 65
+    resources:
+      requests: { cpu: 250m, memory: 64Mi }
+      limits: { cpu: 1000m, memory: 256Mi }
+
+  logarithmic-casing-line:
+    enabled: true
+    plane: processing
+    language: python
+    replicas: 2
+    stores:
+      nats: {}
+    # Scaled by KEDA on JetStream consumer lag when keda.enabled; the CPU HPA is the
+    # fallback when KEDA is not installed.
+    autoscaling:
+      enabled: false
+      minReplicas: 2
+      maxReplicas: 10
+      targetCPUUtilizationPercentage: 70
+    resources:
+      requests: { cpu: 150m, memory: 256Mi }
+      limits: { cpu: 1000m, memory: 512Mi }
+    env:
+      LINE_CAPACITY: "2"
+
+  nofer-trunnion-dispatch:
+    enabled: true
+    plane: processing
+    language: typescript
+    replicas: 2
+    stores:
+      nats: {}
+      valkey: {}
+    resources:
+      requests: { cpu: 100m, memory: 192Mi }
+      limits: { cpu: 500m, memory: 448Mi }
+
+  # ------------------------------------------------------------------- data plane
+  hydrocoptic-datastore:
+    enabled: true
+    plane: data
+    language: go
+    replicas: 2
+    stores:
+      postgres:
+        database: hydrocoptic
+      nats: {}
+    resources:
+      requests: { cpu: 100m, memory: 128Mi }
+      limits: { cpu: 1000m, memory: 384Mi }
+
+  prefabulated-amulite-depot:
+    enabled: true
+    plane: data
+    language: typescript
+    replicas: 2
+    stores:
+      valkey: {}
+    resources:
+      requests: { cpu: 100m, memory: 192Mi }
+      limits: { cpu: 500m, memory: 448Mi }
+
+  sinusoidal-recorder:
+    enabled: true
+    plane: data
+    language: go
+    replicas: 2
+    stores:
+      influxdb: {}
+    resources:
+      requests: { cpu: 100m, memory: 128Mi }
+      limits: { cpu: 750m, memory: 384Mi }
+
+  # ---------------------------------------------------------------- support plane
+  unilateral-phase-detractor:
+    enabled: true
+    plane: support
+    language: python
+    replicas: 2
+    stores:
+      postgres:
+        database: detractor
+    # Argon2id wants memory.
+    resources:
+      requests: { cpu: 100m, memory: 256Mi }
+      limits: { cpu: 1000m, memory: 640Mi }
+    env:
+      JWT_TTL_SECONDS: "3600"
+    secretEnv:
+      JWT_PRIVATE_KEY:
+        secret: app
+        key: jwt-private-key
+      BOOTSTRAP_ADMIN_PASSWORD:
+        secret: app
+        key: bootstrap-admin-password
+      BOOTSTRAP_OPERATOR_PASSWORD:
+        secret: app
+        key: bootstrap-operator-password
+
+  differential-girdlespring:
+    enabled: true
+    plane: support
+    language: go
+    replicas: 2
+    stores:
+      postgres:
+        database: girdlespring
+    resources:
+      requests: { cpu: 50m, memory: 64Mi }
+      limits: { cpu: 500m, memory: 192Mi }
+
+  side-fumbling-detector:
+    enabled: true
+    plane: support
+    language: python
+    replicas: 2
+    stores:
+      nats: {}
+      valkey: {}
+    resources:
+      requests: { cpu: 150m, memory: 256Mi }
+      limits: { cpu: 1000m, memory: 512Mi }
+
+# -----------------------------------------------------------------------------
+# Which services read which cross-cutting URLs
+# -----------------------------------------------------------------------------
+# Rather than repeat the same three variables fifteen times, the templates consult
+# these lists. "*" means every enabled service.
+wiring:
+  # Appendix A: MALAISE_ENGINE_URL unset disables the malaise middleware. The console,
+  # grammeter, malaise engine and orchestrator do not apply malaise to themselves
+  # (section 7), so the variable is only set where it is wanted; the orchestrator and
+  # the console get it because they *drive* the engine, not because they obey it.
+  malaiseEngineUrl:
+    - dingle-arm-gateway
+    - panametric-fam-processor
+    - spurving-bearing-quoter
+    - logarithmic-casing-line
+    - nofer-trunnion-dispatch
+    - hydrocoptic-datastore
+    - prefabulated-amulite-depot
+    - sinusoidal-recorder
+    - unilateral-phase-detractor
+    - differential-girdlespring
+    - side-fumbling-detector
+    - demo-scenario-orchestrator
+    - encabulation-control-console
+  # Section 6 "Read by", plus the console and orchestrator, which edit flags.
+  girdlespringUrl:
+    - dingle-arm-gateway
+    - panametric-fam-processor
+    - spurving-bearing-quoter
+    - logarithmic-casing-line
+    - prefabulated-amulite-depot
+    - side-fumbling-detector
+    - demo-scenario-orchestrator
+    - encabulation-control-console
+  # Outbound service URLs: <caller>: [<callee>, ...]. Rendered as <CALLEE>_URL.
+  serviceUrls:
+    dingle-arm-gateway:
+      - unilateral-phase-detractor
+      - prefabulated-amulite-depot
+      - spurving-bearing-quoter
+      - panametric-fam-processor
+      - hydrocoptic-datastore
+      - nofer-trunnion-dispatch
+    panametric-fam-processor:
+      - spurving-bearing-quoter
+      - prefabulated-amulite-depot
+      - hydrocoptic-datastore
+    logarithmic-casing-line:
+      - sinusoidal-recorder
+      - prefabulated-amulite-depot
+    side-fumbling-detector:
+      - sinusoidal-recorder
+    cardinal-grammeter:
+      - dingle-arm-gateway
+    demo-scenario-orchestrator:
+      - cardinal-grammeter
+      - prefabulated-amulite-depot
+    # The console's BFF proxies everything (section 8.15).
+    encabulation-control-console:
+      - cardinal-grammeter
+      - demo-scenario-orchestrator
+      - dingle-arm-gateway
+      - panametric-fam-processor
+      - spurving-bearing-quoter
+      - logarithmic-casing-line
+      - nofer-trunnion-dispatch
+      - hydrocoptic-datastore
+      - prefabulated-amulite-depot
+      - sinusoidal-recorder
+      - unilateral-phase-detractor
+      - side-fumbling-detector
+  # Services that need PROMETHEUS_URL.
+  prometheusUrl:
+    - demo-scenario-orchestrator
+    - encabulation-control-console
+  # Services that need POD_NAMESPACE from the downward API.
+  podNamespace:
+    - malaise-injection-engine
+    - encabulation-control-console
+
+# -----------------------------------------------------------------------------
+# Console ingress (design section 10)
+# -----------------------------------------------------------------------------
+ingress:
+  enabled: false
+  className: alb
+  # SSE-friendly defaults. `alb.ingress.kubernetes.io/load-balancer-attributes` raises the
+  # idle timeout above the 60s default so /bff/stream is not cut every minute.
+  annotations:
+    alb.ingress.kubernetes.io/scheme: internet-facing
+    alb.ingress.kubernetes.io/target-type: ip
+    alb.ingress.kubernetes.io/load-balancer-attributes: idle_timeout.timeout_seconds=3600
+    alb.ingress.kubernetes.io/healthcheck-path: /healthz
+    # nginx equivalents, harmless on ALB:
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "3600"
+    nginx.ingress.kubernetes.io/proxy-buffering: "off"
+  hosts:
+    - host: ""
+      paths:
+        - path: /
+          pathType: Prefix
+  tls: []
+  extraLabels: {}
+
+# -----------------------------------------------------------------------------
+# Extra demo scenarios
+# -----------------------------------------------------------------------------
+# Mounted at SCENARIO_DIR alongside the built-ins baked into the orchestrator image.
+# Keys become file names; values are YAML scenario documents.
+extraScenarios: {}
+#  kitchen-sink.yaml: |
+#    id: kitchen-sink
+#    title: Kitchen sink
+#    steps:
+#      - say: "Everything, all at once."
+
+# -----------------------------------------------------------------------------
+# Secrets
+# -----------------------------------------------------------------------------
+secrets:
+  # Generated on first install with randAlphaNum / genPrivateKey and preserved across
+  # upgrades with `lookup`. Set any of these to pin a value instead.
+  create: true
+  annotations: {}
+  app:
+    jwtPrivateKey: ""
+    bootstrapAdminPassword: ""
+    bootstrapOperatorPassword: ""
+    sessionSecret: ""
+    customerPasswordSeed: ""
+  # Point at a pre-existing Secret instead of generating one (phase 3 / external secrets).
+  existingSecret: ""
+
+# -----------------------------------------------------------------------------
+# Backing stores
+# -----------------------------------------------------------------------------
+# Each store is a StatefulSet with a PVC, individually disableable, and each carries an
+# `external:` block for later phases (RDS / ElastiCache / Timestream for InfluxDB).
+
+postgres:
+  enabled: true
+  # When external.enabled is true the StatefulSet is not rendered and the services are
+  # pointed at external.host instead.
+  external:
+    enabled: false
+    host: ""
+    port: 5432
+    sslmode: require
+    # Secret holding the per-database passwords. Keys default to the `passwordKey` below.
+    existingSecret: ""
+  image:
+    repository: postgres
+    tag: "18"
+    pullPolicy: IfNotPresent
+  service:
+    port: 5432
+  # PGDATA in postgres:18 is /var/lib/postgresql/18/docker and the volume is /var/lib/postgresql.
+  dataDir: /var/lib/postgresql
+  persistence:
+    enabled: true
+    size: 8Gi
+    storageClassName: ""
+    accessModes: ["ReadWriteOnce"]
+  # Logical databases, each with its own role and password (design section 2).
+  databases:
+    hydrocoptic:
+      user: hydrocoptic
+      passwordKey: hydrocoptic-password
+    detractor:
+      user: detractor
+      passwordKey: detractor-password
+    girdlespring:
+      user: girdlespring
+      passwordKey: girdlespring-password
+  superuser:
+    user: postgres
+    passwordKey: postgres-password
+  # postgres:18 runs as uid/gid 999.
+  podSecurityContext:
+    runAsNonRoot: true
+    runAsUser: 999
+    runAsGroup: 999
+    fsGroup: 999
+    seccompProfile:
+      type: RuntimeDefault
+  containerSecurityContext:
+    allowPrivilegeEscalation: false
+    readOnlyRootFilesystem: true
+    runAsNonRoot: true
+    capabilities:
+      drop: ["ALL"]
+  args:
+    - -c
+    - max_connections=200
+    - -c
+    - shared_buffers=192MB
+    - -c
+    - log_min_duration_statement=500
+  resources:
+    requests: { cpu: 200m, memory: 512Mi }
+    limits: { cpu: 2000m, memory: 1Gi }
+  nodeSelector: {}
+  tolerations: []
+  affinity: {}
+
+valkey:
+  enabled: true
+  external:
+    enabled: false
+    host: ""
+    port: 6379
+    # A Secret with `passwordKey` below; leave empty for an unauthenticated endpoint.
+    existingSecret: ""
+    # ElastiCache serverless wants rediss://; set true for TLS.
+    tls: false
+  image:
+    repository: valkey/valkey
+    tag: "9"
+    pullPolicy: IfNotPresent
+  service:
+    port: 6379
+  passwordKey: valkey-password
+  user: default
+  database: 0
+  persistence:
+    enabled: true
+    size: 4Gi
+    storageClassName: ""
+    accessModes: ["ReadWriteOnce"]
+  # Appended to the generated valkey.conf. `requirepass` arrives from the Secret via an
+  # `include`, so it never appears in the process list or a ConfigMap.
+  config: |
+    appendonly yes
+    appendfsync everysec
+    maxmemory-policy noeviction
+    save 60 1000
+  podSecurityContext:
+    runAsNonRoot: true
+    runAsUser: 999
+    runAsGroup: 999
+    fsGroup: 999
+    seccompProfile:
+      type: RuntimeDefault
+  containerSecurityContext:
+    allowPrivilegeEscalation: false
+    readOnlyRootFilesystem: true
+    runAsNonRoot: true
+    capabilities:
+      drop: ["ALL"]
+  resources:
+    requests: { cpu: 100m, memory: 256Mi }
+    limits: { cpu: 1000m, memory: 768Mi }
+  nodeSelector: {}
+  tolerations: []
+  affinity: {}
+
+nats:
+  enabled: true
+  external:
+    enabled: false
+    # Full client URL, e.g. nats://nats.example:4222
+    url: ""
+    # host:port of the monitoring endpoint the KEDA scaler polls.
+    monitoringEndpoint: ""
+  image:
+    repository: nats
+    tag: "2.12"
+    pullPolicy: IfNotPresent
+  service:
+    port: 4222
+    monitoringPort: 8222
+  jetstream:
+    enabled: true
+    # NATS size suffixes, not Kubernetes quantities.
+    maxMemoryStore: 256MB
+    maxFileStore: 8GB
+  persistence:
+    enabled: true
+    size: 8Gi
+    storageClassName: ""
+    accessModes: ["ReadWriteOnce"]
+  # Appended to the generated nats-server.conf.
+  extraConfig: ""
+  # The nats image has no USER directive, so pick an arbitrary non-root id.
+  podSecurityContext:
+    runAsNonRoot: true
+    runAsUser: 10000
+    runAsGroup: 10000
+    fsGroup: 10000
+    seccompProfile:
+      type: RuntimeDefault
+  containerSecurityContext:
+    allowPrivilegeEscalation: false
+    readOnlyRootFilesystem: true
+    runAsNonRoot: true
+    capabilities:
+      drop: ["ALL"]
+  resources:
+    requests: { cpu: 100m, memory: 256Mi }
+    limits: { cpu: 1000m, memory: 768Mi }
+  nodeSelector: {}
+  tolerations: []
+  affinity: {}
+
+influxdb:
+  enabled: true
+  external:
+    enabled: false
+    url: ""
+    # Secret + key holding the token for INFLUXDB_TOKEN (e.g. a Timestream for InfluxDB token).
+    existingSecret: ""
+    existingSecretKey: admin-token
+  image:
+    repository: influxdb
+    tag: 3-core
+    pullPolicy: IfNotPresent
+  service:
+    port: 8181
+  database: sinusoidal
+  nodeId: encabulator-influxdb-0
+  dataDir: /var/lib/influxdb3
+  # InfluxDB 3 Core bootstraps an operator/admin token from an *offline admin token file*
+  # (--admin-token-file). The chart generates the token, writes both the raw string and the
+  # JSON file into one Secret, and the recorder reads the raw string as INFLUXDB_TOKEN.
+  auth:
+    enabled: true
+    tokenName: encabulator-admin
+    tokenKey: admin-token
+    tokenFileKey: admin-token.json
+    # health, ping and metrics are exempted from authz so the kubelet probes and the
+    # Prometheus scrape do not need the token. Writes and queries stay authenticated.
+    disableAuthzFor: health,ping,metrics
+  persistence:
+    enabled: true
+    size: 16Gi
+    storageClassName: ""
+    accessModes: ["ReadWriteOnce"]
+  # influxdb:3-core runs as uid/gid 1500.
+  podSecurityContext:
+    runAsNonRoot: true
+    runAsUser: 1500
+    runAsGroup: 1500
+    fsGroup: 1500
+    seccompProfile:
+      type: RuntimeDefault
+  containerSecurityContext:
+    allowPrivilegeEscalation: false
+    readOnlyRootFilesystem: true
+    runAsNonRoot: true
+    capabilities:
+      drop: ["ALL"]
+  extraEnv:
+    INFLUXDB3_DISABLE_TELEMETRY_UPLOAD: "true"
+    INFLUXDB3_GEN1_DURATION: 1m
+  resources:
+    requests: { cpu: 250m, memory: 768Mi }
+    limits: { cpu: 2000m, memory: 2Gi }
+  nodeSelector: {}
+  tolerations: []
+  affinity: {}
+
+# Shared settings for the store StatefulSets.
+stores:
+  # encabulator.io/malaise-target=true so `pod-kill` and `partition` can reach them.
+  malaiseTarget: true
+  serviceMonitor:
+    # The stores do not expose Prometheus metrics in v1 (no exporter sidecars). The
+    # dashboards read kube-state-metrics and cAdvisor instead.
+    enabled: false
+  podDisruptionBudget:
+    enabled: false

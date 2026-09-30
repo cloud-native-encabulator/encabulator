@@ -1,0 +1,292 @@
+{
+  "uid": "encabulator-backing-stores",
+  "title": "Encabulator Backing Stores",
+  "description": "PostgreSQL, Valkey, NATS JetStream and InfluxDB 3 Core. None of them exports Prometheus metrics in v1, so this reads what the platform already knows: kube-state-metrics, cAdvisor, and the client-side spans the OTel collector turns into service graph edges.",
+  "tags": ["encabulator", "stores"],
+  "editable": true,
+  "graphTooltip": 1,
+  "schemaVersion": 39,
+  "refresh": "30s",
+  "time": { "from": "now-1h", "to": "now" },
+  "timezone": "browser",
+  "templating": {
+    "list": [
+      {
+        "name": "datasource",
+        "label": "Prometheus",
+        "type": "datasource",
+        "query": "prometheus",
+        "current": {},
+        "hide": 0
+      },
+      {
+        "name": "namespace",
+        "label": "Namespace",
+        "type": "query",
+        "datasource": "${datasource}",
+        "query": "label_values(kube_pod_info, namespace)",
+        "current": { "text": "encabulator", "value": "encabulator" },
+        "refresh": 1
+      },
+      {
+        "name": "store",
+        "label": "Store",
+        "type": "custom",
+        "query": "postgres,valkey,nats,influxdb",
+        "current": { "text": "All", "value": "$__all" },
+        "includeAll": true,
+        "multi": true
+      }
+    ]
+  },
+  "panels": [
+    {
+      "type": "row",
+      "title": "Are they up",
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 0 },
+      "collapsed": false,
+      "panels": []
+    },
+    {
+      "id": 1,
+      "type": "table",
+      "title": "Store pods",
+      "description": "Phase, readiness and restart count straight from kube-state-metrics.",
+      "datasource": "${datasource}",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 1 },
+      "fieldConfig": {
+        "defaults": { "noValue": "no data", "custom": { "align": "auto" } },
+        "overrides": [
+          {
+            "matcher": { "id": "byName", "options": "restarts" },
+            "properties": [
+              { "id": "custom.cellOptions", "value": { "type": "color-background", "mode": "gradient" } },
+              {
+                "id": "thresholds",
+                "value": {
+                  "mode": "absolute",
+                  "steps": [
+                    { "color": "green", "value": null },
+                    { "color": "orange", "value": 1 },
+                    { "color": "red", "value": 4 }
+                  ]
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "options": { "showHeader": true },
+      "transformations": [
+        { "id": "joinByField", "options": { "byField": "pod", "mode": "outer" } },
+        {
+          "id": "organize",
+          "options": {
+            "excludeByName": { "Time": true, "Time 1": true, "Time 2": true },
+            "renameByName": { "Value #A": "ready", "Value #B": "restarts" }
+          }
+        }
+      ],
+      "targets": [
+        {
+          "refId": "A",
+          "format": "table",
+          "instant": true,
+          "expr": "max by (pod) (kube_pod_status_ready{namespace=\"$namespace\",condition=\"true\",pod=~\"($store)-.*\"})"
+        },
+        {
+          "refId": "B",
+          "format": "table",
+          "instant": true,
+          "expr": "sum by (pod) (kube_pod_container_status_restarts_total{namespace=\"$namespace\",pod=~\"($store)-.*\"})"
+        }
+      ]
+    },
+    {
+      "id": 2,
+      "type": "timeseries",
+      "title": "Readiness of the services that depend on a store",
+      "description": "/readyz only checks a service's own hard dependencies, so a dip here localises the outage.",
+      "datasource": "${datasource}",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 1 },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "min": 0,
+          "noValue": "no data",
+          "custom": { "fillOpacity": 20, "lineWidth": 1, "drawStyle": "line", "stepAfter": true }
+        },
+        "overrides": []
+      },
+      "options": { "legend": { "displayMode": "table", "placement": "right", "calcs": ["min", "lastNotNull"] } },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum by (label_app_kubernetes_io_name) (kube_pod_status_ready{namespace=\"$namespace\",condition=\"true\"} * on (namespace, pod) group_left(label_app_kubernetes_io_name) kube_pod_labels{namespace=\"$namespace\",label_app_kubernetes_io_part_of=\"encabulator\"})",
+          "legendFormat": "{{label_app_kubernetes_io_name}}"
+        }
+      ]
+    },
+    {
+      "type": "row",
+      "title": "Resources",
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 9 },
+      "collapsed": false,
+      "panels": []
+    },
+    {
+      "id": 10,
+      "type": "timeseries",
+      "title": "CPU by store",
+      "datasource": "${datasource}",
+      "gridPos": { "h": 8, "w": 8, "x": 0, "y": 10 },
+      "fieldConfig": {
+        "defaults": { "unit": "percentunit", "noValue": "no data", "custom": { "fillOpacity": 10, "lineWidth": 2 } },
+        "overrides": []
+      },
+      "options": { "legend": { "displayMode": "list", "placement": "bottom", "calcs": ["mean", "max"] } },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum by (container) (rate(container_cpu_usage_seconds_total{namespace=\"$namespace\",container=~\"$store\"}[5m]))",
+          "legendFormat": "{{container}}"
+        }
+      ]
+    },
+    {
+      "id": 11,
+      "type": "timeseries",
+      "title": "Memory working set by store",
+      "datasource": "${datasource}",
+      "gridPos": { "h": 8, "w": 8, "x": 8, "y": 10 },
+      "fieldConfig": {
+        "defaults": { "unit": "bytes", "noValue": "no data", "custom": { "fillOpacity": 10, "lineWidth": 2 } },
+        "overrides": []
+      },
+      "options": { "legend": { "displayMode": "list", "placement": "bottom", "calcs": ["mean", "max"] } },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum by (container) (container_memory_working_set_bytes{namespace=\"$namespace\",container=~\"$store\"})",
+          "legendFormat": "{{container}}"
+        },
+        {
+          "refId": "B",
+          "expr": "sum by (container) (kube_pod_container_resource_limits{namespace=\"$namespace\",container=~\"$store\",resource=\"memory\"})",
+          "legendFormat": "{{container}} limit"
+        }
+      ]
+    },
+    {
+      "id": 12,
+      "type": "timeseries",
+      "title": "Persistent volume use",
+      "description": "The JetStream store, the WAL and the Parquet files all live on these.",
+      "datasource": "${datasource}",
+      "gridPos": { "h": 8, "w": 8, "x": 16, "y": 10 },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit",
+          "min": 0,
+          "max": 1,
+          "noValue": "no PVCs",
+          "custom": { "fillOpacity": 10, "lineWidth": 2 },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "orange", "value": 0.75 },
+              { "color": "red", "value": 0.9 }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": { "legend": { "displayMode": "list", "placement": "bottom", "calcs": ["lastNotNull"] } },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "kubelet_volume_stats_used_bytes{namespace=\"$namespace\"} / clamp_min(kubelet_volume_stats_capacity_bytes{namespace=\"$namespace\"}, 1)",
+          "legendFormat": "{{persistentvolumeclaim}}"
+        }
+      ]
+    },
+    {
+      "type": "row",
+      "title": "How the services see them",
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 18 },
+      "collapsed": false,
+      "panels": []
+    },
+    {
+      "id": 20,
+      "type": "timeseries",
+      "title": "Database and cache edge latency p99",
+      "description": "From the service_graph connector's virtual server nodes: a client span carrying db.system or peer.service becomes an edge to a store nobody instruments.",
+      "datasource": "${datasource}",
+      "gridPos": { "h": 9, "w": 12, "x": 0, "y": 19 },
+      "fieldConfig": {
+        "defaults": { "unit": "s", "noValue": "no traces yet", "custom": { "fillOpacity": 0, "lineWidth": 2 } },
+        "overrides": []
+      },
+      "options": { "legend": { "displayMode": "table", "placement": "right", "calcs": ["mean", "max"] } },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "histogram_quantile(0.99, sum by (client, server, le) (rate(traces_service_graph_request_client_seconds_bucket{connection_type=\"database\"}[5m])))",
+          "legendFormat": "{{client}} -> {{server}}"
+        }
+      ]
+    },
+    {
+      "id": 21,
+      "type": "timeseries",
+      "title": "Messaging edge rate (NATS JetStream)",
+      "description": "producer to consumer pairs on encabulator.> subjects.",
+      "datasource": "${datasource}",
+      "gridPos": { "h": 9, "w": 12, "x": 12, "y": 19 },
+      "fieldConfig": {
+        "defaults": { "unit": "reqps", "noValue": "no traces yet", "custom": { "fillOpacity": 10, "lineWidth": 1 } },
+        "overrides": []
+      },
+      "options": { "legend": { "displayMode": "table", "placement": "right", "calcs": ["mean"] } },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum by (client, server) (rate(traces_service_graph_request_total{connection_type=\"messaging_system\"}[5m]))",
+          "legendFormat": "{{client}} -> {{server}}"
+        }
+      ]
+    },
+    {
+      "id": 22,
+      "type": "timeseries",
+      "title": "Casing line consumer lag (KEDA)",
+      "description": "keda_scaler_metrics_value for the logarithmic-casing-line ScaledObject: unacknowledged encabulator.fabrication.requested messages. This is the congestion signal the whole factory is scaled on.",
+      "datasource": "${datasource}",
+      "gridPos": { "h": 8, "w": 24, "x": 0, "y": 28 },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "min": 0,
+          "noValue": "KEDA not installed, or keda.enabled=false",
+          "custom": { "fillOpacity": 20, "lineWidth": 2 }
+        },
+        "overrides": []
+      },
+      "options": { "legend": { "displayMode": "list", "placement": "bottom", "calcs": ["mean", "max"] } },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "max by (scaledObject) (keda_scaler_metrics_value{scaledObject=\"logarithmic-casing-line\"})",
+          "legendFormat": "pending messages"
+        },
+        {
+          "refId": "B",
+          "expr": "sum(kube_deployment_status_replicas_ready{namespace=\"$namespace\",deployment=\"logarithmic-casing-line\"})",
+          "legendFormat": "casing line replicas ready"
+        }
+      ]
+    }
+  ]
+}

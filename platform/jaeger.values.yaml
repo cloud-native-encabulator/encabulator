@@ -1,0 +1,94 @@
+# Jaeger v2 values for the Cloud Native Encabulator.
+#
+#   helm upgrade --install jaeger jaegertracing/jaeger \
+#     --version 4.14.0 -n encabulator-observability \
+#     -f platform/jaeger.values.yaml
+#
+# Chart 4.x deploys Jaeger v2 (the collector-based binary) all-in-one. Its built-in config
+# already uses in-memory storage, which is what v1 wants: traces are for the duration of a
+# demo, and nothing here is a system of record. Swap `userconfig` for a Badger or
+# Elasticsearch backend if you want them to survive a restart.
+
+fullnameOverride: jaeger
+
+jaeger:
+  enabled: true
+  replicas: 1
+
+  # Keep every trace: a demo that samples is a demo where the interesting request is missing.
+  extraEnv:
+    - name: OTEL_TRACES_SAMPLER
+      value: always_on
+
+  podSecurityContext:
+    runAsNonRoot: true
+    runAsUser: 10001
+    runAsGroup: 10001
+    fsGroup: 10001
+    seccompProfile:
+      type: RuntimeDefault
+
+  securityContext:
+    allowPrivilegeEscalation: false
+    readOnlyRootFilesystem: true
+    capabilities:
+      drop: ["ALL"]
+
+  resources:
+    requests:
+      cpu: 200m
+      memory: 768Mi
+    limits:
+      cpu: 2000m
+      memory: 2Gi
+
+  serviceAccount:
+    automountServiceAccountToken: false
+
+  # Jaeger's Monitor tab reads span metrics from Prometheus; the collector's span_metrics
+  # connector is what fills them.
+  podAnnotations:
+    prometheus.io/scrape: "false"
+
+uiconfig:
+  {
+    "dependencies": { "dagMaxNumServices": 40, "menuEnabled": true },
+    "monitor": { "menuEnabled": true },
+    "archiveEnabled": false,
+    "criticalPathEnabled": true,
+    "topTagPrefixes": ["http.", "db.", "messaging.", "encabulator."],
+    "menu":
+      [
+        {
+          "label": "Encabulator",
+          "items":
+            [
+              {
+                "label": "Design",
+                "url": "https://github.com/jlbutler/cloud-native-encabulator/blob/main/docs/design.md",
+              },
+            ],
+        },
+      ],
+  }
+
+# Prometheus scrapes Jaeger's own telemetry (8888) via a ServiceMonitor that carries the
+# label Prometheus selects on. The chart has no serviceMonitor option, so ship it here.
+extraObjects:
+  - apiVersion: monitoring.coreos.com/v1
+    kind: ServiceMonitor
+    metadata:
+      name: jaeger
+      labels:
+        encabulator.io/scrape: "true"
+        app.kubernetes.io/name: jaeger
+        app.kubernetes.io/part-of: encabulator
+    spec:
+      selector:
+        matchLabels:
+          app.kubernetes.io/name: jaeger
+          app.kubernetes.io/component: all-in-one
+      endpoints:
+        - port: internal-metrics
+          path: /metrics
+          interval: 30s

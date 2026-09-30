@@ -1,0 +1,239 @@
+# kube-prometheus-stack values for the Cloud Native Encabulator.
+#
+#   helm upgrade --install prometheus-stack prometheus-community/kube-prometheus-stack \
+#     --version 91.8.2 -n encabulator-observability --create-namespace \
+#     -f platform/kube-prometheus-stack.values.yaml
+#
+# The one thing that matters most here: Prometheus selects ServiceMonitor and PodMonitor
+# objects labelled `encabulator.io/scrape=true`, in *any* namespace (design section 9). That
+# means the stack's own monitors have to carry the label too, which is what `commonLabels`
+# and the three subchart `additionalLabels` below are for.
+
+fullnameOverride: prometheus-stack
+
+# Applied to everything this chart creates, including its ServiceMonitors.
+commonLabels:
+  encabulator.io/scrape: "true"
+
+crds:
+  enabled: true
+
+# ---------------------------------------------------------------------------- Prometheus
+prometheus:
+  prometheusSpec:
+    # Select by label, across namespaces, instead of the chart's default release-scoped
+    # selector. Anything the Encabulator chart ships is labelled encabulator.io/scrape=true.
+    serviceMonitorSelectorNilUsesHelmValues: false
+    serviceMonitorSelector:
+      matchLabels:
+        encabulator.io/scrape: "true"
+    serviceMonitorNamespaceSelector: {}
+
+    podMonitorSelectorNilUsesHelmValues: false
+    podMonitorSelector:
+      matchLabels:
+        encabulator.io/scrape: "true"
+    podMonitorNamespaceSelector: {}
+
+    probeSelectorNilUsesHelmValues: false
+    probeSelector:
+      matchLabels:
+        encabulator.io/scrape: "true"
+    probeNamespaceSelector: {}
+
+    scrapeConfigSelectorNilUsesHelmValues: false
+    scrapeConfigSelector:
+      matchLabels:
+        encabulator.io/scrape: "true"
+    scrapeConfigNamespaceSelector: {}
+
+    # Rules are not label-filtered: an empty selector picks up both this chart's built-in
+    # Kubernetes alerts and charts/encabulator's PrometheusRule, which a single
+    # LabelSelector cannot express as an OR.
+    ruleSelectorNilUsesHelmValues: false
+    ruleSelector: {}
+    ruleNamespaceSelector: {}
+
+    # The console reads instant queries over 1-5 minute windows, so scrape often.
+    scrapeInterval: 15s
+    evaluationInterval: 30s
+    retention: 6h
+    retentionSize: 8GB
+
+    # Exemplars let Grafana jump from a slow histogram bucket into the trace in Jaeger.
+    enableFeatures:
+      - exemplar-storage
+
+    externalLabels:
+      cluster: encabulator
+
+    resources:
+      requests:
+        cpu: 250m
+        memory: 1Gi
+      limits:
+        cpu: 2000m
+        memory: 3Gi
+
+    # v1 keeps Prometheus on an emptyDir: this is a demo, and 6h of retention fits.
+    # Uncomment for a PVC instead.
+    # storageSpec:
+    #   volumeClaimTemplate:
+    #     spec:
+    #       accessModes: ["ReadWriteOnce"]
+    #       resources:
+    #         requests:
+    #           storage: 20Gi
+
+    securityContext:
+      runAsNonRoot: true
+      runAsUser: 1000
+      runAsGroup: 2000
+      fsGroup: 2000
+      seccompProfile:
+        type: RuntimeDefault
+
+# -------------------------------------------------------------------------- Alertmanager
+alertmanager:
+  enabled: true
+  alertmanagerSpec:
+    retention: 24h
+    resources:
+      requests:
+        cpu: 25m
+        memory: 64Mi
+      limits:
+        cpu: 200m
+        memory: 256Mi
+  config:
+    route:
+      group_by: ["alertname", "service"]
+      group_wait: 30s
+      group_interval: 2m
+      repeat_interval: 4h
+      receiver: "null"
+      routes:
+        - receiver: "null"
+          matchers:
+            - alertname = "Watchdog"
+    receivers:
+      # Nothing is paged from a demo. The alerts exist so the Alertmanager UI has content
+      # and so the console can show what the factory thinks of itself.
+      - name: "null"
+
+# ------------------------------------------------------------------------------- Grafana
+grafana:
+  enabled: true
+  fullnameOverride: prometheus-stack-grafana
+
+  # Generated on install; fetch it with
+  #   kubectl -n encabulator-observability get secret prometheus-stack-grafana \
+  #     -o jsonpath='{.data.admin-password}' | base64 -d
+  adminPassword: ""
+
+  defaultDashboardsEnabled: true
+  defaultDashboardsTimezone: browser
+
+  serviceMonitor:
+    enabled: true
+    labels:
+      encabulator.io/scrape: "true"
+
+  # The dashboard sidecar watches ConfigMaps labelled grafana_dashboard=1 in every
+  # namespace; platform/dashboards/*.json are installed that way by scripts/platform.sh.
+  sidecar:
+    dashboards:
+      enabled: true
+      label: grafana_dashboard
+      labelValue: "1"
+      searchNamespace: ALL
+      folderAnnotation: grafana_folder
+      provider:
+        allowUiUpdates: true
+        foldersFromFilesStructure: true
+    datasources:
+      enabled: true
+      defaultDatasourceEnabled: true
+      searchNamespace: ALL
+
+  additionalDataSources:
+    - name: Jaeger
+      type: jaeger
+      uid: jaeger
+      access: proxy
+      # jaeger.values.yaml sets fullnameOverride: jaeger, so this is the query service.
+      url: http://jaeger.encabulator-observability:16686
+      jsonData:
+        tracesToLogsV2:
+          datasourceUid: ""
+        tracesToMetrics:
+          datasourceUid: prometheus
+        # Draw the service graph in Jaeger's Monitor tab from the collector's
+        # service_graph connector output, which Prometheus already scrapes.
+        serviceMap:
+          datasourceUid: prometheus
+        nodeGraph:
+          enabled: true
+
+  grafana.ini:
+    analytics:
+      reporting_enabled: false
+      check_for_updates: false
+    users:
+      default_theme: dark
+    # The console links out to Grafana; anonymous viewers keep the demo frictionless.
+    auth.anonymous:
+      enabled: true
+      org_role: Viewer
+    dashboards:
+      default_home_dashboard_path: /tmp/dashboards/encabulator-works.json
+    feature_toggles:
+      enable: traceToMetrics
+
+  resources:
+    requests:
+      cpu: 50m
+      memory: 192Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
+
+# ----------------------------------------------------------------- exporters and operator
+kube-state-metrics:
+  prometheus:
+    monitor:
+      additionalLabels:
+        encabulator.io/scrape: "true"
+  # The Backing Stores dashboard reads container_* and kube_persistentvolumeclaim_*.
+  metricLabelsAllowlist:
+    - pods=[app.kubernetes.io/name,app.kubernetes.io/part-of,encabulator.io/plane]
+    - deployments=[app.kubernetes.io/name,app.kubernetes.io/part-of,encabulator.io/plane]
+
+prometheus-node-exporter:
+  prometheus:
+    monitor:
+      additionalLabels:
+        encabulator.io/scrape: "true"
+
+prometheusOperator:
+  serviceMonitor:
+    additionalLabels:
+      encabulator.io/scrape: "true"
+  resources:
+    requests:
+      cpu: 50m
+      memory: 128Mi
+    limits:
+      cpu: 400m
+      memory: 512Mi
+
+# The stack's own Kubernetes alerts stay on; the Encabulator's live in charts/encabulator.
+defaultRules:
+  create: true
+  rules:
+    # Nothing in v1 runs on a control plane we can scrape, so skip the etcd/scheduler rules
+    # that fire permanently on EKS and other managed control planes.
+    etcd: false
+    kubeSchedulerAlerting: false
+    kubeControllerManager: false
+    kubeProxy: false

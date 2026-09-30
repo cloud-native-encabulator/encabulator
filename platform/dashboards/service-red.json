@@ -1,0 +1,348 @@
+{
+  "uid": "encabulator-service-red",
+  "title": "Encabulator Service RED",
+  "description": "Rate, Errors, Duration for every Encabulator service, from http_server_request_duration_seconds, plus the service graph edges the OTel collector derives from traces.",
+  "tags": ["encabulator", "red"],
+  "editable": true,
+  "graphTooltip": 1,
+  "schemaVersion": 39,
+  "refresh": "10s",
+  "time": { "from": "now-30m", "to": "now" },
+  "timezone": "browser",
+  "templating": {
+    "list": [
+      {
+        "name": "datasource",
+        "label": "Prometheus",
+        "type": "datasource",
+        "query": "prometheus",
+        "current": {},
+        "hide": 0
+      },
+      {
+        "name": "namespace",
+        "label": "Namespace",
+        "type": "query",
+        "datasource": "${datasource}",
+        "query": "label_values(http_server_request_duration_seconds_count, namespace)",
+        "current": { "text": "encabulator", "value": "encabulator" },
+        "refresh": 1
+      },
+      {
+        "name": "service",
+        "label": "Service",
+        "type": "query",
+        "datasource": "${datasource}",
+        "query": "label_values(http_server_request_duration_seconds_count{namespace=\"$namespace\"}, service)",
+        "current": { "text": "All", "value": "$__all" },
+        "refresh": 2,
+        "includeAll": true,
+        "multi": true
+      },
+      {
+        "name": "plane",
+        "label": "Plane",
+        "type": "query",
+        "datasource": "${datasource}",
+        "query": "label_values(http_server_request_duration_seconds_count{namespace=\"$namespace\"}, plane)",
+        "current": { "text": "All", "value": "$__all" },
+        "refresh": 2,
+        "includeAll": true,
+        "multi": true
+      }
+    ]
+  },
+  "panels": [
+    {
+      "type": "row",
+      "title": "All services",
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 0 },
+      "collapsed": false,
+      "panels": []
+    },
+    {
+      "id": 1,
+      "type": "table",
+      "title": "RED table",
+      "description": "One row per service. Sort by whichever column is embarrassing.",
+      "datasource": "${datasource}",
+      "gridPos": { "h": 11, "w": 24, "x": 0, "y": 1 },
+      "fieldConfig": {
+        "defaults": { "noValue": "no data", "custom": { "align": "auto" } },
+        "overrides": [
+          {
+            "matcher": { "id": "byName", "options": "rps" },
+            "properties": [
+              { "id": "unit", "value": "reqps" },
+              { "id": "decimals", "value": 2 }
+            ]
+          },
+          {
+            "matcher": { "id": "byName", "options": "error ratio" },
+            "properties": [
+              { "id": "unit", "value": "percentunit" },
+              { "id": "decimals", "value": 2 },
+              {
+                "id": "custom.cellOptions",
+                "value": { "type": "color-background", "mode": "gradient" }
+              },
+              {
+                "id": "thresholds",
+                "value": {
+                  "mode": "absolute",
+                  "steps": [
+                    { "color": "green", "value": null },
+                    { "color": "orange", "value": 0.01 },
+                    { "color": "red", "value": 0.05 }
+                  ]
+                }
+              }
+            ]
+          },
+          {
+            "matcher": { "id": "byRegexp", "options": "p(50|95|99)" },
+            "properties": [
+              { "id": "unit", "value": "s" },
+              { "id": "decimals", "value": 3 }
+            ]
+          }
+        ]
+      },
+      "options": { "showHeader": true, "footer": { "show": false } },
+      "transformations": [
+        { "id": "joinByField", "options": { "byField": "service", "mode": "outer" } },
+        {
+          "id": "organize",
+          "options": {
+            "excludeByName": { "Time": true, "Time 1": true, "Time 2": true, "Time 3": true, "Time 4": true, "Time 5": true },
+            "renameByName": {
+              "Value #A": "rps",
+              "Value #B": "error ratio",
+              "Value #C": "p50",
+              "Value #D": "p95",
+              "Value #E": "p99"
+            }
+          }
+        }
+      ],
+      "targets": [
+        {
+          "refId": "A",
+          "format": "table",
+          "instant": true,
+          "expr": "sum by (service) (rate(http_server_request_duration_seconds_count{namespace=\"$namespace\",service=~\"$service\",plane=~\"$plane\"}[5m]))"
+        },
+        {
+          "refId": "B",
+          "format": "table",
+          "instant": true,
+          "expr": "sum by (service) (rate(http_server_request_duration_seconds_count{namespace=\"$namespace\",service=~\"$service\",plane=~\"$plane\",http_response_status_code=~\"5..\"}[5m])) / clamp_min(sum by (service) (rate(http_server_request_duration_seconds_count{namespace=\"$namespace\",service=~\"$service\",plane=~\"$plane\"}[5m])), 0.001)"
+        },
+        {
+          "refId": "C",
+          "format": "table",
+          "instant": true,
+          "expr": "histogram_quantile(0.50, sum by (service, le) (rate(http_server_request_duration_seconds_bucket{namespace=\"$namespace\",service=~\"$service\",plane=~\"$plane\"}[5m])))"
+        },
+        {
+          "refId": "D",
+          "format": "table",
+          "instant": true,
+          "expr": "histogram_quantile(0.95, sum by (service, le) (rate(http_server_request_duration_seconds_bucket{namespace=\"$namespace\",service=~\"$service\",plane=~\"$plane\"}[5m])))"
+        },
+        {
+          "refId": "E",
+          "format": "table",
+          "instant": true,
+          "expr": "histogram_quantile(0.99, sum by (service, le) (rate(http_server_request_duration_seconds_bucket{namespace=\"$namespace\",service=~\"$service\",plane=~\"$plane\"}[5m])))"
+        }
+      ]
+    },
+    {
+      "id": 2,
+      "type": "timeseries",
+      "title": "Rate by service",
+      "datasource": "${datasource}",
+      "gridPos": { "h": 8, "w": 8, "x": 0, "y": 12 },
+      "fieldConfig": {
+        "defaults": { "unit": "reqps", "noValue": "no data", "custom": { "fillOpacity": 10, "lineWidth": 1 } },
+        "overrides": []
+      },
+      "options": { "legend": { "displayMode": "table", "placement": "bottom", "calcs": ["mean", "max"] } },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum by (service) (rate(http_server_request_duration_seconds_count{namespace=\"$namespace\",service=~\"$service\",plane=~\"$plane\"}[2m]))",
+          "legendFormat": "{{service}}"
+        }
+      ]
+    },
+    {
+      "id": 3,
+      "type": "timeseries",
+      "title": "Error ratio by service",
+      "datasource": "${datasource}",
+      "gridPos": { "h": 8, "w": 8, "x": 8, "y": 12 },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit",
+          "min": 0,
+          "noValue": "no errors",
+          "custom": { "fillOpacity": 0, "lineWidth": 2 }
+        },
+        "overrides": []
+      },
+      "options": { "legend": { "displayMode": "table", "placement": "bottom", "calcs": ["mean", "max"] } },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum by (service) (rate(http_server_request_duration_seconds_count{namespace=\"$namespace\",service=~\"$service\",plane=~\"$plane\",http_response_status_code=~\"5..\"}[2m])) / clamp_min(sum by (service) (rate(http_server_request_duration_seconds_count{namespace=\"$namespace\",service=~\"$service\",plane=~\"$plane\"}[2m])), 0.001)",
+          "legendFormat": "{{service}}"
+        }
+      ]
+    },
+    {
+      "id": 4,
+      "type": "timeseries",
+      "title": "p99 duration by service",
+      "datasource": "${datasource}",
+      "gridPos": { "h": 8, "w": 8, "x": 16, "y": 12 },
+      "fieldConfig": {
+        "defaults": { "unit": "s", "noValue": "no data", "custom": { "fillOpacity": 0, "lineWidth": 2 } },
+        "overrides": []
+      },
+      "options": { "legend": { "displayMode": "table", "placement": "bottom", "calcs": ["mean", "max"] } },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "histogram_quantile(0.99, sum by (service, le) (rate(http_server_request_duration_seconds_bucket{namespace=\"$namespace\",service=~\"$service\",plane=~\"$plane\"}[5m])))",
+          "legendFormat": "{{service}}"
+        }
+      ]
+    },
+    {
+      "type": "row",
+      "title": "Per route and per client",
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 20 },
+      "collapsed": false,
+      "panels": []
+    },
+    {
+      "id": 10,
+      "type": "timeseries",
+      "title": "Top routes by rate",
+      "description": "http_route is always the route template, never the raw path (design section 7).",
+      "datasource": "${datasource}",
+      "gridPos": { "h": 9, "w": 12, "x": 0, "y": 21 },
+      "fieldConfig": {
+        "defaults": { "unit": "reqps", "noValue": "no data", "custom": { "fillOpacity": 10, "lineWidth": 1 } },
+        "overrides": []
+      },
+      "options": { "legend": { "displayMode": "table", "placement": "right", "calcs": ["mean"] } },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "topk(12, sum by (service, http_route, http_request_method) (rate(http_server_request_duration_seconds_count{namespace=\"$namespace\",service=~\"$service\",plane=~\"$plane\"}[5m])))",
+          "legendFormat": "{{service}} {{http_request_method}} {{http_route}}"
+        }
+      ]
+    },
+    {
+      "id": 11,
+      "type": "timeseries",
+      "title": "Outbound client latency p95",
+      "description": "http_client_request_duration_seconds by server_address: how each caller experiences its callee.",
+      "datasource": "${datasource}",
+      "gridPos": { "h": 9, "w": 12, "x": 12, "y": 21 },
+      "fieldConfig": {
+        "defaults": { "unit": "s", "noValue": "no data", "custom": { "fillOpacity": 0, "lineWidth": 2 } },
+        "overrides": []
+      },
+      "options": { "legend": { "displayMode": "table", "placement": "right", "calcs": ["mean", "max"] } },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "histogram_quantile(0.95, sum by (service, server_address, le) (rate(http_client_request_duration_seconds_bucket{namespace=\"$namespace\",service=~\"$service\"}[5m])))",
+          "legendFormat": "{{service}} -> {{server_address}}"
+        }
+      ]
+    },
+    {
+      "type": "row",
+      "title": "Service graph (from traces, via the OTel collector)",
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 30 },
+      "collapsed": false,
+      "panels": []
+    },
+    {
+      "id": 20,
+      "type": "table",
+      "title": "Edges",
+      "description": "traces_service_graph_* from the service_graph connector. Virtual server nodes (connection_type=database or messaging_system) are the backing stores, which nothing instruments directly.",
+      "datasource": "${datasource}",
+      "gridPos": { "h": 11, "w": 24, "x": 0, "y": 31 },
+      "fieldConfig": {
+        "defaults": { "noValue": "no traces yet", "custom": { "align": "auto" } },
+        "overrides": [
+          {
+            "matcher": { "id": "byName", "options": "rps" },
+            "properties": [{ "id": "unit", "value": "reqps" }, { "id": "decimals", "value": 2 }]
+          },
+          {
+            "matcher": { "id": "byName", "options": "error ratio" },
+            "properties": [
+              { "id": "unit", "value": "percentunit" },
+              { "id": "custom.cellOptions", "value": { "type": "color-background", "mode": "gradient" } },
+              {
+                "id": "thresholds",
+                "value": {
+                  "mode": "absolute",
+                  "steps": [
+                    { "color": "green", "value": null },
+                    { "color": "orange", "value": 0.01 },
+                    { "color": "red", "value": 0.05 }
+                  ]
+                }
+              }
+            ]
+          },
+          {
+            "matcher": { "id": "byName", "options": "p99" },
+            "properties": [{ "id": "unit", "value": "s" }, { "id": "decimals", "value": 3 }]
+          }
+        ]
+      },
+      "options": { "showHeader": true },
+      "transformations": [
+        { "id": "joinByField", "options": { "byField": "client", "mode": "outer" } },
+        {
+          "id": "organize",
+          "options": {
+            "excludeByName": { "Time": true, "Time 1": true, "Time 2": true, "Time 3": true },
+            "renameByName": { "Value #A": "rps", "Value #B": "error ratio", "Value #C": "p99" }
+          }
+        }
+      ],
+      "targets": [
+        {
+          "refId": "A",
+          "format": "table",
+          "instant": true,
+          "expr": "sum by (client, server, connection_type) (rate(traces_service_graph_request_total[5m]))"
+        },
+        {
+          "refId": "B",
+          "format": "table",
+          "instant": true,
+          "expr": "sum by (client, server, connection_type) (rate(traces_service_graph_request_failed_total[5m])) / clamp_min(sum by (client, server, connection_type) (rate(traces_service_graph_request_total[5m])), 0.001)"
+        },
+        {
+          "refId": "C",
+          "format": "table",
+          "instant": true,
+          "expr": "histogram_quantile(0.99, sum by (client, server, connection_type, le) (rate(traces_service_graph_request_server_seconds_bucket[5m])))"
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,53 @@
+{{/*
+ServiceMonitors carrying encabulator.io/scrape=true, which is exactly what Prometheus
+selects (platform/kube-prometheus-stack.values.yaml). Requires the Prometheus Operator CRDs.
+*/}}
+{{- if .Values.observability.serviceMonitor.enabled }}
+{{- $sm := .Values.observability.serviceMonitor }}
+{{- range $name, $raw := .Values.services }}
+{{- if $raw.enabled }}
+{{- $svc := fromYaml (include "encabulator.svc" (dict "root" $ "svc" $raw)) }}
+---
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: {{ $name }}
+  namespace: {{ include "encabulator.namespace" $ }}
+  labels:
+    {{- include "encabulator.labels" (dict "root" $ "name" $name "plane" $svc.plane "component" "service") | nindent 4 }}
+    {{- toYaml $sm.labels | nindent 4 }}
+spec:
+  namespaceSelector:
+    matchNames:
+      - {{ include "encabulator.namespace" $ }}
+  selector:
+    matchLabels:
+      {{- include "encabulator.selectorLabels" (dict "root" $ "name" $name) | nindent 6 }}
+  endpoints:
+    - port: http
+      path: /metrics
+      scheme: http
+      interval: {{ $sm.interval }}
+      scrapeTimeout: {{ $sm.scrapeTimeout }}
+      honorLabels: false
+      # Keep `pod` on every series: the console's topology reads per-pod request rate.
+      relabelings:
+        - sourceLabels: [__meta_kubernetes_pod_name]
+          targetLabel: pod
+          action: replace
+        - sourceLabels: [__meta_kubernetes_pod_label_encabulator_io_plane]
+          targetLabel: plane
+          action: replace
+        - targetLabel: service
+          replacement: {{ $name | quote }}
+          action: replace
+        {{- with $sm.relabelings }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+      {{- with $sm.metricRelabelings }}
+      metricRelabelings:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+{{- end }}
+{{- end }}
+{{- end }}

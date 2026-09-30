@@ -1,0 +1,242 @@
+{{/*
+PostgreSQL 18 as a single-replica StatefulSet.
+
+Notes that matter:
+  * postgres:18 moved PGDATA to /var/lib/postgresql/18/docker and the volume to
+    /var/lib/postgresql, so the PVC mounts the parent directory.
+  * The image's entrypoint only gosu's to the postgres user when it starts as root. We start
+    as uid 999 directly, which the image supports, and /var/run/postgresql is an emptyDir
+    because the root filesystem is read-only.
+  * The init script runs once, on an empty data directory. It creates one role and one
+    database per entry in postgres.databases, using psql \gexec with format()/%I/%L so the
+    identifiers and passwords are quoted by the server, not by string concatenation.
+*/}}
+{{- if and .Values.postgres.enabled (not .Values.postgres.external.enabled) }}
+{{- $pg := .Values.postgres }}
+{{- $secret := include "encabulator.postgres.secretName" . }}
+{{- $records := list }}
+{{- range $db, $cfg := $pg.databases }}
+{{- $records = append $records (printf "%s:%s:PGPW_%s" $db $cfg.user (upper (replace "-" "_" $db))) }}
+{{- end }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: postgres-init
+  namespace: {{ include "encabulator.namespace" . }}
+  labels:
+    {{- include "encabulator.storeLabels" (dict "root" $ "name" "postgres") | nindent 4 }}
+data:
+  10-encabulator-databases.sh: |
+    #!/usr/bin/env bash
+    # Create one role + one database per entry in ENCABULATOR_DATABASES.
+    # Each record is "database:role:password_env_var".
+    #
+    # Heredoc bodies and terminators sit at column 0 on purpose: `<<-` only strips tabs,
+    # so an indented terminator would never match.
+    set -euo pipefail
+
+    for record in ${ENCABULATOR_DATABASES}; do
+      db="${record%%:*}"
+      rest="${record#*:}"
+      role="${rest%%:*}"
+      pwvar="${rest##*:}"
+      pw="${!pwvar:-}"
+      if [ -z "$pw" ]; then
+        echo "encabulator-init: no password in \$$pwvar for database $db" >&2
+        exit 1
+      fi
+
+      echo "encabulator-init: provisioning database '$db' owned by role '$role'"
+      psql -v ON_ERROR_STOP=1 --username "$POSTGRES_USER" --dbname postgres \
+           -v role="$role" -v pw="$pw" -v db="$db" <<'SQL'
+    SELECT format('CREATE ROLE %I LOGIN PASSWORD %L', :'role', :'pw')
+    WHERE NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = :'role')
+    \gexec
+    SELECT format('ALTER ROLE %I LOGIN PASSWORD %L', :'role', :'pw')
+    WHERE EXISTS (SELECT 1 FROM pg_roles WHERE rolname = :'role')
+    \gexec
+    SELECT format('CREATE DATABASE %I OWNER %I', :'db', :'role')
+    WHERE NOT EXISTS (SELECT 1 FROM pg_database WHERE datname = :'db')
+    \gexec
+    SELECT format('GRANT ALL PRIVILEGES ON DATABASE %I TO %I', :'db', :'role')
+    \gexec
+    -- PUBLIC gets CONNECT on every new database by default, which would let the detractor
+    -- open the ledger. Only the owner (and the superuser) should be able to connect.
+    SELECT format('REVOKE CONNECT ON DATABASE %I FROM PUBLIC', :'db')
+    \gexec
+    SQL
+
+      # PostgreSQL 15+ does not let non-owners create objects in `public`, and the new
+      # database inherits template1's public schema owner, so hand it over explicitly.
+      psql -v ON_ERROR_STOP=1 --username "$POSTGRES_USER" --dbname "$db" \
+           -v role="$role" <<'SQL'
+    SELECT format('ALTER SCHEMA public OWNER TO %I', :'role')
+    \gexec
+    SQL
+    done
+
+    echo "encabulator-init: done"
+---
+{{/* Headless service for the StatefulSet's stable pod DNS. */}}
+apiVersion: v1
+kind: Service
+metadata:
+  name: postgres-headless
+  namespace: {{ include "encabulator.namespace" . }}
+  labels:
+    {{- include "encabulator.storeLabels" (dict "root" $ "name" "postgres") | nindent 4 }}
+spec:
+  type: ClusterIP
+  clusterIP: None
+  publishNotReadyAddresses: true
+  ports:
+    - name: postgres
+      port: {{ $pg.service.port }}
+      targetPort: postgres
+      protocol: TCP
+  selector:
+    {{- include "encabulator.selectorLabels" (dict "root" $ "name" "postgres") | nindent 4 }}
+---
+{{/* Stable VIP the services connect to: DATABASE_URL points at postgres:5432. */}}
+apiVersion: v1
+kind: Service
+metadata:
+  name: postgres
+  namespace: {{ include "encabulator.namespace" . }}
+  labels:
+    {{- include "encabulator.storeLabels" (dict "root" $ "name" "postgres") | nindent 4 }}
+spec:
+  type: ClusterIP
+  ports:
+    - name: postgres
+      port: {{ $pg.service.port }}
+      targetPort: postgres
+      protocol: TCP
+  selector:
+    {{- include "encabulator.selectorLabels" (dict "root" $ "name" "postgres") | nindent 4 }}
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: postgres
+  namespace: {{ include "encabulator.namespace" . }}
+  labels:
+    {{- include "encabulator.storeLabels" (dict "root" $ "name" "postgres") | nindent 4 }}
+spec:
+  serviceName: postgres-headless
+  replicas: 1
+  podManagementPolicy: OrderedReady
+  selector:
+    matchLabels:
+      {{- include "encabulator.selectorLabels" (dict "root" $ "name" "postgres") | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "encabulator.storePodLabels" (dict "root" $ "name" "postgres") | nindent 8 }}
+    spec:
+      automountServiceAccountToken: false
+      {{- with $.Values.global.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      securityContext:
+        {{- toYaml $pg.podSecurityContext | nindent 8 }}
+      terminationGracePeriodSeconds: 60
+      {{- with $pg.nodeSelector }}
+      nodeSelector: {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with $pg.tolerations }}
+      tolerations: {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with $pg.affinity }}
+      affinity: {{- toYaml . | nindent 8 }}
+      {{- end }}
+      containers:
+        - name: postgres
+          image: {{ printf "%s:%s" $pg.image.repository $pg.image.tag | quote }}
+          imagePullPolicy: {{ $pg.image.pullPolicy }}
+          securityContext:
+            {{- toYaml $pg.containerSecurityContext | nindent 12 }}
+          args:
+            {{- toYaml $pg.args | nindent 12 }}
+          ports:
+            - name: postgres
+              containerPort: {{ $pg.service.port }}
+              protocol: TCP
+          env:
+            - name: POSTGRES_USER
+              value: {{ $pg.superuser.user | quote }}
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ $secret | quote }}
+                  key: {{ $pg.superuser.passwordKey | quote }}
+            - name: POSTGRES_DB
+              value: {{ $pg.superuser.user | quote }}
+            - name: POSTGRES_INITDB_ARGS
+              value: "--data-checksums"
+            - name: PGDATA
+              value: {{ printf "%s/18/docker" $pg.dataDir | quote }}
+            # One record per logical database: "database:role:password_env_var".
+            - name: ENCABULATOR_DATABASES
+              value: {{ join " " $records | quote }}
+            {{- range $db, $cfg := $pg.databases }}
+            - name: {{ printf "PGPW_%s" (upper (replace "-" "_" $db)) }}
+              valueFrom:
+                secretKeyRef:
+                  name: {{ $secret | quote }}
+                  key: {{ $cfg.passwordKey | quote }}
+            {{- end }}
+          startupProbe:
+            exec:
+              command: ["pg_isready", "-U", {{ $pg.superuser.user | quote }}, "-h", "127.0.0.1"]
+            periodSeconds: 5
+            failureThreshold: 60
+          livenessProbe:
+            exec:
+              command: ["pg_isready", "-U", {{ $pg.superuser.user | quote }}, "-h", "127.0.0.1"]
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 6
+          readinessProbe:
+            exec:
+              command: ["pg_isready", "-U", {{ $pg.superuser.user | quote }}, "-h", "127.0.0.1"]
+            periodSeconds: 5
+            timeoutSeconds: 3
+            failureThreshold: 3
+          resources:
+            {{- toYaml $pg.resources | nindent 12 }}
+          volumeMounts:
+            - name: data
+              mountPath: {{ $pg.dataDir }}
+            - name: init
+              mountPath: /docker-entrypoint-initdb.d
+              readOnly: true
+            # Read-only root filesystem: the unix socket directory and scratch must be writable.
+            - name: run
+              mountPath: /var/run/postgresql
+            - name: tmp
+              mountPath: /tmp
+      volumes:
+        - name: init
+          configMap:
+            name: postgres-init
+            defaultMode: 0555
+        - name: run
+          emptyDir: {}
+        - name: tmp
+          emptyDir: {}
+        {{- if not $pg.persistence.enabled }}
+        - name: data
+          emptyDir: {}
+        {{- end }}
+  {{- if $pg.persistence.enabled }}
+  volumeClaimTemplates:
+    - metadata:
+        name: data
+        labels:
+          {{- include "encabulator.storeLabels" (dict "root" $ "name" "postgres") | nindent 10 }}
+      spec:
+        {{- include "encabulator.pvc" (dict "persistence" $pg.persistence) | nindent 8 }}
+  {{- end }}
+{{- end }}

@@ -1,0 +1,89 @@
+{{/*
+Namespaced RBAC only. Nothing in the Encabulator needs a ClusterRole (design section 8.13).
+
+  malaise-injection-engine  mutates pods, deployments, deployments/scale and networkpolicies
+  encabulation-control-console  reads pods and deployments and nothing else
+*/}}
+{{- $ns := include "encabulator.namespace" . }}
+
+{{- with (get .Values.services "malaise-injection-engine") }}
+{{- if .enabled }}
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: malaise-injection-engine
+  namespace: {{ $ns }}
+  labels:
+    {{- include "encabulator.labels" (dict "root" $ "name" "malaise-injection-engine" "plane" "control" "component" "rbac") | nindent 4 }}
+rules:
+  # pod-kill
+  - apiGroups: [""]
+    resources: ["pods"]
+    verbs: ["get", "list", "delete"]
+  # scale (remembers the original replica count in an annotation)
+  - apiGroups: ["apps"]
+    resources: ["deployments"]
+    verbs: ["get", "list", "patch"]
+  - apiGroups: ["apps"]
+    resources: ["deployments/scale"]
+    verbs: ["get", "patch"]
+  # partition
+  - apiGroups: ["networking.k8s.io"]
+    resources: ["networkpolicies"]
+    verbs: ["get", "list", "create", "delete"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: malaise-injection-engine
+  namespace: {{ $ns }}
+  labels:
+    {{- include "encabulator.labels" (dict "root" $ "name" "malaise-injection-engine" "plane" "control" "component" "rbac") | nindent 4 }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: malaise-injection-engine
+subjects:
+  - kind: ServiceAccount
+    name: malaise-injection-engine
+    namespace: {{ $ns }}
+{{- end }}
+{{- end }}
+
+{{- with (get .Values.services "encabulation-control-console") }}
+{{- if and .enabled .kubernetesReader }}
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: encabulation-control-console
+  namespace: {{ $ns }}
+  labels:
+    {{- include "encabulator.labels" (dict "root" $ "name" "encabulation-control-console" "plane" "control" "component" "rbac") | nindent 4 }}
+rules:
+  # Read only. The console never mutates the cluster; it asks the malaise engine to.
+  - apiGroups: [""]
+    resources: ["pods"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: ["apps"]
+    resources: ["deployments"]
+    verbs: ["get", "list", "watch"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: encabulation-control-console
+  namespace: {{ $ns }}
+  labels:
+    {{- include "encabulator.labels" (dict "root" $ "name" "encabulation-control-console" "plane" "control" "component" "rbac") | nindent 4 }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: encabulation-control-console
+subjects:
+  - kind: ServiceAccount
+    name: encabulation-control-console
+    namespace: {{ $ns }}
+{{- end }}
+{{- end }}

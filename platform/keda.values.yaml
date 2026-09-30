@@ -1,0 +1,77 @@
+# KEDA values for the Cloud Native Encabulator.
+#
+#   helm upgrade --install keda kedacore/keda \
+#     --version 2.21.0 -n keda --create-namespace \
+#     -f platform/keda.values.yaml
+#
+# One job in v1: scale logarithmic-casing-line on JetStream consumer lag. The ScaledObject
+# itself lives in charts/encabulator (enable it with --set keda.enabled=true), because the
+# lag threshold is a property of the factory, not of KEDA.
+
+# KEDA needs its CRDs before charts/encabulator can render a ScaledObject.
+crds:
+  install: true
+
+operator:
+  replicaCount: 1
+  resources:
+    requests:
+      cpu: 100m
+      memory: 128Mi
+    limits:
+      cpu: 1000m
+      memory: 512Mi
+
+metricsServer:
+  replicaCount: 1
+  resources:
+    requests:
+      cpu: 100m
+      memory: 128Mi
+    limits:
+      cpu: 1000m
+      memory: 512Mi
+
+# The admission webhooks reject malformed ScaledObjects, including two ScaledObjects
+# fighting over one Deployment, which is exactly the mistake worth catching here.
+webhooks:
+  enabled: true
+  resources:
+    requests:
+      cpu: 50m
+      memory: 64Mi
+    limits:
+      cpu: 500m
+      memory: 256Mi
+
+podSecurityContext:
+  runAsNonRoot: true
+  seccompProfile:
+    type: RuntimeDefault
+
+securityContext:
+  allowPrivilegeEscalation: false
+  readOnlyRootFilesystem: true
+  capabilities:
+    drop: ["ALL"]
+
+prometheus:
+  metricServer:
+    enabled: true
+    serviceMonitor:
+      enabled: true
+      additionalLabels:
+        encabulator.io/scrape: "true"
+  operator:
+    enabled: true
+    serviceMonitor:
+      enabled: true
+      additionalLabels:
+        encabulator.io/scrape: "true"
+    # keda_scaler_metrics_value is the series the casing-line backlog alert reads.
+  webhooks:
+    enabled: true
+    serviceMonitor:
+      enabled: true
+      additionalLabels:
+        encabulator.io/scrape: "true"

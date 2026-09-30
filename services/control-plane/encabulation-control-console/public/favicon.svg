@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="Encabulator Works">
+  <rect width="64" height="64" rx="8" fill="#efe6d2"/>
+  <circle cx="32" cy="32" r="22" fill="#14251a" stroke="#a9853c" stroke-width="3"/>
+  <path d="M32 32 L46 22" stroke="#6bf0a0" stroke-width="3" stroke-linecap="round"/>
+  <circle cx="32" cy="32" r="3" fill="#d6b56a"/>
+  <path d="M14 46 Q32 36 50 46" stroke="#6bf0a0" stroke-width="2" fill="none" opacity="0.6"/>
+</svg>

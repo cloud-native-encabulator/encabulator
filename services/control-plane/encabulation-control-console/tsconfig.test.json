@@ -1,0 +1,16 @@
+{
+  "// note": "Type checking for the test suites. Both environments at once: the BFF tests need Node, the SPA tests need the DOM. Nothing here is emitted or shipped.",
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "noEmit": true,
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "lib": ["ES2023", "DOM", "DOM.Iterable"],
+    "types": ["node", "vite/client"],
+    "paths": {
+      "@/*": ["./src/app/*"],
+      "@shared/*": ["./src/shared/*"]
+    }
+  },
+  "include": ["src/**/__tests__/**/*.ts", "src/**/*.test.ts", "src/app/**/*.vue", "env.d.ts"]
+}

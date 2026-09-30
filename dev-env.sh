@@ -6,3 +6,7 @@ export DOCKER_HOST="unix:///Applications/Finch/lima/data/finch/sock/finch.sock"
 export TESTCONTAINERS_RYUK_DISABLED=true
 export CONTAINER_RUNTIME=finch
 export GOTOOLCHAIN=auto
+
+# This machine's resolver cannot see proxy.golang.org from inside the Finch VM,
+# so Go image builds use a reachable mirror. Host `go` commands are unaffected.
+export BUILD_GOPROXY="https://goproxy.io"

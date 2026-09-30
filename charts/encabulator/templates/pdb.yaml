@@ -1,0 +1,27 @@
+{{/* A PodDisruptionBudget for every workload that can run more than one replica
+     (design section 9). Single-replica singletons get none: a PDB on a one-pod
+     workload only blocks node drains. */}}
+{{- range $name, $raw := .Values.services }}
+{{- if $raw.enabled }}
+{{- $svc := fromYaml (include "encabulator.svc" (dict "root" $ "svc" $raw)) }}
+{{- if include "encabulator.wantsPDB" (dict "root" $ "name" $name "svc" $svc) }}
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: {{ $name }}
+  namespace: {{ include "encabulator.namespace" $ }}
+  labels:
+    {{- include "encabulator.labels" (dict "root" $ "name" $name "plane" $svc.plane "component" "service") | nindent 4 }}
+spec:
+  {{- if $svc.podDisruptionBudget.minAvailable }}
+  minAvailable: {{ $svc.podDisruptionBudget.minAvailable }}
+  {{- else }}
+  maxUnavailable: {{ $svc.podDisruptionBudget.maxUnavailable }}
+  {{- end }}
+  selector:
+    matchLabels:
+      {{- include "encabulator.selectorLabels" (dict "root" $ "name" $name) | nindent 6 }}
+{{- end }}
+{{- end }}
+{{- end }}

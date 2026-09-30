@@ -1,0 +1,245 @@
+# OpenTelemetry Collector values for the Cloud Native Encabulator.
+#
+#   helm upgrade --install opentelemetry-collector open-telemetry/opentelemetry-collector \
+#     --version 0.174.0 -n encabulator-observability \
+#     -f platform/opentelemetry-collector.values.yaml
+#
+# Deployment mode, one replica, on purpose: the service_graph connector has to see *both*
+# sides of every edge to pair a client span with its server span, and spans of one trace
+# spread across replicas do not pair reliably. Scaling this out means putting the
+# loadbalancing exporter in front of it, which v1 does not need.
+
+mode: deployment
+replicaCount: 1
+fullnameOverride: opentelemetry-collector
+
+image:
+  # The k8s distribution carries k8sattributes, service_graph and span_metrics.
+  repository: otel/opentelemetry-collector-k8s
+
+# k8sattributes needs to read pods, namespaces and replicasets cluster-wide.
+clusterRole:
+  create: true
+  rules:
+    - apiGroups: [""]
+      resources: ["pods", "namespaces", "nodes"]
+      verbs: ["get", "list", "watch"]
+    - apiGroups: ["apps"]
+      resources: ["replicasets"]
+      verbs: ["get", "list", "watch"]
+
+presets:
+  kubernetesAttributes:
+    enabled: false # configured by hand below, so the field list is explicit
+  kubeletMetrics:
+    enabled: false
+  logsCollection:
+    enabled: false
+
+ports:
+  otlp:
+    enabled: true
+    hostPort: null
+  otlp-http:
+    enabled: true
+    hostPort: null
+  # Not used: the Encabulator speaks OTLP only.
+  jaeger-compact:
+    enabled: false
+  jaeger-thrift:
+    enabled: false
+  jaeger-grpc:
+    enabled: false
+  zipkin:
+    enabled: false
+  # 8888: the collector's own internal telemetry.
+  metrics:
+    enabled: true
+    containerPort: 8888
+    servicePort: 8888
+    protocol: TCP
+  # 8889: the prometheus exporter that publishes the connector output the console reads
+  # (traces_service_graph_* and traces_span_metrics_*).
+  prometheus:
+    enabled: true
+    containerPort: 8889
+    servicePort: 8889
+    protocol: TCP
+
+serviceMonitor:
+  enabled: true
+  metricsEndpoints:
+    - port: metrics
+      interval: 30s
+    - port: prometheus
+      interval: 15s
+      # The connectors emit cumulative counters already; keep their labels verbatim so
+      # `client`, `server` and `connection_type` survive.
+      honorLabels: true
+  extraLabels:
+    encabulator.io/scrape: "true"
+
+resources:
+  requests:
+    cpu: 200m
+    memory: 512Mi
+  limits:
+    cpu: 2000m
+    memory: 1Gi
+
+podSecurityContext:
+  runAsNonRoot: true
+  runAsUser: 10001
+  runAsGroup: 10001
+  seccompProfile:
+    type: RuntimeDefault
+
+securityContext:
+  allowPrivilegeEscalation: false
+  readOnlyRootFilesystem: true
+  capabilities:
+    drop: ["ALL"]
+
+config:
+  receivers:
+    # Drop what the chart enables by default; the Encabulator only speaks OTLP, and the
+    # collector's own 8888 endpoint is scraped by Prometheus rather than self-scraped.
+    jaeger: null
+    zipkin: null
+    prometheus: null
+    otlp:
+      protocols:
+        grpc:
+          endpoint: ${env:MY_POD_IP}:4317
+        http:
+          endpoint: ${env:MY_POD_IP}:4318
+
+  processors:
+    # Stamps k8s.pod.name / k8s.namespace.name / k8s.deployment.name onto every span, which
+    # is how the console joins a trace back to a pod on the topology.
+    k8sattributes:
+      auth_type: serviceAccount
+      passthrough: false
+      extract:
+        metadata:
+          - k8s.namespace.name
+          - k8s.pod.name
+          - k8s.pod.uid
+          - k8s.node.name
+          - k8s.deployment.name
+          - k8s.replicaset.name
+        labels:
+          - tag_name: encabulator.plane
+            key: encabulator.io/plane
+            from: pod
+          - tag_name: service.language
+            key: encabulator.io/language
+            from: pod
+      pod_association:
+        - sources:
+            - from: resource_attribute
+              name: k8s.pod.ip
+        - sources:
+            - from: resource_attribute
+              name: k8s.pod.uid
+        - sources:
+            - from: connection
+
+    batch:
+      send_batch_size: 1024
+      send_batch_max_size: 2048
+      timeout: 5s
+
+  connectors:
+    # Component names are the current ones; `servicegraph` and `spanmetrics` still work in
+    # collector 0.161.0 but are deprecated.
+    service_graph:
+      # Design section 8.15: the console draws every topology edge from these metrics.
+      latency_histogram_buckets:
+        [2ms, 5ms, 10ms, 25ms, 50ms, 100ms, 250ms, 500ms, 1s, 2s, 5s, 10s]
+      # A client span whose peer carries any of these attributes gets a *virtual* server
+      # node, which is how Postgres, Valkey, NATS and InfluxDB appear on the topology at all:
+      # nothing instruments them, so they only ever exist as the far end of a client span.
+      virtual_node_peer_attributes:
+        - peer.service
+        - db.system
+        - db.system.name
+        - server.address
+        - messaging.destination.name
+        - db.name
+        - db.namespace
+      virtual_node_extra_label: true
+      database_name_attributes:
+        - db.namespace
+        - db.name
+      store:
+        ttl: 10s
+        max_items: 20000
+      metrics_flush_interval: 15s
+
+    span_metrics:
+      namespace: traces.span.metrics
+      histogram:
+        unit: s
+        explicit:
+          buckets:
+            [5ms, 10ms, 25ms, 50ms, 100ms, 250ms, 500ms, 1s, 2.5s, 5s, 10s]
+      dimensions:
+        - name: http.request.method
+        - name: http.route
+        - name: http.response.status_code
+        - name: messaging.system
+        - name: messaging.destination.name
+        - name: db.system.name
+        - name: encabulator.plane
+      exclude_dimensions:
+        - status.code
+      metrics_flush_interval: 15s
+      aggregation_cardinality_limit: 20000
+      exemplars:
+        enabled: true
+
+  exporters:
+    debug: null
+    # Traces land in Jaeger.
+    otlp/jaeger:
+      endpoint: jaeger.encabulator-observability:4317
+      tls:
+        insecure: true
+      retry_on_failure:
+        enabled: true
+      sending_queue:
+        enabled: true
+        queue_size: 2000
+
+    # Connector output is exposed for Prometheus to scrape, not pushed.
+    prometheus:
+      endpoint: ${env:MY_POD_IP}:8889
+      send_timestamps: true
+      metric_expiration: 5m
+      enable_open_metrics: true
+      resource_to_telemetry_conversion:
+        enabled: false
+
+  service:
+    extensions:
+      - health_check
+    telemetry:
+      metrics:
+        readers:
+          - pull:
+              exporter:
+                prometheus:
+                  host: ${env:MY_POD_IP}
+                  port: 8888
+    pipelines:
+      traces:
+        receivers: [otlp]
+        processors: [k8sattributes, memory_limiter, batch]
+        exporters: [otlp/jaeger, service_graph, span_metrics]
+      metrics:
+        receivers: [service_graph, span_metrics]
+        processors: [batch]
+        exporters: [prometheus]
+      # The Encabulator logs to stdout as JSON lines; nothing ships logs over OTLP in v1.
+      logs: null

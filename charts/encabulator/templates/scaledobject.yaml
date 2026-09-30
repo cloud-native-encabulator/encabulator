@@ -1,0 +1,42 @@
+{{/*
+KEDA scales logarithmic-casing-line on JetStream consumer lag: the number of
+unacknowledged messages on the `logarithmic-casing-line` durable is the congestion
+signal (design section 5). The nats-jetstream scaler reads the NATS *monitoring* port
+(8222), not the client port, so nats.service.monitoringPort must be exposed.
+*/}}
+{{- $name := "logarithmic-casing-line" }}
+{{- $raw := get .Values.services $name }}
+{{- if and .Values.keda.enabled $raw $raw.enabled }}
+{{- $svc := fromYaml (include "encabulator.svc" (dict "root" $ "svc" $raw)) }}
+{{- $k := .Values.keda.casingLine }}
+apiVersion: keda.sh/v1alpha1
+kind: ScaledObject
+metadata:
+  name: {{ $name }}
+  namespace: {{ include "encabulator.namespace" . }}
+  labels:
+    {{- include "encabulator.labels" (dict "root" $ "name" $name "plane" $svc.plane "component" "service") | nindent 4 }}
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: {{ $name }}
+  pollingInterval: {{ $k.pollingInterval }}
+  cooldownPeriod: {{ $k.cooldownPeriod }}
+  minReplicaCount: {{ $k.minReplicaCount }}
+  maxReplicaCount: {{ $k.maxReplicaCount }}
+  advanced:
+    restoreToOriginalReplicaCount: true
+    horizontalPodAutoscalerConfig:
+      name: {{ $name }}-keda
+  triggers:
+    - type: nats-jetstream
+      metadata:
+        natsServerMonitoringEndpoint: {{ include "encabulator.nats.monitoringEndpoint" . | quote }}
+        account: {{ $k.account | quote }}
+        stream: ENCABULATOR
+        consumer: {{ $name | quote }}
+        lagThreshold: {{ $k.lagThreshold | quote }}
+        activationLagThreshold: {{ $k.activationLagThreshold | quote }}
+        useHttps: "false"
+{{- end }}

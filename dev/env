@@ -1,0 +1,95 @@
+# Environment for running Encabulator services natively against dev/compose.yaml.
+#
+#   source ./dev-env.sh            # DOCKER_HOST for Finch
+#   make dev-up
+#   set -a && source dev/env && set +a
+#   make -C services/data-plane/hydrocoptic-datastore run
+#
+# Every variable here is one from docs/design.md Appendix A. Nothing in here is a secret:
+# dev/compose.yaml binds to 127.0.0.1 with fixed local credentials.
+#
+# Each service reads only the variables it needs and ignores the rest, so one file works for
+# all fifteen. Override per shell as you like, e.g. LOG_LEVEL=debug.
+
+# ------------------------------------------------------------------------------ common
+PORT=8080
+LOG_LEVEL=debug
+
+# Traces go to the local Jaeger's OTLP/HTTP endpoint. Unset OTEL_EXPORTER_OTLP_ENDPOINT to
+# make tracing a no-op (design section 7).
+OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:4318
+OTEL_EXPORTER_OTLP_PROTOCOL=http/protobuf
+OTEL_RESOURCE_ATTRIBUTES=service.namespace=encabulator,deployment.environment=dev
+
+# Leave MALAISE_ENGINE_URL unset unless you are running the engine too: an unset value
+# disables the malaise middleware, which is what you want while iterating on one service.
+# MALAISE_ENGINE_URL=http://localhost:8093   # the engine's own port, see the list below
+
+# Likewise: unset means "use the built-in flag defaults".
+# DIFFERENTIAL_GIRDLESPRING_URL=http://localhost:8114
+
+# ------------------------------------------------------------------------ backing stores
+# Pick the DATABASE_URL for the service you are running; they differ by role and database.
+DATABASE_URL=postgres://hydrocoptic:hydrocoptic@localhost:5432/hydrocoptic?sslmode=disable
+# unilateral-phase-detractor:
+#   DATABASE_URL=postgres://detractor:detractor@localhost:5432/detractor?sslmode=disable
+# differential-girdlespring:
+#   DATABASE_URL=postgres://girdlespring:girdlespring@localhost:5432/girdlespring?sslmode=disable
+
+VALKEY_URL=redis://default:encabulator@localhost:6379/0
+NATS_URL=nats://localhost:4222
+
+INFLUXDB_URL=http://localhost:8181
+INFLUXDB_TOKEN=apiv3_encabulator_development_token_not_a_secret
+INFLUXDB_DATABASE=sinusoidal
+
+# ------------------------------------------------------------- service URLs (Appendix A)
+# Ports are chosen so all fifteen can run at once without collisions. A service started on
+# its own uses PORT=8080; override PORT to match the list below when running several.
+ENCABULATION_CONTROL_CONSOLE_URL=http://localhost:8090
+CARDINAL_GRAMMETER_URL=http://localhost:8091
+# malaise-injection-engine listens on 8093; export MALAISE_ENGINE_URL above to use it.
+DEMO_SCENARIO_ORCHESTRATOR_URL=http://localhost:8094
+DINGLE_ARM_GATEWAY_URL=http://localhost:8100
+PANAMETRIC_FAM_PROCESSOR_URL=http://localhost:8101
+SPURVING_BEARING_QUOTER_URL=http://localhost:8102
+LOGARITHMIC_CASING_LINE_URL=http://localhost:8103
+NOFER_TRUNNION_DISPATCH_URL=http://localhost:8104
+HYDROCOPTIC_DATASTORE_URL=http://localhost:8110
+PREFABULATED_AMULITE_DEPOT_URL=http://localhost:8111
+SINUSOIDAL_RECORDER_URL=http://localhost:8112
+UNILATERAL_PHASE_DETRACTOR_URL=http://localhost:8113
+SIDE_FUMBLING_DETECTOR_URL=http://localhost:8115
+
+PROMETHEUS_URL=http://localhost:9090
+GRAFANA_EXTERNAL_URL=http://localhost:3000
+JAEGER_EXTERNAL_URL=http://localhost:16686
+
+# ------------------------------------------------------------------- service-specific
+# unilateral-phase-detractor. Generate a key once and keep it out of git:
+#   openssl genrsa 2048 > dev/jwt-dev.pem
+#   export JWT_PRIVATE_KEY="$(cat dev/jwt-dev.pem)"
+JWT_TTL_SECONDS=3600
+BOOTSTRAP_ADMIN_PASSWORD=encabulator-dev-admin
+BOOTSTRAP_OPERATOR_PASSWORD=encabulator-dev-operator
+
+# logarithmic-casing-line
+LINE_CAPACITY=2
+
+# cardinal-grammeter
+CUSTOMERS=10
+CUSTOMER_PASSWORD_SEED=encabulator-dev-seed
+MAX_IN_FLIGHT=64
+AUTOSTART=false
+AUTOSTART_RPS=2
+
+# malaise-injection-engine (Kubernetes-level kinds need a cluster; app-level ones do not)
+POD_NAMESPACE=encabulator
+OBSERVABILITY_NAMESPACE=encabulator-observability
+
+# demo-scenario-orchestrator
+SCENARIO_DIR=/etc/scenarios
+
+# encabulation-control-console
+SESSION_SECRET=encabulator-dev-session-secret
+COOKIE_SECURE=false

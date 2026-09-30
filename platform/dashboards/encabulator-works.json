@@ -1,0 +1,483 @@
+{
+  "uid": "encabulator-works",
+  "title": "Encabulator Works",
+  "description": "The business flow: orders in, units fabricated, side fumbling caught, encabulators shipped. Every panel reads an encabulator_* metric emitted by a service.",
+  "tags": ["encabulator", "business"],
+  "editable": true,
+  "graphTooltip": 1,
+  "schemaVersion": 39,
+  "refresh": "10s",
+  "time": { "from": "now-30m", "to": "now" },
+  "timezone": "browser",
+  "templating": {
+    "list": [
+      {
+        "name": "datasource",
+        "label": "Prometheus",
+        "type": "datasource",
+        "query": "prometheus",
+        "current": {},
+        "hide": 0
+      },
+      {
+        "name": "namespace",
+        "label": "Namespace",
+        "type": "query",
+        "datasource": "${datasource}",
+        "query": "label_values(encabulator_orders_total, namespace)",
+        "current": { "text": "encabulator", "value": "encabulator" },
+        "refresh": 1,
+        "includeAll": false
+      },
+      {
+        "name": "model",
+        "label": "Model",
+        "type": "query",
+        "datasource": "${datasource}",
+        "query": "label_values(encabulator_orders_total{namespace=\"$namespace\"}, model)",
+        "current": { "text": "All", "value": "$__all" },
+        "refresh": 2,
+        "includeAll": true,
+        "multi": true
+      }
+    ]
+  },
+  "panels": [
+    {
+      "type": "row",
+      "title": "Order intake",
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 0 },
+      "collapsed": false,
+      "panels": []
+    },
+    {
+      "id": 1,
+      "type": "stat",
+      "title": "Orders accepted / min",
+      "description": "encabulator_orders_total{result=\"accepted\"}, from the panametric fam processor.",
+      "datasource": "${datasource}",
+      "gridPos": { "h": 5, "w": 4, "x": 0, "y": 1 },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "decimals": 1,
+          "noValue": "no data",
+          "color": { "mode": "thresholds" },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [{ "color": "text", "value": null }]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false },
+        "graphMode": "area",
+        "colorMode": "none",
+        "textMode": "auto"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum(rate(encabulator_orders_total{namespace=\"$namespace\",result=\"accepted\",model=~\"$model\"}[5m])) * 60",
+          "legendFormat": "accepted"
+        }
+      ]
+    },
+    {
+      "id": 2,
+      "type": "stat",
+      "title": "Rejected / min",
+      "description": "Orders that could not be priced or reserved. These never reach the ledger.",
+      "datasource": "${datasource}",
+      "gridPos": { "h": 5, "w": 4, "x": 4, "y": 1 },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "decimals": 1,
+          "noValue": "no data",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "text", "value": null },
+              { "color": "orange", "value": 1 },
+              { "color": "red", "value": 10 }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false },
+        "graphMode": "area",
+        "colorMode": "value"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum(rate(encabulator_orders_total{namespace=\"$namespace\",result=~\"rejected|failed\",model=~\"$model\"}[5m])) * 60",
+          "legendFormat": "rejected"
+        }
+      ]
+    },
+    {
+      "id": 3,
+      "type": "stat",
+      "title": "Units in fabrication",
+      "description": "encabulator_line_active_orders summed across casing line pods.",
+      "datasource": "${datasource}",
+      "gridPos": { "h": 5, "w": 4, "x": 8, "y": 1 },
+      "fieldConfig": {
+        "defaults": { "unit": "short", "decimals": 0, "noValue": "no data" },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false },
+        "graphMode": "area"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum(encabulator_line_active_orders{namespace=\"$namespace\"})",
+          "legendFormat": "active orders"
+        }
+      ]
+    },
+    {
+      "id": 4,
+      "type": "stat",
+      "title": "Refabrication rate",
+      "description": "Share of inspected units that failed and go round again. Watch this jump when strict-side-fumbling is on.",
+      "datasource": "${datasource}",
+      "gridPos": { "h": 5, "w": 4, "x": 12, "y": 1 },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit",
+          "decimals": 1,
+          "min": 0,
+          "max": 1,
+          "noValue": "no data",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "orange", "value": 0.15 },
+              { "color": "red", "value": 0.3 }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false },
+        "colorMode": "value",
+        "graphMode": "area"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum(rate(encabulator_units_inspected_total{namespace=\"$namespace\",result=\"failed\"}[10m])) / clamp_min(sum(rate(encabulator_units_inspected_total{namespace=\"$namespace\"}[10m])), 0.001)",
+          "legendFormat": "fail rate"
+        }
+      ]
+    },
+    {
+      "id": 5,
+      "type": "stat",
+      "title": "Encabulators shipped / min",
+      "datasource": "${datasource}",
+      "gridPos": { "h": 5, "w": 4, "x": 16, "y": 1 },
+      "fieldConfig": {
+        "defaults": { "unit": "short", "decimals": 1, "noValue": "no data" },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false },
+        "graphMode": "area"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum(rate(encabulator_shipments_total{namespace=\"$namespace\",status=\"dispatched\"}[5m])) * 60",
+          "legendFormat": "dispatched"
+        }
+      ]
+    },
+    {
+      "id": 6,
+      "type": "stat",
+      "title": "In transit",
+      "description": "Shipments awaiting a nofer trunnion.",
+      "datasource": "${datasource}",
+      "gridPos": { "h": 5, "w": 4, "x": 20, "y": 1 },
+      "fieldConfig": {
+        "defaults": { "unit": "short", "decimals": 0, "noValue": "no data" },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false },
+        "graphMode": "area"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum(encabulator_shipments_in_transit{namespace=\"$namespace\"})",
+          "legendFormat": "in transit"
+        }
+      ]
+    },
+    {
+      "type": "row",
+      "title": "The line",
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 6 },
+      "collapsed": false,
+      "panels": []
+    },
+    {
+      "id": 10,
+      "type": "timeseries",
+      "title": "Orders by result",
+      "datasource": "${datasource}",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 7 },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "reqps",
+          "noValue": "no data",
+          "custom": { "fillOpacity": 25, "stacking": { "mode": "normal" }, "lineWidth": 1 }
+        },
+        "overrides": [
+          {
+            "matcher": { "id": "byName", "options": "accepted" },
+            "properties": [{ "id": "color", "value": { "mode": "fixed", "fixedColor": "green" } }]
+          },
+          {
+            "matcher": { "id": "byName", "options": "rejected" },
+            "properties": [{ "id": "color", "value": { "mode": "fixed", "fixedColor": "orange" } }]
+          },
+          {
+            "matcher": { "id": "byName", "options": "failed" },
+            "properties": [{ "id": "color", "value": { "mode": "fixed", "fixedColor": "red" } }]
+          }
+        ]
+      },
+      "options": { "legend": { "displayMode": "list", "placement": "bottom", "calcs": ["mean"] } },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum by (result) (rate(encabulator_orders_total{namespace=\"$namespace\",model=~\"$model\"}[2m]))",
+          "legendFormat": "{{result}}"
+        }
+      ]
+    },
+    {
+      "id": 11,
+      "type": "timeseries",
+      "title": "Units fabricated by model",
+      "datasource": "${datasource}",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 7 },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "noValue": "no data",
+          "custom": { "fillOpacity": 10, "lineWidth": 2 }
+        },
+        "overrides": []
+      },
+      "options": { "legend": { "displayMode": "list", "placement": "bottom", "calcs": ["mean", "max"] } },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum by (model) (rate(encabulator_units_fabricated_total{namespace=\"$namespace\",model=~\"$model\"}[2m])) * 60",
+          "legendFormat": "{{model}} /min"
+        }
+      ]
+    },
+    {
+      "id": 12,
+      "type": "timeseries",
+      "title": "Stage duration p95 by stage",
+      "description": "The seven canonical stages. turbo-encabulation halves every one of them.",
+      "datasource": "${datasource}",
+      "gridPos": { "h": 9, "w": 12, "x": 0, "y": 15 },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "noValue": "no data",
+          "custom": { "fillOpacity": 0, "lineWidth": 2 }
+        },
+        "overrides": []
+      },
+      "options": { "legend": { "displayMode": "table", "placement": "right", "calcs": ["mean", "max"] } },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "histogram_quantile(0.95, sum by (stage, le) (rate(encabulator_stage_duration_seconds_bucket{namespace=\"$namespace\"}[5m])))",
+          "legendFormat": "{{stage}}"
+        }
+      ]
+    },
+    {
+      "id": 13,
+      "type": "timeseries",
+      "title": "Inspection outcome",
+      "datasource": "${datasource}",
+      "gridPos": { "h": 9, "w": 12, "x": 12, "y": 15 },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "noValue": "no data",
+          "custom": { "fillOpacity": 25, "stacking": { "mode": "normal" }, "lineWidth": 1 }
+        },
+        "overrides": [
+          {
+            "matcher": { "id": "byName", "options": "passed" },
+            "properties": [{ "id": "color", "value": { "mode": "fixed", "fixedColor": "green" } }]
+          },
+          {
+            "matcher": { "id": "byName", "options": "failed" },
+            "properties": [{ "id": "color", "value": { "mode": "fixed", "fixedColor": "red" } }]
+          }
+        ]
+      },
+      "options": { "legend": { "displayMode": "list", "placement": "bottom", "calcs": ["mean"] } },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum by (result) (rate(encabulator_units_inspected_total{namespace=\"$namespace\"}[2m])) * 60",
+          "legendFormat": "{{result}}"
+        }
+      ]
+    },
+    {
+      "type": "row",
+      "title": "Parts cage, pricing and malaise",
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 24 },
+      "collapsed": false,
+      "panels": []
+    },
+    {
+      "id": 20,
+      "type": "timeseries",
+      "title": "Parts stock by SKU",
+      "description": "encabulator_parts_stock. The amulite foundry restocks every 10s at amulite-foundry-rate.",
+      "datasource": "${datasource}",
+      "gridPos": { "h": 9, "w": 12, "x": 0, "y": 25 },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "min": 0,
+          "noValue": "no data",
+          "custom": { "fillOpacity": 0, "lineWidth": 2 },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "red", "value": null },
+              { "color": "green", "value": 50 }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": { "legend": { "displayMode": "table", "placement": "right", "calcs": ["lastNotNull", "min"] } },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "min by (sku) (encabulator_parts_stock{namespace=\"$namespace\"})",
+          "legendFormat": "{{sku}}"
+        }
+      ]
+    },
+    {
+      "id": 21,
+      "type": "timeseries",
+      "title": "Quote compute time and cache hit ratio",
+      "description": "The quoter burns CPU computing a pentametric harmonic; quote-cache turns that into a Valkey lookup.",
+      "datasource": "${datasource}",
+      "gridPos": { "h": 9, "w": 12, "x": 12, "y": 25 },
+      "fieldConfig": {
+        "defaults": { "unit": "s", "noValue": "no data", "custom": { "fillOpacity": 0, "lineWidth": 2 } },
+        "overrides": [
+          {
+            "matcher": { "id": "byName", "options": "cache hit ratio" },
+            "properties": [
+              { "id": "unit", "value": "percentunit" },
+              { "id": "custom.axisPlacement", "value": "right" },
+              { "id": "max", "value": 1 }
+            ]
+          }
+        ]
+      },
+      "options": { "legend": { "displayMode": "list", "placement": "bottom", "calcs": ["mean"] } },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "histogram_quantile(0.95, sum by (le) (rate(encabulator_quote_compute_seconds_bucket{namespace=\"$namespace\"}[5m])))",
+          "legendFormat": "p95 compute"
+        },
+        {
+          "refId": "B",
+          "expr": "sum(rate(encabulator_quotes_total{namespace=\"$namespace\",cached=\"true\"}[5m])) / clamp_min(sum(rate(encabulator_quotes_total{namespace=\"$namespace\"}[5m])), 0.001)",
+          "legendFormat": "cache hit ratio"
+        }
+      ]
+    },
+    {
+      "id": 22,
+      "type": "timeseries",
+      "title": "Malaise applied by kind",
+      "description": "Every fault the middleware actually applied. Zero here with a red topology means the breakage is real.",
+      "datasource": "${datasource}",
+      "gridPos": { "h": 7, "w": 12, "x": 0, "y": 34 },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "noValue": "no malaise",
+          "custom": { "fillOpacity": 30, "stacking": { "mode": "normal" }, "lineWidth": 1 }
+        },
+        "overrides": []
+      },
+      "options": { "legend": { "displayMode": "list", "placement": "bottom", "calcs": ["sum"] } },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum by (kind) (rate(encabulator_malaise_applied_total{namespace=\"$namespace\"}[2m])) * 60",
+          "legendFormat": "{{kind}} /min"
+        }
+      ]
+    },
+    {
+      "id": 23,
+      "type": "timeseries",
+      "title": "Gateway throughput and rate limiting",
+      "datasource": "${datasource}",
+      "gridPos": { "h": 7, "w": 12, "x": 12, "y": 34 },
+      "fieldConfig": {
+        "defaults": { "unit": "reqps", "noValue": "no data", "custom": { "fillOpacity": 10, "lineWidth": 2 } },
+        "overrides": [
+          {
+            "matcher": { "id": "byName", "options": "rate limited" },
+            "properties": [{ "id": "color", "value": { "mode": "fixed", "fixedColor": "orange" } }]
+          }
+        ]
+      },
+      "options": { "legend": { "displayMode": "list", "placement": "bottom", "calcs": ["mean", "max"] } },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum(rate(encabulator_gateway_requests_total{namespace=\"$namespace\"}[2m]))",
+          "legendFormat": "through the dingle arm"
+        },
+        {
+          "refId": "B",
+          "expr": "sum(rate(encabulator_gateway_rate_limited_total{namespace=\"$namespace\"}[2m]))",
+          "legendFormat": "rate limited"
+        },
+        {
+          "refId": "C",
+          "expr": "max(encabulator_grammeter_target_rps{namespace=\"$namespace\"})",
+          "legendFormat": "grammeter target"
+        }
+      ]
+    }
+  ]
+}

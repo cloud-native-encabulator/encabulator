@@ -1,0 +1,12 @@
+{
+  "// note": "Dev-only harness: fixture server and the dev runner. Never shipped in the image.",
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "noEmit": true,
+    "types": ["node"],
+    // The dev harness imports the server sources directly and is run by tsx,
+    // which resolves .ts specifiers. Nothing here is compiled or shipped.
+    "allowImportingTsExtensions": true
+  },
+  "include": ["dev/**/*.ts", "src/shared/**/*.ts", "*.config.ts"]
+}

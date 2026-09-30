@@ -1,0 +1,20 @@
+{{/*
+Hook point for extra demo scenarios. The orchestrator ships its six built-ins inside the
+image and reads anything else from SCENARIO_DIR (design section 8.14). Keys are file
+names; values are YAML scenario documents. Rendered even when empty so the mount is
+always satisfied and `helm upgrade --set extraScenarios.x=...` needs no restart dance.
+*/}}
+{{- if (get .Values.services "demo-scenario-orchestrator").enabled }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ .Release.Name }}-scenarios
+  namespace: {{ include "encabulator.namespace" . }}
+  labels:
+    {{- include "encabulator.labels" (dict "root" $ "name" "demo-scenario-orchestrator" "plane" "control" "component" "scenarios") | nindent 4 }}
+data:
+  {{- range $file, $body := .Values.extraScenarios }}
+  {{ $file }}: |
+    {{- tpl (toString $body) $ | nindent 4 }}
+  {{- end }}
+{{- end }}

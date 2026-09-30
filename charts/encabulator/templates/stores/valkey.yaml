@@ -1,0 +1,180 @@
+{{/*
+Valkey 9 as a single-replica StatefulSet.
+
+`requirepass` lives in the Secret as a one-line config fragment that valkey.conf `include`s,
+so the password is never a command-line argument (visible in the process list) nor a
+ConfigMap entry. valkey-cli in the probes picks the password up from REDISCLI_AUTH.
+*/}}
+{{- if and .Values.valkey.enabled (not .Values.valkey.external.enabled) }}
+{{- $vk := .Values.valkey }}
+{{- $secret := include "encabulator.valkey.secretName" . }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: valkey-config
+  namespace: {{ include "encabulator.namespace" . }}
+  labels:
+    {{- include "encabulator.storeLabels" (dict "root" $ "name" "valkey") | nindent 4 }}
+data:
+  valkey.conf: |
+    port {{ $vk.service.port }}
+    bind 0.0.0.0
+    dir /data
+    protected-mode no
+    {{- with $vk.config }}
+    {{- tpl . $ | nindent 4 }}
+    {{- end }}
+    # requirepass arrives from the Secret; `include` last so it wins.
+    include /etc/valkey/auth/requirepass.conf
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: valkey-headless
+  namespace: {{ include "encabulator.namespace" . }}
+  labels:
+    {{- include "encabulator.storeLabels" (dict "root" $ "name" "valkey") | nindent 4 }}
+spec:
+  type: ClusterIP
+  clusterIP: None
+  publishNotReadyAddresses: true
+  ports:
+    - name: valkey
+      port: {{ $vk.service.port }}
+      targetPort: valkey
+      protocol: TCP
+  selector:
+    {{- include "encabulator.selectorLabels" (dict "root" $ "name" "valkey") | nindent 4 }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: valkey
+  namespace: {{ include "encabulator.namespace" . }}
+  labels:
+    {{- include "encabulator.storeLabels" (dict "root" $ "name" "valkey") | nindent 4 }}
+spec:
+  type: ClusterIP
+  ports:
+    - name: valkey
+      port: {{ $vk.service.port }}
+      targetPort: valkey
+      protocol: TCP
+  selector:
+    {{- include "encabulator.selectorLabels" (dict "root" $ "name" "valkey") | nindent 4 }}
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: valkey
+  namespace: {{ include "encabulator.namespace" . }}
+  labels:
+    {{- include "encabulator.storeLabels" (dict "root" $ "name" "valkey") | nindent 4 }}
+spec:
+  serviceName: valkey-headless
+  replicas: 1
+  selector:
+    matchLabels:
+      {{- include "encabulator.selectorLabels" (dict "root" $ "name" "valkey") | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "encabulator.storePodLabels" (dict "root" $ "name" "valkey") | nindent 8 }}
+    spec:
+      automountServiceAccountToken: false
+      {{- with $.Values.global.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      securityContext:
+        {{- toYaml $vk.podSecurityContext | nindent 8 }}
+      terminationGracePeriodSeconds: 30
+      {{- with $vk.nodeSelector }}
+      nodeSelector: {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with $vk.tolerations }}
+      tolerations: {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with $vk.affinity }}
+      affinity: {{- toYaml . | nindent 8 }}
+      {{- end }}
+      containers:
+        - name: valkey
+          image: {{ printf "%s:%s" $vk.image.repository $vk.image.tag | quote }}
+          imagePullPolicy: {{ $vk.image.pullPolicy }}
+          securityContext:
+            {{- toYaml $vk.containerSecurityContext | nindent 12 }}
+          command: ["valkey-server", "/etc/valkey/valkey.conf"]
+          ports:
+            - name: valkey
+              containerPort: {{ $vk.service.port }}
+              protocol: TCP
+          env:
+            # valkey-cli reads REDISCLI_AUTH, which keeps the password off its argv.
+            - name: REDISCLI_AUTH
+              valueFrom:
+                secretKeyRef:
+                  name: {{ $secret | quote }}
+                  key: {{ $vk.passwordKey | quote }}
+          startupProbe:
+            exec:
+              command: ["valkey-cli", "-p", {{ $vk.service.port | quote }}, "ping"]
+            periodSeconds: 3
+            failureThreshold: 30
+          livenessProbe:
+            exec:
+              command: ["valkey-cli", "-p", {{ $vk.service.port | quote }}, "ping"]
+            periodSeconds: 10
+            timeoutSeconds: 3
+            failureThreshold: 6
+          readinessProbe:
+            exec:
+              command: ["valkey-cli", "-p", {{ $vk.service.port | quote }}, "ping"]
+            periodSeconds: 5
+            timeoutSeconds: 3
+            failureThreshold: 3
+          resources:
+            {{- toYaml $vk.resources | nindent 12 }}
+          volumeMounts:
+            - name: data
+              mountPath: /data
+            - name: config
+              mountPath: /etc/valkey/valkey.conf
+              subPath: valkey.conf
+              readOnly: true
+            - name: auth
+              mountPath: /etc/valkey/auth
+              readOnly: true
+            - name: run
+              mountPath: /run/valkey
+            - name: tmp
+              mountPath: /tmp
+      volumes:
+        - name: config
+          configMap:
+            name: valkey-config
+        - name: auth
+          secret:
+            secretName: {{ $secret | quote }}
+            items:
+              - key: requirepass.conf
+                path: requirepass.conf
+            defaultMode: 0440
+        - name: run
+          emptyDir: {}
+        - name: tmp
+          emptyDir: {}
+        {{- if not $vk.persistence.enabled }}
+        - name: data
+          emptyDir: {}
+        {{- end }}
+  {{- if $vk.persistence.enabled }}
+  volumeClaimTemplates:
+    - metadata:
+        name: data
+        labels:
+          {{- include "encabulator.storeLabels" (dict "root" $ "name" "valkey") | nindent 10 }}
+      spec:
+        {{- include "encabulator.pvc" (dict "persistence" $vk.persistence) | nindent 8 }}
+  {{- end }}
+{{- end }}

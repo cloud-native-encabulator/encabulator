@@ -1,0 +1,167 @@
+name: images
+
+on:
+  push:
+    branches: [main]
+    tags: ["v*"]
+  workflow_dispatch:
+    inputs:
+      services:
+        description: "Space-separated service names to build (empty means all fifteen)"
+        required: false
+        default: ""
+
+# Least privilege: read the repo, write to GHCR, and nothing else. `id-token` is here for
+# build provenance attestations, which build-push-action emits when asked.
+permissions:
+  contents: read
+  packages: write
+  attestations: write
+  id-token: write
+
+concurrency:
+  group: images-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  REGISTRY: ghcr.io
+  # ghcr.io/jlbutler/cloud-native-encabulator/<service>, lower-cased for GHCR.
+  IMAGE_PREFIX: ghcr.io/${{ github.repository }}
+  PLATFORMS: linux/amd64,linux/arm64
+
+jobs:
+  discover:
+    name: discover services
+    runs-on: ubuntu-24.04
+    outputs:
+      services: ${{ steps.matrix.outputs.services }}
+      version: ${{ steps.version.outputs.version }}
+    steps:
+      - uses: actions/checkout@v7
+      - id: version
+        # The VERSION file is the single source of the image tag (design section 7). A tag
+        # push overrides it with the tag itself, so v1.2.3 always produces :1.2.3.
+        run: |
+          version="$(tr -d '[:space:]' < VERSION)"
+          if [[ "${GITHUB_REF}" == refs/tags/v* ]]; then
+            version="${GITHUB_REF#refs/tags/v}"
+          fi
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "building version $version"
+      - id: matrix
+        # Same single source of truth as the Makefile and ci.yml.
+        run: |
+          selected="${{ inputs.services }}"
+          if [ -z "$selected" ]; then
+            echo "services=$(./scripts/services.sh matrix)" >> "$GITHUB_OUTPUT"
+          else
+            filtered='[]'
+            for name in $selected; do
+              row="$(./scripts/services.sh matrix | jq -c --arg n "$name" '[.[] | select(.name == $n)]')"
+              filtered="$(jq -c -n --argjson a "$filtered" --argjson b "$row" '$a + $b')"
+            done
+            echo "services=$filtered" >> "$GITHUB_OUTPUT"
+          fi
+
+  build:
+    name: ${{ matrix.service.name }}
+    needs: discover
+    runs-on: ubuntu-24.04
+    strategy:
+      fail-fast: false
+      # Fifteen concurrent multi-arch builds saturate the free runner pool and slow each
+      # other down; eight at a time is faster end to end.
+      max-parallel: 8
+      matrix:
+        service: ${{ fromJSON(needs.discover.outputs.services) }}
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: skip services that have no Dockerfile yet
+        id: exists
+        run: |
+          if [ -f "${{ matrix.service.dir }}/Dockerfile" ]; then
+            echo "present=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "present=false" >> "$GITHUB_OUTPUT"
+            echo "::notice title=${{ matrix.service.name }}::no Dockerfile yet, nothing to build"
+          fi
+
+      # arm64 is emulated on an amd64 runner. Only needed for the cross build.
+      - if: steps.exists.outputs.present == 'true'
+        uses: docker/setup-qemu-action@v4
+        with:
+          platforms: arm64
+
+      - if: steps.exists.outputs.present == 'true'
+        uses: docker/setup-buildx-action@v4
+
+      - if: steps.exists.outputs.present == 'true'
+        uses: docker/login-action@v4
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: tags and labels
+        if: steps.exists.outputs.present == 'true'
+        id: meta
+        uses: docker/metadata-action@v6
+        with:
+          images: ${{ env.IMAGE_PREFIX }}/${{ matrix.service.name }}
+          tags: |
+            type=raw,value=${{ needs.discover.outputs.version }}
+            type=sha,format=short
+            type=raw,value=latest,enable=${{ github.ref == 'refs/heads/main' }}
+            type=semver,pattern={{major}}.{{minor}},enable=${{ startsWith(github.ref, 'refs/tags/v') }}
+          labels: |
+            org.opencontainers.image.title=${{ matrix.service.name }}
+            org.opencontainers.image.description=Cloud Native Encabulator: ${{ matrix.service.name }} (${{ matrix.service.plane }} plane, ${{ matrix.service.lang }})
+            org.opencontainers.image.licenses=Apache-2.0
+
+      - name: build and push
+        if: steps.exists.outputs.present == 'true'
+        id: build
+        uses: docker/build-push-action@v7
+        with:
+          # Design section 7: the build context is the repository root so the Dockerfile can
+          # COPY the shared kit, and the Dockerfile itself lives in the service directory.
+          context: .
+          file: ${{ matrix.service.dir }}/Dockerfile
+          platforms: ${{ env.PLATFORMS }}
+          push: true
+          provenance: mode=max
+          sbom: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          build-args: |
+            VERSION=${{ needs.discover.outputs.version }}
+            SERVICE=${{ matrix.service.name }}
+          # One cache scope per service, so fifteen builds do not evict each other.
+          cache-from: type=gha,scope=${{ matrix.service.name }}
+          cache-to: type=gha,scope=${{ matrix.service.name }},mode=max
+
+      - name: attest
+        if: steps.exists.outputs.present == 'true'
+        uses: actions/attest-build-provenance@v4
+        with:
+          subject-name: ${{ env.IMAGE_PREFIX }}/${{ matrix.service.name }}
+          subject-digest: ${{ steps.build.outputs.digest }}
+          push-to-registry: true
+
+  images:
+    name: images
+    if: always()
+    needs: [discover, build]
+    runs-on: ubuntu-24.04
+    steps:
+      - name: fail if any image failed
+        run: |
+          results='${{ join(needs.*.result, " ") }}'
+          echo "job results: $results"
+          for r in $results; do
+            case "$r" in
+              success|skipped) ;;
+              *) echo "a required job reported '$r'"; exit 1 ;;
+            esac
+          done

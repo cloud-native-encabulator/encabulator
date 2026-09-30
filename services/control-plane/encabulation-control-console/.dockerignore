@@ -1,0 +1,7 @@
+# The image is built from the repository root; this file lives beside the
+# Dockerfile only for local `docker build -f` convenience. The Dockerfile
+# COPYs explicit paths, so dev/ and node_modules/ never reach the image.
+**/node_modules
+**/dist
+**/coverage
+**/.git

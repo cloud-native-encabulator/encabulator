@@ -1,0 +1,130 @@
+{{/*
+One Deployment per enabled service, all rendered from the same block (design section 10).
+*/}}
+{{- range $name, $raw := .Values.services }}
+{{- if $raw.enabled }}
+{{- $svc := fromYaml (include "encabulator.svc" (dict "root" $ "svc" $raw)) }}
+{{- $autoscaled := include "encabulator.isAutoscaled" (dict "root" $ "name" $name "svc" $svc) }}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ $name }}
+  namespace: {{ include "encabulator.namespace" $ }}
+  labels:
+    {{- include "encabulator.labels" (dict "root" $ "name" $name "plane" $svc.plane "component" "service") | nindent 4 }}
+    encabulator.io/language: {{ $svc.language | quote }}
+  {{- with $.Values.global.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  {{- if not $autoscaled }}
+  replicas: {{ $svc.replicas }}
+  {{- end }}
+  revisionHistoryLimit: {{ $svc.revisionHistoryLimit }}
+  strategy:
+    {{- toYaml $svc.strategy | nindent 4 }}
+  selector:
+    matchLabels:
+      {{- include "encabulator.selectorLabels" (dict "root" $ "name" $name) | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "encabulator.labels" (dict "root" $ "name" $name "plane" $svc.plane "component" "service") | nindent 8 }}
+        encabulator.io/language: {{ $svc.language | quote }}
+        {{- if $svc.malaiseTarget }}
+        encabulator.io/malaise-target: "true"
+        {{- end }}
+        {{- with $svc.podLabels }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+      {{- if or (eq $name "demo-scenario-orchestrator") $svc.podAnnotations }}
+      annotations:
+        {{- if eq $name "demo-scenario-orchestrator" }}
+        checksum/scenarios: {{ toYaml $.Values.extraScenarios | sha256sum }}
+        {{- end }}
+        {{- with $svc.podAnnotations }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+      {{- end }}
+    spec:
+      serviceAccountName: {{ $name }}
+      automountServiceAccountToken: {{ $svc.serviceAccount.automountServiceAccountToken }}
+      {{- with $.Values.global.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      securityContext:
+        {{- toYaml $.Values.podSecurityContext | nindent 8 }}
+      terminationGracePeriodSeconds: {{ $svc.terminationGracePeriodSeconds }}
+      {{- with $svc.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with $svc.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with $svc.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with $svc.topologySpreadConstraints }}
+      topologySpreadConstraints:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      containers:
+        - name: {{ $name }}
+          image: {{ include "encabulator.image" (dict "root" $ "name" $name "svc" $svc) | quote }}
+          imagePullPolicy: {{ $.Values.global.imagePullPolicy }}
+          {{- with $svc.command }}
+          command:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          {{- with $svc.args }}
+          args:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          securityContext:
+            {{- toYaml $.Values.containerSecurityContext | nindent 12 }}
+          ports:
+            - name: http
+              containerPort: {{ $svc.port }}
+              protocol: TCP
+          env:
+            {{- include "encabulator.env" (dict "root" $ "name" $name "svc" $svc) | nindent 12 }}
+          {{- with $svc.extraEnvFrom }}
+          envFrom:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          {{- include "encabulator.probes" (dict "svc" $svc) | nindent 10 }}
+          resources:
+            {{- toYaml $svc.resources | nindent 12 }}
+          volumeMounts:
+            # readOnlyRootFilesystem: true, so scratch space is an emptyDir (section 7).
+            - name: tmp
+              mountPath: /tmp
+            {{- if eq $name "demo-scenario-orchestrator" }}
+            - name: scenarios
+              mountPath: {{ $svc.env.SCENARIO_DIR | default "/etc/scenarios" }}
+              readOnly: true
+            {{- end }}
+            {{- with $svc.extraVolumeMounts }}
+            {{- toYaml . | nindent 12 }}
+            {{- end }}
+      volumes:
+        - name: tmp
+          emptyDir:
+            sizeLimit: 256Mi
+        {{- if eq $name "demo-scenario-orchestrator" }}
+        - name: scenarios
+          configMap:
+            name: {{ $.Release.Name }}-scenarios
+            optional: true
+        {{- end }}
+        {{- with $svc.extraVolumes }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+{{- end }}
+{{- end }}

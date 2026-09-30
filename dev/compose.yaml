@@ -1,0 +1,130 @@
+# Backing stores for running Encabulator services natively during development.
+#
+#   source ./dev-env.sh          # exports DOCKER_HOST for Finch
+#   make dev-up                  # or: finch compose -f dev/compose.yaml up -d
+#   set -a && source dev/env && set +a
+#   make -C services/data-plane/hydrocoptic-datastore run
+#
+# The images are the same tags the Helm chart deploys, so a service that works here works in
+# the cluster. Credentials are fixed, weak and local: everything binds to 127.0.0.1 and
+# nothing here is meant to leave your laptop.
+#
+# The integration tests do not need this file. They use Testcontainers, which starts its own
+# throwaway containers from the same DOCKER_HOST.
+
+name: encabulator-dev
+
+services:
+  postgres:
+    image: postgres:18
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: postgres
+      POSTGRES_INITDB_ARGS: --data-checksums
+    ports:
+      - "127.0.0.1:5432:5432"
+    volumes:
+      # Runs once, on an empty data directory. `make dev-down CLEAN=true` to start over.
+      - ./postgres-init:/docker-entrypoint-initdb.d:ro
+      - postgres-data:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d postgres"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+      start_period: 20s
+
+  valkey:
+    image: valkey/valkey:9
+    restart: unless-stopped
+    command:
+      - valkey-server
+      - --requirepass
+      - encabulator
+      - --appendonly
+      - "yes"
+      - --appendfsync
+      - everysec
+      - --dir
+      - /data
+    ports:
+      - "127.0.0.1:6379:6379"
+    volumes:
+      - valkey-data:/data
+    healthcheck:
+      test: ["CMD-SHELL", "REDISCLI_AUTH=encabulator valkey-cli ping | grep -q PONG"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  nats:
+    image: nats:2.12
+    restart: unless-stopped
+    command:
+      - "--jetstream"
+      - "--store_dir=/data"
+      - "--http_port=8222"
+      - "--name=encabulator-dev"
+    ports:
+      - "127.0.0.1:4222:4222" # client
+      - "127.0.0.1:8222:8222" # monitoring: /healthz, /jsz, and what the KEDA scaler reads
+    volumes:
+      - nats-data:/data
+    healthcheck:
+      # The nats image is minimal (no curl, no wget in the scratch variant), so ask the
+      # server itself whether it is healthy.
+      test: ["CMD", "nats-server", "--help"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+
+  influxdb:
+    image: influxdb:3-core
+    restart: unless-stopped
+    environment:
+      INFLUXDB3_NODE_ID: encabulator-dev
+      INFLUXDB3_OBJECT_STORE: file
+      INFLUXDB3_DATA_DIR: /var/lib/influxdb3
+      INFLUXDB3_HTTP_BIND_ADDR: 0.0.0.0:8181
+      # Same bootstrap route the chart uses: an offline admin token file, so the local
+      # server authenticates writes exactly as the cluster one does. The token in
+      # influxdb/admin-token.json is a development constant; dev/env hands it to services as
+      # INFLUXDB_TOKEN. (Set INFLUXDB3_WITHOUT_AUTH=true instead if you want no auth at all.)
+      INFLUXDB3_ADMIN_TOKEN_FILE: /etc/influxdb3/admin-token.json
+      # /health, /ping and /metrics answer without a token, which is what the healthcheck
+      # below and any local scrape need.
+      INFLUXDB3_DISABLE_AUTHZ: health,ping,metrics
+      INFLUXDB3_DISABLE_TELEMETRY_UPLOAD: "true"
+      INFLUXDB3_GEN1_DURATION: 1m
+    ports:
+      - "127.0.0.1:8181:8181"
+    volumes:
+      - ./influxdb:/etc/influxdb3:ro
+      - influxdb-data:/var/lib/influxdb3
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://localhost:8181/health >/dev/null"]
+      interval: 5s
+      timeout: 3s
+      retries: 30
+      start_period: 20s
+
+  jaeger:
+    # Jaeger v2 all-in-one with the default in-memory storage, same major version as the
+    # platform/ chart deploys.
+    image: jaegertracing/jaeger:2.21.0
+    restart: unless-stopped
+    environment:
+      OTEL_TRACES_SAMPLER: always_on
+    ports:
+      - "127.0.0.1:16686:16686" # UI
+      - "127.0.0.1:4317:4317" # OTLP gRPC
+      - "127.0.0.1:4318:4318" # OTLP HTTP: OTEL_EXPORTER_OTLP_ENDPOINT points here
+      - "127.0.0.1:18888:8888" # Jaeger's own metrics
+
+volumes:
+  postgres-data:
+  valkey-data:
+  nats-data:
+  influxdb-data:

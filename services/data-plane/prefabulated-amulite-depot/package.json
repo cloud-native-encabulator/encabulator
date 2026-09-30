@@ -1,0 +1,37 @@
+{
+  "name": "@encabulator/prefabulated-amulite-depot",
+  "version": "1.0.0",
+  "description": "Parts inventory and reservations for the Encabulator Works",
+  "license": "Apache-2.0",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=24"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "clean": "rm -rf dist",
+    "typecheck": "tsc -p tsconfig.json",
+    "start": "node dist/index.js",
+    "dev": "node --watch dist/index.js",
+    "test": "vitest run",
+    "test:unit": "vitest run --exclude 'test/**'",
+    "lint": "biome check src test",
+    "format": "biome check --write src test"
+  },
+  "dependencies": {
+    "@encabulator/kit": "file:../../../libs/ts/kit",
+    "fastify": "5.12.5",
+    "ioredis": "6.0.0",
+    "pino": "10.3.1"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "2.5.14",
+    "@types/dockerode": "4.0.1",
+    "@types/node": "24.10.3",
+    "dockerode": "5.0.1",
+    "testcontainers": "12.2.0",
+    "typescript": "7.0.2",
+    "vitest": "5.0.3"
+  }
+}
