@@ -237,6 +237,6 @@ spec:
         labels:
           {{- include "encabulator.storeLabels" (dict "root" $ "name" "postgres") | nindent 10 }}
       spec:
-        {{- include "encabulator.pvc" (dict "persistence" $pg.persistence) | nindent 8 }}
+        {{- include "encabulator.pvc" (dict "persistence" $pg.persistence "root" $) | nindent 8 }}
   {{- end }}
 {{- end }}

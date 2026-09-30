@@ -13,9 +13,27 @@ global:
   imageTag: ""
   imagePullPolicy: IfNotPresent
   imagePullSecrets: []
+  # StorageClass for every backing store's PVC unless the store sets its own.
+  # Empty uses the cluster default.
+  storageClassName: ""
   # Applied to every object the chart renders.
   labels: {}
   annotations: {}
+
+# Optionally create the StorageClass the backing stores use. Needed on clusters
+# with no working default, such as EKS Auto Mode clusters whose only class is
+# the legacy in-tree gp2. Cluster-scoped, so it outlives `helm uninstall` only
+# if you set helm.sh/resource-policy: keep yourself.
+storageClass:
+  create: false
+  name: encabulator-gp3
+  # EKS Auto Mode's built-in EBS driver. Use ebs.csi.aws.com for the EBS CSI add-on.
+  provisioner: ebs.csi.eks.amazonaws.com
+  parameters:
+    type: gp3
+    encrypted: "true"
+  reclaimPolicy: Delete
+  allowVolumeExpansion: true
 
 # LOG_LEVEL for every service unless overridden per service.
 logLevel: info

@@ -424,13 +424,19 @@ encabulator.io/malaise-target: "true"
 {{- end }}
 {{- end -}}
 
+{{/*
+A store's storageClassName wins, then storageClass.name when the chart creates
+one, then global.storageClassName; empty means the cluster default.
+*/}}
 {{- define "encabulator.pvc" -}}
 {{- $p := .persistence -}}
+{{- $v := .root.Values -}}
+{{- $class := $p.storageClassName | default (ternary $v.storageClass.name "" $v.storageClass.create) | default $v.global.storageClassName -}}
 accessModes: {{ toYaml $p.accessModes | nindent 2 }}
 resources:
   requests:
     storage: {{ $p.size | quote }}
-{{- if $p.storageClassName }}
-storageClassName: {{ $p.storageClassName | quote }}
+{{- if $class }}
+storageClassName: {{ $class | quote }}
 {{- end }}
 {{- end -}}

@@ -1,0 +1,9 @@
+# Overlay for Amazon EKS Auto Mode clusters.
+#
+#   make deploy HELM_ARGS="-f charts/encabulator/values-eks-auto-mode.yaml"
+#
+# Auto Mode ships its own EBS driver (ebs.csi.eks.amazonaws.com) but does not
+# create a StorageClass for it, and the in-tree gp2 class many clusters carry
+# cannot provision on Auto Mode nodes. This creates a gp3 class for the stores.
+storageClass:
+  create: true

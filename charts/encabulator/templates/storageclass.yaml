@@ -1,0 +1,14 @@
+{{- if .Values.storageClass.create }}
+apiVersion: storage.k8s.io/v1
+kind: StorageClass
+metadata:
+  name: {{ .Values.storageClass.name }}
+  labels:
+    {{- include "encabulator.labels" (dict "root" $ "name" "storage" "plane" "data" "component" "storage") | nindent 4 }}
+provisioner: {{ .Values.storageClass.provisioner }}
+parameters:
+  {{- toYaml .Values.storageClass.parameters | nindent 2 }}
+reclaimPolicy: {{ .Values.storageClass.reclaimPolicy }}
+allowVolumeExpansion: {{ .Values.storageClass.allowVolumeExpansion }}
+volumeBindingMode: WaitForFirstConsumer
+{{- end }}

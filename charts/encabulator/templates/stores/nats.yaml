@@ -201,6 +201,6 @@ spec:
         labels:
           {{- include "encabulator.storeLabels" (dict "root" $ "name" "nats") | nindent 10 }}
       spec:
-        {{- include "encabulator.pvc" (dict "persistence" $nats.persistence) | nindent 8 }}
+        {{- include "encabulator.pvc" (dict "persistence" $nats.persistence "root" $) | nindent 8 }}
   {{- end }}
 {{- end }}
