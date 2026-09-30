@@ -1,0 +1,243 @@
+id: grand-tour
+title: The Grand Tour
+description: >-
+  Everything, in order, narrated in full encabulator prose: the works comes up, runs out of
+  marzlevanes, loses its ledger, catches an outbreak of side fumbling, has its dingle arm congested,
+  and recovers from all of it without anybody restarting anything. Roughly twenty minutes.
+steps:
+  - say: >-
+      For a number of years now, work has been proceeding in order to bring to perfection the crudely
+      conceived idea of a machine that would not only supply inverse reactive current for use in
+      unilateral phase detractors, but would also be capable of automatically synchronising cardinal
+      grammeters. Such a machine is the Turbo Encabulator, and this is the factory that builds it.
+
+  - say: >-
+      Fifteen services in four planes. Go, TypeScript, Python, and Rust, each where it fits. Four
+      backing stores. Every arrow you see on the Factory Floor is a real network call or a real
+      message, and every number on this console came from Prometheus, the Kubernetes API, or a
+      service that measured it. Nothing here is decorative.
+
+  # ---- Act one: the works comes up ------------------------------------------------------
+
+  - say: >-
+      Act one. The works is cold. We open the gates.
+  - traffic:
+      running: true
+      rps: 3
+      pattern: ramp
+      periodSeconds: 45
+      customers: 50
+
+  - waitFor:
+      promql: sum(rate(encabulator_grammeter_requests_total[1m]))
+      op: ">"
+      value: 0.5
+      timeout: 120s
+
+  - say: >-
+      Synthetic customers are registering through the dingle arm gateway, logging in against the
+      unilateral phase detractor, and being handed RS256 tokens that the gateway verifies against a
+      JWKS it caches for five minutes. Then they browse, quote, order, and track, in that proportion.
+
+  - say: >-
+      Each order is priced by the spurving bearing quoter, which deliberately burns five to fifteen
+      milliseconds of CPU computing a pentametric harmonic, because a demo needs something honest for
+      an HPA to scale on. Parts are reserved atomically out of the cage in a single Lua script: check
+      every SKU, then decrement every SKU, or nothing at all.
+  - traffic:
+      rps: 8
+      pattern: sine
+      periodSeconds: 120
+
+  - waitFor:
+      promql: sum(rate(encabulator_units_fabricated_total[2m])) * 60
+      op: ">"
+      value: 1
+      timeout: 300s
+
+  - say: >-
+      Units are coming off the logarithmic casing line. Seven stages each: prelaminate the base-plate,
+      surmount the casing, align both spurving bearings with the pentametric fan, fit six hydrocoptic
+      marzlevanes to the ambifacient lunar waneshaft, wind the lotus-o-delta into the panendermic
+      semi-boloid slots, connect every seventh conductor by non-reversible tremie pipe, and
+      synchronise the cardinal grammeters.
+  - wait: 30s
+
+  - say: >-
+      Every stage writes twenty samples of three metrics to the sinusoidal recorder, the side fumbling
+      detector reads them back and looks for anomalies, and whatever passes is shipped by nofer
+      trunnion. The works is running. Now we break it, five ways.
+
+  # ---- Act two: the parts cage ----------------------------------------------------------
+
+  - say: >-
+      Act two: the marzlevane shortage. We shut down the amulite foundry.
+  - flag:
+      key: amulite-foundry-rate
+      value: 0
+  - traffic:
+      rps: 14
+      pattern: burst
+      periodSeconds: 30
+
+  - waitFor:
+      promql: sum(rate(encabulator_reservations_total{result="insufficient_parts"}[1m]))
+      op: ">"
+      value: 0
+      timeout: 420s
+
+  - say: >-
+      409 insufficient_parts. Orders that cannot be reserved are rejected synchronously and never
+      reach the ledger, so there are no orphaned encabulators in the hydrocoptic datastore. Relighting
+      the foundry.
+  - restock:
+      sku: HYD-MARZ
+      quantity: 4000
+  - flag:
+      key: amulite-foundry-rate
+      value: 80
+
+  - waitFor:
+      promql: min(encabulator_parts_stock)
+      op: ">"
+      value: 300
+      timeout: 300s
+  - say: >-
+      Recovered, unassisted. Note the shape of that recovery: a number in a flag store, polled every
+      five seconds, changed the behaviour of a running service without a deployment.
+
+  # ---- Act three: the ledger -----------------------------------------------------------
+
+  - say: >-
+      Act three: the hydrocoptic outage. We delete the PostgreSQL pod that holds the order ledger.
+  - traffic:
+      rps: 6
+      pattern: steady
+  - malaise:
+      ref: postgres-pod-kill
+      target: postgres
+      kind: pod-kill
+      params:
+        count: 1
+      durationSeconds: 90
+      narration: >-
+        Inducing malaise: one PostgreSQL pod, deleted, for real, through the Kubernetes API.
+
+  - waitFor:
+      promql: sum(rate(encabulator_orders_total{result="failed"}[1m]))
+      op: ">"
+      value: 0
+      timeout: 180s
+  - say: >-
+      The processor's circuit breaker has opened. Callers get 503 dependency_unavailable in
+      microseconds rather than waiting out a timeout, and every reservation the processor could not
+      record has been compensated. Failing fast is not the same as failing badly.
+
+  - waitFor:
+      promql: sum(rate(encabulator_orders_total{result="accepted"}[2m]))
+      op: ">"
+      value: 0
+      timeout: 420s
+  - say: >-
+      The StatefulSet replaced the pod, readiness went green, the breaker half-opened and closed, and
+      the datastore is working through the JetStream events it missed. Order timelines are intact
+      because every event carries an id and the consumer dedupes on it.
+  - clearMalaise: postgres-pod-kill
+
+  # ---- Act four: inspection ------------------------------------------------------------
+
+  - say: >-
+      Act four: an outbreak of side fumbling. We slow the casing line and tighten inspection at the
+      same time, which is exactly the combination that makes a factory look haunted.
+  - malaise:
+      ref: line-latency
+      target: logarithmic-casing-line
+      kind: latency
+      params:
+        ms: 900
+        jitterMs: 300
+        percent: 100
+      durationSeconds: 300
+      narration: >-
+        Inducing malaise: the logarithmic casing line, slowed.
+  - flag:
+      key: strict-side-fumbling
+      value: true
+
+  - waitFor:
+      promql: sum(rate(encabulator_units_inspected_total{result="failed"}[2m]))
+      op: ">"
+      value: 0
+      timeout: 300s
+  - say: >-
+      The detector has dropped its rolling z-score threshold from 4.0 to 3.0 and narrowed the
+      repleneration band. It is now catching anomalies it used to miss, and inventing a few it never
+      had. The incident feed names the stage, the metric, and the score for every one, so you can
+      judge for yourself.
+
+  - waitFor:
+      promql: rate(encabulator_refabrications_total[2m])
+      op: ">"
+      value: 0
+      timeout: 300s
+  - say: >-
+      Refabrication rate up, consumer lag up, KEDA adding casing line pods. Three symptoms, one
+      cause, all measured.
+  - clearMalaise: line-latency
+
+  # ---- Act five: the edge --------------------------------------------------------------
+
+  - say: >-
+      Act five: the dingle arm, congested. Whenever a barescent skor motion is required, and
+      especially when it is not.
+  - traffic:
+      rps: 22
+      pattern: burst
+      periodSeconds: 30
+  - malaise:
+      ref: gateway-congestion
+      target: dingle-arm-gateway
+      kind: congestion
+      params:
+        maxConcurrent: 4
+        queueTimeoutMs: 1500
+      durationSeconds: 240
+      narration: >-
+        Inducing malaise: the dingle arm gateway, congested.
+
+  - waitFor:
+      promql: sum(rate(encabulator_gateway_requests_total{status=~"5.."}[1m]))
+      op: ">"
+      value: 0
+      timeout: 240s
+  - say: >-
+      503 congested at the edge, and nothing downstream even noticed, because the queue never reached
+      it. Now the right tool for too much traffic.
+  - flag:
+      key: gateway-rate-limit-rps
+      value: 10
+
+  - waitFor:
+      promql: rate(encabulator_gateway_rate_limited_total[1m])
+      op: ">"
+      value: 0
+      timeout: 240s
+  - say: >-
+      429 rate_limited, with Retry-After. Struggling and refusing are different states and the console
+      shows them differently.
+  - clearMalaise: all
+
+  # ---- Curtain -------------------------------------------------------------------------
+
+  - say: >-
+      Curtain. Every flag this run touched is about to be put back where it found it, and every
+      malaise it created has been cleared. Traffic to a gentle five per second.
+  - traffic:
+      rps: 5
+      pattern: steady
+  - wait: 20s
+
+  - say: >-
+      The Encabulator Works is once again encabulating. The turbo encabulator is now available in
+      three models and, in accordance with the original 1944 specification, all standard colours.
+      Thank you for touring the works.

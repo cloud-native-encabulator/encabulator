@@ -1,0 +1,66 @@
+id: hydrocoptic-outage
+title: Hydrocoptic Outage
+description: >-
+  The order ledger's PostgreSQL pod is deleted underneath a live order flow. The processor's
+  circuit breaker opens, orders fail cleanly with 503 dependency_unavailable, reservations are
+  compensated, and the works recovers when the pod comes back.
+steps:
+  - say: >-
+      Six hydrocoptic marzlevanes of pure persistence: the hydrocoptic datastore is the order
+      ledger, and it keeps everything in PostgreSQL. We are about to delete that pod.
+
+  - say: >-
+      A steady six per second first, so there is real traffic to break.
+  - traffic:
+      running: true
+      rps: 6
+      pattern: steady
+      customers: 40
+  - wait: 20s
+
+  - say: >-
+      Deleting one PostgreSQL pod now. This is a real Kubernetes DELETE through the malaise
+      injection engine, using a namespaced Role that can touch nothing outside the encabulator
+      namespace.
+  - malaise:
+      ref: postgres-pod-kill
+      target: postgres
+      kind: pod-kill
+      params:
+        count: 1
+      durationSeconds: 60
+      narration: >-
+        Inducing malaise: one PostgreSQL pod, deleted. The base-plate of prefamulated amulite is
+        briefly unavailable.
+
+  - waitFor:
+      promql: sum(rate(encabulator_orders_total{result="failed"}[1m]))
+      op: ">"
+      value: 0
+      timeout: 180s
+
+  - say: >-
+      Orders are failing, and failing *well*. The processor's circuit breaker opened after five
+      consecutive failures, so callers get 503 dependency_unavailable immediately instead of
+      queueing behind a dead socket, and every reservation that could not be recorded has been
+      released back to the cage.
+  - say: >-
+      Meanwhile the datastore's readiness probe is red, so Kubernetes has taken it out of rotation,
+      and its NATS consumer has stopped acking. Nothing is lost; JetStream is holding the events.
+  - wait: 30s
+
+  - say: >-
+      The StatefulSet has replaced the pod. Watch readiness go green and the breaker half-open.
+  - waitFor:
+      promql: sum(rate(encabulator_orders_total{result="accepted"}[2m]))
+      op: ">"
+      value: 0
+      timeout: 360s
+
+  - say: >-
+      Accepted orders again, and the datastore is chewing through the JetStream backlog it missed.
+      The timeline of every order that was mid-flight is intact, because the datastore's consumer
+      is idempotent and tolerates out-of-order delivery.
+  - clearMalaise: all
+  - say: >-
+      Malaise lifted. No encabulator was harmed in the making of this outage.

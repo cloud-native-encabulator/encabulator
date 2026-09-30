@@ -1,0 +1,73 @@
+id: marzlevane-shortage
+title: Marzlevane Shortage
+description: >-
+  The amulite foundry is shut down. Stock drains, reservations start returning 409
+  insufficient_parts, and orders are rejected synchronously rather than being written to the
+  ledger. Then the foundry is relit and the works recovers on its own.
+steps:
+  - say: >-
+      Every encabulator needs six hydrocoptic marzlevanes, fitted to the ambifacient lunar
+      waneshaft. Six. Per unit. The parts cage does not care how enthusiastic our order book is.
+
+  - say: >-
+      We are going to stop the amulite foundry by setting its restock rate to zero, then push
+      twelve orders a second at it and watch the cage empty.
+  - flag:
+      key: amulite-foundry-rate
+      value: 0
+
+  - traffic:
+      running: true
+      rps: 12
+      pattern: burst
+      periodSeconds: 30
+      customers: 50
+
+  - say: >-
+      Bursting. Eighty percent of each period at twelve per second, twenty percent at sixty: the
+      capacitive diractance, as the Rockwell film has it, applied to the parts cage.
+  - waitFor:
+      promql: min(encabulator_parts_stock)
+      op: "<"
+      value: 80
+      timeout: 360s
+
+  - say: >-
+      The cage is nearly bare. Look at the Works tab: stock levels dropping, and the depot about to
+      start refusing to reserve anything.
+  - waitFor:
+      promql: sum(rate(encabulator_reservations_total{result="insufficient_parts"}[1m]))
+      op: ">"
+      value: 0
+      timeout: 240s
+
+  - say: >-
+      There it is: 409 insufficient_parts. Note what did *not* happen. Those orders were rejected
+      synchronously and were never written to the hydrocoptic datastore, so the ledger has no
+      half-born encabulators in it. Rejection is a feature.
+  - wait: 20s
+
+  - say: >-
+      Now we pour fresh castings straight into the cage, and relight the foundry at triple rate.
+  - restock:
+      sku: HYD-MARZ
+      quantity: 3000
+  - restock:
+      sku: AMU-BASE
+      quantity: 500
+  - flag:
+      key: amulite-foundry-rate
+      value: 60
+
+  - waitFor:
+      promql: min(encabulator_parts_stock)
+      op: ">"
+      value: 400
+      timeout: 360s
+
+  - say: >-
+      Stock recovered, reservations succeeding, orders flowing again. Nobody restarted anything.
+      Back to a civilised five per second.
+  - traffic:
+      rps: 5
+      pattern: steady

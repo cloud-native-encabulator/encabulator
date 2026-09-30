@@ -1,0 +1,61 @@
+id: morning-shift
+title: Morning Shift
+description: >-
+  The works comes up to speed. Traffic ramps from a trickle to a full sinusoidal load while the
+  cardinal grammeters synchronise themselves. Nothing breaks. That is the point.
+steps:
+  - say: >-
+      Good morning. The Encabulator Works is cold, the amulite is unprefabulated, and the spurving
+      bearings have not been aligned with anything at all. Let us change that.
+
+  - say: >-
+      First, a trickle. We ask the cardinal grammeter for two synthetic customers per second,
+      ramping, so the modial interaction of magneto-reluctance has time to settle.
+  - traffic:
+      running: true
+      rps: 2
+      pattern: ramp
+      periodSeconds: 60
+      customers: 25
+
+  - waitFor:
+      promql: sum(rate(encabulator_grammeter_requests_total[1m]))
+      op: ">"
+      value: 0.5
+      timeout: 120s
+
+  - say: >-
+      Traffic is flowing. Watch the Factory Floor: every particle you see is a real HTTP request
+      through the drawn reciprocation dingle arm, and every node is reporting its own telemetry.
+  - wait: 20s
+
+  - say: >-
+      Orders are being priced by the spurving bearing quoter, reserved out of the parts cage, and
+      handed to the logarithmic casing line. Seven stages per unit, base-plate to grammeters.
+  - waitFor:
+      promql: sum(rate(encabulator_units_fabricated_total[2m])) * 60
+      op: ">"
+      value: 1
+      timeout: 240s
+
+  - say: >-
+      Now the sine wave. Eight per second on a two-minute period: the capacitive diractance rises
+      and falls, and the casing line's consumer lag rises and falls with it. This is what KEDA
+      scales on.
+  - traffic:
+      rps: 8
+      pattern: sine
+      periodSeconds: 120
+
+  - wait: 60s
+
+  - say: >-
+      Shipments are going out by nofer trunnion. Refabrication rate is where it should be: a few
+      percent, which is simply the defect rate of an honest encabulator.
+
+  - say: >-
+      Settling to a steady five per second. The works is warm, the grammeters are synchronised, and
+      side fumbling is effectively prevented. Shift handover complete.
+  - traffic:
+      rps: 5
+      pattern: steady

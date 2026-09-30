@@ -1,0 +1,83 @@
+id: side-fumbling-outbreak
+title: Side Fumbling Outbreak
+description: >-
+  The casing line is slowed with injected latency and inspection is tightened with the
+  strict-side-fumbling flag. Consumer lag builds, the detector starts finding subtler anomalies and
+  some that are not there at all, and the refabrication rate visibly rises.
+steps:
+  - say: >-
+      The lotus-o-delta main winding is placed in panendermic semi-boloid slots of the stator, every
+      seventh conductor connected by a non-reversible tremie pipe, and fitted to the ambifacient
+      lunar waneshaft so that side fumbling is effectively prevented. Prevention being difficult, we
+      settle for detection.
+
+  - traffic:
+      running: true
+      rps: 6
+      pattern: steady
+      customers: 40
+  - wait: 20s
+
+  - say: >-
+      First, we slow the line. Twelve hundred milliseconds of injected latency per message, plus
+      jitter. The casing line will not fall over; it will simply take longer, and JetStream will
+      start holding a queue.
+  - malaise:
+      ref: line-latency
+      target: logarithmic-casing-line
+      kind: latency
+      params:
+        ms: 1200
+        jitterMs: 400
+        percent: 100
+      durationSeconds: 420
+      narration: >-
+        Inducing malaise: the logarithmic casing line, slowed to a crawl.
+
+  - waitFor:
+      promql: encabulator_line_active_orders
+      op: ">"
+      value: 0
+      timeout: 180s
+
+  - say: >-
+      Consumer lag on the logarithmic-casing-line durable is the congestion signal. KEDA is watching
+      it, and it is about to add casing line pods, which is the only honest way to fix a queue.
+
+  - say: >-
+      Now the interesting part. We tighten inspection: strict side fumbling drops the rolling
+      z-score threshold from 4.0 to 3.0 and narrows the acceptable repleneration band from
+      [0.7, 1.3] to [0.8, 1.2].
+  - flag:
+      key: strict-side-fumbling
+      value: true
+
+  - waitFor:
+      promql: sum(rate(encabulator_units_inspected_total{result="failed"}[2m]))
+      op: ">"
+      value: 0
+      timeout: 300s
+
+  - say: >-
+      Units are failing inspection. Some of them really are fumbling: the detector is now catching
+      anomalies that were previously too subtle to trip 4.0. Others are not fumbling at all. Tighten
+      a threshold and you buy sensitivity with false positives; there is no third option.
+  - waitFor:
+      promql: rate(encabulator_refabrications_total[2m])
+      op: ">"
+      value: 0
+      timeout: 300s
+
+  - say: >-
+      Refabrication rate is up. Every failed unit sends its order back to the casing line with the
+      attempt counter incremented, and on the third failure the order is scrapped. Check the Works
+      tab: the incident feed names the stage, the metric, and the z-score for each one.
+  - wait: 30s
+
+  - say: >-
+      Enough. Lifting the latency and putting the girdlespring back the way we found it.
+  - clearMalaise: line-latency
+
+  - say: >-
+      The flag is restored automatically when this run ends, so the next presenter inherits a
+      factory with its thresholds where the design says they should be.

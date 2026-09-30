@@ -1,0 +1,74 @@
+id: dingle-arm-congestion
+title: Dingle Arm Congestion
+description: >-
+  The edge gateway is congested under burst traffic, then rate-limited hard. 503 congested gives way
+  to 429 rate_limited with Retry-After, and the difference between "too slow" and "too many" becomes
+  visible on one screen.
+steps:
+  - say: >-
+      The drawn reciprocation dingle arm is employed whenever a barescent skor motion is required.
+      It is also the only public entrance to the works, which makes it the most interesting thing to
+      break.
+
+  - say: >-
+      Twenty-five per second, bursting to a hundred and twenty-five for a fifth of every period.
+      That is a lot of barescent skor motion.
+  - traffic:
+      running: true
+      rps: 25
+      pattern: burst
+      periodSeconds: 30
+      customers: 60
+  - wait: 20s
+
+  - say: >-
+      Now we congest the gateway: at most four requests in the handler at once, and anything that
+      waits more than a second and a half gets 503 congested.
+  - malaise:
+      ref: gateway-congestion
+      target: dingle-arm-gateway
+      kind: congestion
+      params:
+        maxConcurrent: 4
+        queueTimeoutMs: 1500
+      durationSeconds: 300
+      narration: >-
+        Inducing malaise: the dingle arm, congested to four concurrent requests.
+
+  - waitFor:
+      promql: sum(rate(encabulator_gateway_requests_total{status=~"5.."}[1m]))
+      op: ">"
+      value: 0
+      timeout: 240s
+
+  - say: >-
+      503 congested, and the p99 on the gateway node has gone red on the Factory Floor. Note that
+      health and metrics endpoints are untouched, so Kubernetes has not mistaken slowness for death
+      and started killing pods.
+
+  - say: >-
+      Congestion is the wrong tool for this. Let us do it properly and rate limit: eight requests
+      per second per subject, burst sixteen.
+  - flag:
+      key: gateway-rate-limit-rps
+      value: 8
+
+  - waitFor:
+      promql: rate(encabulator_gateway_rate_limited_total[1m])
+      op: ">"
+      value: 0
+      timeout: 240s
+
+  - say: >-
+      429 rate_limited, with a Retry-After header, from a token bucket held per subject in a bounded
+      LRU. This is the difference worth showing: 503 means the works is struggling, 429 means the
+      works is fine and has decided you are not welcome quite so often.
+  - wait: 30s
+
+  - clearMalaise: gateway-congestion
+  - say: >-
+      Congestion lifted, rate limit restored at the end of the run, traffic back to five per second.
+      The dingle arm reciprocates, drawn as ever.
+  - traffic:
+      rps: 5
+      pattern: steady
