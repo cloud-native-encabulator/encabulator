@@ -61,7 +61,11 @@ func Setup(ctx context.Context, cfg Config) (Shutdown, error) {
 	if cfg.ServiceVersion != "" {
 		attrs = append(attrs, semconv.ServiceVersion(cfg.ServiceVersion))
 	}
-	res, err := resource.Merge(resource.Default(), resource.NewWithAttributes(semconv.SchemaURL, attrs...))
+	// Schemaless on purpose: the SDK's default resource carries the schema URL of
+	// whichever semconv version the SDK was built against, and merging two
+	// different schema URLs is an error. Bumping the SDK must not crash every
+	// service at startup.
+	res, err := resource.Merge(resource.Default(), resource.NewSchemaless(attrs...))
 	if err != nil {
 		return nil, fmt.Errorf("telemetry: resource: %w", err)
 	}
