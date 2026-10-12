@@ -420,6 +420,23 @@ mod tests {
         assert_eq!(store.db_namespace, "3");
     }
 
+    #[test]
+    fn a_rediss_url_with_an_empty_password_enables_the_store() {
+        // ElastiCache Serverless only accepts TLS, and without a user group the password is
+        // empty. The chart renders the first shape and the kro RGDs the second.
+        for url in [
+            "rediss://:@cache.example.internal:6379/0",
+            "rediss://default:@cache.example.internal:6379/0",
+        ] {
+            let store = QuoteStore::new(Some(url), Metrics::new());
+            assert!(store.enabled(), "{url} disabled the quote cache");
+            assert_eq!(store.state(), CacheState::Connecting);
+            assert_eq!(store.server_address, "cache.example.internal");
+            assert_eq!(store.server_port, 6379);
+            assert_eq!(store.db_namespace, "0");
+        }
+    }
+
     #[tokio::test]
     async fn reads_fail_closed_and_writes_are_silent_without_a_connection() {
         let metrics = Metrics::new();

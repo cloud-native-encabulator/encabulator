@@ -249,7 +249,7 @@ included on Linux.
 | `OTEL_EXPORTER_OTLP_ENDPOINT` | unset | e.g. `http://otel-collector.encabulator-observability:4318`. Unset disables tracing |
 | `MALAISE_ENGINE_URL` | unset | Unset disables the malaise middleware |
 | `DIFFERENTIAL_GIRDLESPRING_URL` | unset | Unset means built-in flag defaults |
-| `VALKEY_URL` | unset | e.g. `redis://default:<pw>@valkey:6379/0`. Unset disables the quote cache |
+| `VALKEY_URL` | unset | e.g. `redis://default:<pw>@valkey:6379/0`, or `rediss://:@<host>:6379/0` for a TLS-only Valkey such as ElastiCache Serverless. Unset disables the quote cache |
 
 Service-specific knobs, beyond appendix A:
 
@@ -259,8 +259,10 @@ Service-specific knobs, beyond appendix A:
 | `PENTAMETRIC_WORKERS` | CPU count | Concurrent harmonic computations. Cap this at the pod's CPU limit |
 | `SHUTDOWN_DELAY_SECONDS` | `5` | How long to keep serving after readiness starts failing, so Service endpoints can propagate. `0` closes the listener immediately |
 
-The quoter reads no secret of its own beyond the password inside `VALKEY_URL`. Nothing outbound uses
-TLS: every URL it is given is in-cluster plaintext HTTP, and the image carries no TLS stack.
+The quoter reads no secret of its own beyond the password inside `VALKEY_URL`. The only TLS it speaks
+is to Valkey when `VALKEY_URL` is `rediss://`: rustls with the ring provider, verifying the server
+against the system root store (`/etc/ssl/certs` in the image; `SSL_CERT_FILE` overrides it). Every
+other URL it is given is in-cluster plaintext HTTP.
 
 ### Timeouts and shutdown
 

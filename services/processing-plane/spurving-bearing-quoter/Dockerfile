@@ -13,8 +13,8 @@
 # or just `make image` from the service directory.
 #
 # Multi-arch: every stage builds natively for the target platform under buildx/QEMU rather than
-# cross-compiling. Cross-compiling Rust needs a second toolchain and linker per target, and the
-# quoter has no C dependencies to make that worthwhile.
+# cross-compiling. Cross-compiling Rust needs a second toolchain and linker per target, plus a C
+# cross-compiler for ring (the TLS crypto behind rediss://), which is not worth it here.
 #
 # No HEALTHCHECK: Kubernetes probes own health (design section 7).
 
