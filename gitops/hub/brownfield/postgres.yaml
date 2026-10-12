@@ -1,0 +1,37 @@
+# The RDS instance Terraform built, now owned by Git. Argo CD (hub-brownfield) syncs this file;
+# ACK adopts the existing instance and from then on makes AWS match this spec.
+#
+# Environment-specific fields are left out on purpose and late-initialized by ACK from AWS:
+# kmsKeyID, availabilityZone. vpcSecurityGroupIDs is also left out: the rds-controller only
+# compares security groups when the spec lists them, and the security group stays with Terraform.
+apiVersion: rds.services.k8s.aws/v1alpha1
+kind: DBInstance
+metadata:
+  name: encabulator-pg
+  namespace: encabulator
+  annotations:
+    services.k8s.aws/adoption-policy: adopt-or-create
+    services.k8s.aws/deletion-policy: retain
+spec:
+  dbInstanceIdentifier: encabulator-pg
+  engine: postgres
+  engineVersion: "18"          # major only: RDS picks the minor, ACK treats 18.x as a match
+  dbInstanceClass: db.t4g.medium
+  allocatedStorage: 20
+  storageType: gp3
+  storageEncrypted: true
+  publiclyAccessible: false
+  multiAZ: false
+  backupRetentionPeriod: 7
+  masterUsername: postgres
+  dbSubnetGroupName: encabulator
+  # masterUserPassword is not set: the instance exists, and setting it here would make ACK reset
+  # the password on adoption. ACK only needs it to create a new instance, which the kro
+  # Encabulator RGD does in each cell.
+  tags:
+    - key: auto-delete
+      value: "no"
+    - key: project
+      value: encabulator
+    - key: talk
+      value: opn315
