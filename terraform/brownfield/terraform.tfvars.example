@@ -1,0 +1,28 @@
+# Copy to encabulator.auto.tfvars (gitignored) and fill in real values. Placeholders only
+# in this file.
+
+# IAM Identity Center instance the Argo CD capability signs users in with:
+#   aws sso-admin list-instances --query 'Instances[0].InstanceArn' --output text
+idc_instance_arn = "arn:aws:sso:::instance/ssoins-0123456789abcdef"
+
+# Region of that Identity Center instance (omit when it is the hub region).
+# idc_region = "us-east-1"
+
+# Who may sign in to the Argo CD UI. Group and user ids come from
+#   aws identitystore list-groups --identity-store-id d-0123456789
+argocd_rbac_role_mappings = [
+  {
+    role = "ADMIN"
+    identities = [
+      { id = "00000000-0000-0000-0000-000000000000", type = "SSO_GROUP" },
+    ]
+  },
+]
+
+# Defaults, shown for reference.
+# region                      = "us-west-2"
+# kubernetes_version          = "1.37"
+# postgres_engine_version     = "18"
+# valkey_major_engine_version = "8"
+# argocd_cluster_admin        = true  # demo only
+# kro_cluster_admin           = false # demo-only fallback

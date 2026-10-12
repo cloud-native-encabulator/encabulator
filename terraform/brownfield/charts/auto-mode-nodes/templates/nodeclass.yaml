@@ -1,0 +1,25 @@
+{{- /*
+EKS Auto Mode NodeClass with custom tags. Never name it "default": that name belongs to
+the EKS-managed NodeClass of the built-in node pools.
+*/}}
+apiVersion: eks.amazonaws.com/v1
+kind: NodeClass
+metadata:
+  name: {{ required "name is required" .Values.name }}
+spec:
+  role: {{ required "nodeRole is required" .Values.nodeRole | quote }}
+  subnetSelectorTerms:
+    {{- range (required "subnetIds is required" .Values.subnetIds) }}
+    - id: {{ . | quote }}
+    {{- end }}
+  securityGroupSelectorTerms:
+    {{- range (required "securityGroupIds is required" .Values.securityGroupIds) }}
+    - id: {{ . | quote }}
+    {{- end }}
+  {{- with .Values.tags }}
+  # Applied to the instances, root volumes and network interfaces Auto Mode launches.
+  tags:
+    {{- range $k, $v := . }}
+    {{ $k }}: {{ $v | quote }}
+    {{- end }}
+  {{- end }}

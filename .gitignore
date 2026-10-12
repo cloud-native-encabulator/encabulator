@@ -24,6 +24,15 @@ htmlcov/
 # Helm
 charts/*/charts/*.tgz
 
+# Terraform (terraform/brownfield). .terraform.lock.hcl is committed.
+.terraform/
+*.tfstate
+*.tfstate.*
+.terraform.tfstate.lock.info
+*.tfplan
+*.auto.tfvars
+crash.log
+
 # Local state
 .env
 .env.*
