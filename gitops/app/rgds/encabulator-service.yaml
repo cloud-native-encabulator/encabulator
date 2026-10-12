@@ -1,0 +1,447 @@
+# EncabulatorService: one of the fifteen Encabulator services.
+#
+# The Encabulator RGD (encabulator.yaml) creates one of these per name in its
+# spec.services list. Everything that differs between services (plane, replicas,
+# resources, which stores, which other services it calls) lives in the lookup
+# tables below, keyed by the instance name, and mirrors the `services:` block of
+# charts/encabulator/values.yaml. A name with no entry gets the chart's
+# `defaults:` block, so adding a name to the list adds a service.
+#
+# What one instance expands to, matching what the chart renders per service:
+#   ServiceAccount, Deployment, Service, plus an HPA, a PodDisruptionBudget and a
+#   Role + RoleBinding for the services the chart gives them.
+#
+# Chart objects deliberately not rendered here: ServiceMonitor and PrometheusRule
+# (the cells do not run the Prometheus Operator) and the KEDA ScaledObject (KEDA
+# is off by default in the chart too).
+apiVersion: kro.run/v1alpha1
+kind: ResourceGraphDefinition
+metadata:
+  name: encabulator-service
+  annotations:
+    argocd.argoproj.io/sync-wave: "0"
+spec:
+  schema:
+    apiVersion: v1alpha1
+    kind: EncabulatorService
+    spec:
+      # Image tag for ghcr.io/jlbutler/cloud-native-encabulator/<name>.
+      tag: string | default="1.0.0"
+      # The ConfigMap holding POSTGRES_HOST, POSTGRES_PORT, VALKEY_HOST and
+      # VALKEY_PORT. Reading it makes every service wait until it exists.
+      storesConfig: string | default="encabulator-aws"
+    status:
+      endpoint: ${"http://" + service.metadata.name + ":" + string(service.spec.ports[0].port)}
+
+  resources:
+    # The store endpoints the Encabulator RGD published from ACK status.
+    - id: stores
+      externalRef:
+        apiVersion: v1
+        kind: ConfigMap
+        metadata:
+          name: ${schema.spec.storesConfig}
+
+    # The plane label is looked up once here; the other objects read it back.
+    - id: serviceAccount
+      template:
+        apiVersion: v1
+        kind: ServiceAccount
+        metadata:
+          name: ${schema.metadata.name}
+          labels:
+            app.kubernetes.io/name: ${schema.metadata.name}
+            app.kubernetes.io/instance: encabulator
+            app.kubernetes.io/part-of: encabulator
+            app.kubernetes.io/version: ${schema.spec.tag}
+            app.kubernetes.io/component: service
+            encabulator.io/plane: |-
+              ${{
+                "encabulation-control-console": "control",
+                "cardinal-grammeter": "control",
+                "malaise-injection-engine": "control",
+                "demo-scenario-orchestrator": "control",
+                "dingle-arm-gateway": "processing",
+                "panametric-fam-processor": "processing",
+                "spurving-bearing-quoter": "processing",
+                "logarithmic-casing-line": "processing",
+                "nofer-trunnion-dispatch": "processing",
+                "hydrocoptic-datastore": "data",
+                "prefabulated-amulite-depot": "data",
+                "sinusoidal-recorder": "data",
+                "unilateral-phase-detractor": "support",
+                "differential-girdlespring": "support",
+                "side-fumbling-detector": "support"
+              }[?schema.metadata.name].orValue("processing")}
+        # No token unless the workload talks to the Kubernetes API.
+        automountServiceAccountToken: ${schema.metadata.name in ["encabulation-control-console", "malaise-injection-engine"]}
+
+    # Two Deployment nodes that differ only in spec.replicas. The HPA owns the
+    # replica count of an autoscaled service, so its Deployment must not set one
+    # (kro would reset it on every reconcile). The second node reuses the first
+    # one's metadata, selector and pod template through YAML anchors.
+    - id: deployment
+      includeWhen:
+        - ${!(schema.metadata.name in ["panametric-fam-processor", "spurving-bearing-quoter"])}
+      template:
+        apiVersion: apps/v1
+        kind: Deployment
+        metadata: &deploymentMetadata
+          name: ${schema.metadata.name}
+          labels:
+            app.kubernetes.io/name: ${schema.metadata.name}
+            app.kubernetes.io/instance: encabulator
+            app.kubernetes.io/part-of: encabulator
+            app.kubernetes.io/version: ${schema.spec.tag}
+            app.kubernetes.io/component: service
+            encabulator.io/plane: ${serviceAccount.metadata.labels["encabulator.io/plane"]}
+            # Same language table as the pod labels below (kro cannot reference a field of
+            # the resource it is rendering); parity.py fails if the two ever disagree.
+            encabulator.io/language: |-
+              ${({
+                "go": ["cardinal-grammeter", "malaise-injection-engine", "dingle-arm-gateway",
+                  "hydrocoptic-datastore", "sinusoidal-recorder", "differential-girdlespring"],
+                "typescript": ["encabulation-control-console", "panametric-fam-processor",
+                  "nofer-trunnion-dispatch", "prefabulated-amulite-depot"],
+                "python": ["demo-scenario-orchestrator", "logarithmic-casing-line",
+                  "unilateral-phase-detractor", "side-fumbling-detector"],
+                "rust": ["spurving-bearing-quoter"]
+              }.transformList(lang, names, schema.metadata.name in names, lang) + ["unknown"])[0]}
+        spec:
+          # One scheduler, one reconcile loop and in-memory run history: these
+          # four run a single replica (design sections 8.12 to 8.15).
+          replicas: |-
+            ${schema.metadata.name in ["encabulation-control-console", "cardinal-grammeter",
+              "malaise-injection-engine", "demo-scenario-orchestrator"] ? 1 : 2}
+          revisionHistoryLimit: 3
+          strategy: &strategy
+            type: RollingUpdate
+            rollingUpdate:
+              maxUnavailable: 0
+              maxSurge: 1
+          selector: &selector
+            matchLabels:
+              app.kubernetes.io/name: ${schema.metadata.name}
+              app.kubernetes.io/instance: encabulator
+          template: &podTemplate
+            metadata:
+              labels: |-
+                ${{
+                  "app.kubernetes.io/name": schema.metadata.name,
+                  "app.kubernetes.io/instance": "encabulator",
+                  "app.kubernetes.io/part-of": "encabulator",
+                  "app.kubernetes.io/version": schema.spec.tag,
+                  "app.kubernetes.io/managed-by": "kro",
+                  "app.kubernetes.io/component": "service",
+                  "encabulator.io/plane": serviceAccount.metadata.labels["encabulator.io/plane"],
+                  "encabulator.io/language": ({
+                    "go": ["cardinal-grammeter", "malaise-injection-engine", "dingle-arm-gateway",
+                      "hydrocoptic-datastore", "sinusoidal-recorder", "differential-girdlespring"],
+                    "typescript": ["encabulation-control-console", "panametric-fam-processor",
+                      "nofer-trunnion-dispatch", "prefabulated-amulite-depot"],
+                    "python": ["demo-scenario-orchestrator", "logarithmic-casing-line",
+                      "unilateral-phase-detractor", "side-fumbling-detector"],
+                    "rust": ["spurving-bearing-quoter"]
+                  }.transformList(lang, names, schema.metadata.name in names, lang) + ["unknown"])[0]
+                }.merge(
+                  // The control-plane services must stay up to clear a malaise.
+                  schema.metadata.name in ["encabulation-control-console", "cardinal-grammeter",
+                    "malaise-injection-engine", "demo-scenario-orchestrator"]
+                    ? {} : {"encabulator.io/malaise-target": "true"}
+                )}
+              annotations: |-
+                ${schema.metadata.name == "demo-scenario-orchestrator"
+                  ? {"checksum/scenarios": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a"}
+                  : {}}
+            spec:
+              serviceAccountName: ${serviceAccount.metadata.name}
+              automountServiceAccountToken: ${serviceAccount.automountServiceAccountToken}
+              securityContext:
+                runAsNonRoot: true
+                runAsUser: 65532
+                runAsGroup: 65532
+                fsGroup: 65532
+                seccompProfile:
+                  type: RuntimeDefault
+              terminationGracePeriodSeconds: 30
+              containers:
+                - name: ${schema.metadata.name}
+                  image: ghcr.io/jlbutler/cloud-native-encabulator/${schema.metadata.name}:${schema.spec.tag}
+                  imagePullPolicy: IfNotPresent
+                  securityContext:
+                    allowPrivilegeEscalation: false
+                    readOnlyRootFilesystem: true
+                    runAsNonRoot: true
+                    capabilities:
+                      drop: ["ALL"]
+                  ports:
+                    - name: http
+                      containerPort: 8080
+                      protocol: TCP
+                  # Same variables, same order as the chart's encabulator.env helper.
+                  # PGPASSWORD and VALKEY_PASSWORD come before the URLs that expand
+                  # them with $(VAR).
+                  env: |-
+                    ${
+                      [
+                        {"name": "PORT", "value": "8080"},
+                        {"name": "LOG_LEVEL", "value": "info"},
+                        {"name": "OTEL_SERVICE_NAME", "value": schema.metadata.name},
+                        {"name": "OTEL_RESOURCE_ATTRIBUTES", "value": "service.namespace=encabulator,service.version=" + schema.spec.tag + ",encabulator.plane=" + serviceAccount.metadata.labels["encabulator.io/plane"]},
+                        {"name": "OTEL_EXPORTER_OTLP_ENDPOINT", "value": "http://opentelemetry-collector.encabulator-observability:4318"},
+                        {"name": "OTEL_EXPORTER_OTLP_PROTOCOL", "value": "http/protobuf"}
+                      ]
+                      // Everyone obeys or drives the malaise engine except the grammeter and the engine itself.
+                      + (schema.metadata.name in ["cardinal-grammeter", "malaise-injection-engine"] ? [] :
+                          [{"name": "MALAISE_ENGINE_URL", "value": "http://malaise-injection-engine:8080"}])
+                      // Feature-flag readers (design section 6).
+                      + (schema.metadata.name in ["dingle-arm-gateway", "panametric-fam-processor", "spurving-bearing-quoter",
+                          "logarithmic-casing-line", "prefabulated-amulite-depot", "side-fumbling-detector",
+                          "demo-scenario-orchestrator", "encabulation-control-console"]
+                          ? [{"name": "DIFFERENTIAL_GIRDLESPRING_URL", "value": "http://differential-girdlespring:8080"}] : [])
+                      // Outbound calls, rendered as <CALLEE>_URL.
+                      + {
+                          "dingle-arm-gateway": ["unilateral-phase-detractor", "prefabulated-amulite-depot", "spurving-bearing-quoter",
+                            "panametric-fam-processor", "hydrocoptic-datastore", "nofer-trunnion-dispatch"],
+                          "panametric-fam-processor": ["spurving-bearing-quoter", "prefabulated-amulite-depot", "hydrocoptic-datastore"],
+                          "logarithmic-casing-line": ["sinusoidal-recorder", "prefabulated-amulite-depot"],
+                          "side-fumbling-detector": ["sinusoidal-recorder"],
+                          "cardinal-grammeter": ["dingle-arm-gateway"],
+                          "demo-scenario-orchestrator": ["cardinal-grammeter", "prefabulated-amulite-depot"],
+                          "encabulation-control-console": ["cardinal-grammeter", "demo-scenario-orchestrator", "dingle-arm-gateway",
+                            "panametric-fam-processor", "spurving-bearing-quoter", "logarithmic-casing-line", "nofer-trunnion-dispatch",
+                            "hydrocoptic-datastore", "prefabulated-amulite-depot", "sinusoidal-recorder", "unilateral-phase-detractor",
+                            "side-fumbling-detector"]
+                        }[?schema.metadata.name].orValue([]).map(callee,
+                          {"name": callee.upperAscii().replace("-", "_") + "_URL", "value": "http://" + callee + ":8080"})
+                      + (schema.metadata.name in ["demo-scenario-orchestrator", "encabulation-control-console"]
+                          ? [{"name": "PROMETHEUS_URL", "value": "http://prometheus-operated.encabulator-observability:9090"}] : [])
+                      + (schema.metadata.name in ["malaise-injection-engine", "encabulation-control-console"]
+                          ? [{"name": "POD_NAMESPACE", "valueFrom": {"fieldRef": {"fieldPath": "metadata.namespace"}}}] : [])
+                      + [{"name": "POD_NAME", "valueFrom": {"fieldRef": {"fieldPath": "metadata.name"}}}]
+                      + (schema.metadata.name == "encabulation-control-console"
+                          ? [{"name": "GRAFANA_EXTERNAL_URL", "value": "http://localhost:3000"},
+                             {"name": "JAEGER_EXTERNAL_URL", "value": "http://localhost:16686"}] : [])
+                      // PostgreSQL on Amazon RDS: one database and role per service. The
+                      // one-element map() binds the database name once as pg.database.
+                      + (schema.metadata.name in ["hydrocoptic-datastore", "unilateral-phase-detractor", "differential-girdlespring"]
+                          ? [{"database": {"hydrocoptic-datastore": "hydrocoptic", "unilateral-phase-detractor": "detractor",
+                               "differential-girdlespring": "girdlespring"}[schema.metadata.name]}].map(pg, [
+                              {"name": "PGPASSWORD", "valueFrom": {"secretKeyRef": {"name": "encabulator-db", "key": pg.database + "-password"}}},
+                              {"name": "DATABASE_URL", "value": "postgres://" + pg.database + ":$(PGPASSWORD)@" +
+                                stores.data.?POSTGRES_HOST.orValue("") + ":" + stores.data.?POSTGRES_PORT.orValue("5432") + "/" + pg.database + "?sslmode=require"}
+                            ])[0] : [])
+                      // Valkey on ElastiCache Serverless: TLS, no password (VALKEY_PASSWORD is empty).
+                      + (schema.metadata.name in ["malaise-injection-engine", "spurving-bearing-quoter", "nofer-trunnion-dispatch",
+                          "prefabulated-amulite-depot", "side-fumbling-detector"]
+                          ? [{"name": "VALKEY_PASSWORD", "valueFrom": {"secretKeyRef": {"name": "encabulator-valkey", "key": "valkey-password"}}},
+                             {"name": "VALKEY_URL", "value": "rediss://default:$(VALKEY_PASSWORD)@" +
+                               stores.data.?VALKEY_HOST.orValue("") + ":" + stores.data.?VALKEY_PORT.orValue("6379") + "/0"}] : [])
+                      // NATS JetStream, in-cluster.
+                      + (schema.metadata.name in ["panametric-fam-processor", "logarithmic-casing-line", "nofer-trunnion-dispatch",
+                          "hydrocoptic-datastore", "side-fumbling-detector"]
+                          ? [{"name": "NATS_URL", "value": "nats://nats:4222"}] : [])
+                      // InfluxDB 3 Core, in-cluster.
+                      + (schema.metadata.name == "sinusoidal-recorder"
+                          ? [{"name": "INFLUXDB_URL", "value": "http://influxdb:8181"},
+                             {"name": "INFLUXDB_DATABASE", "value": "sinusoidal"},
+                             {"name": "INFLUXDB_TOKEN", "valueFrom": {"secretKeyRef": {"name": "encabulator-influxdb", "key": "admin-token"}}}] : [])
+                      // Application secrets (the chart's secretEnv), from the encabulator-app Secret.
+                      + {
+                          "encabulation-control-console": [{"name": "SESSION_SECRET", "key": "session-secret"}],
+                          "cardinal-grammeter": [{"name": "CUSTOMER_PASSWORD_SEED", "key": "customer-password-seed"}],
+                          "unilateral-phase-detractor": [{"name": "BOOTSTRAP_ADMIN_PASSWORD", "key": "bootstrap-admin-password"},
+                            {"name": "BOOTSTRAP_OPERATOR_PASSWORD", "key": "bootstrap-operator-password"},
+                            {"name": "JWT_PRIVATE_KEY", "key": "jwt-private-key"}]
+                        }[?schema.metadata.name].orValue([]).map(s,
+                          {"name": s.name, "valueFrom": {"secretKeyRef": {"name": "encabulator-app", "key": s.key}}})
+                      // Service-specific settings (the chart's env), sorted by name like the chart.
+                      + {
+                          "encabulation-control-console": [{"name": "COOKIE_SECURE", "value": "false"}],
+                          "cardinal-grammeter": [{"name": "AUTOSTART", "value": "false"}, {"name": "AUTOSTART_RPS", "value": "5"},
+                            {"name": "CUSTOMERS", "value": "50"}, {"name": "MAX_IN_FLIGHT", "value": "256"}],
+                          "malaise-injection-engine": [{"name": "OBSERVABILITY_NAMESPACE", "value": "encabulator-observability"}],
+                          "demo-scenario-orchestrator": [{"name": "SCENARIO_DIR", "value": "/etc/scenarios"}],
+                          "logarithmic-casing-line": [{"name": "LINE_CAPACITY", "value": "2"}],
+                          "unilateral-phase-detractor": [{"name": "JWT_TTL_SECONDS", "value": "3600"}]
+                        }[?schema.metadata.name].orValue([])
+                    }
+                  livenessProbe:
+                    httpGet:
+                      path: /healthz
+                      port: http
+                    initialDelaySeconds: 5
+                    periodSeconds: 10
+                    timeoutSeconds: 2
+                    failureThreshold: 3
+                  readinessProbe:
+                    httpGet:
+                      path: /readyz
+                      port: http
+                    initialDelaySeconds: 3
+                    periodSeconds: 5
+                    timeoutSeconds: 2
+                    failureThreshold: 3
+                  startupProbe:
+                    httpGet:
+                      path: /healthz
+                      port: http
+                    periodSeconds: 3
+                    failureThreshold: 30
+                  resources: |-
+                    ${{
+                      "encabulation-control-console": {"requests": {"cpu": "100m", "memory": "192Mi"}, "limits": {"cpu": "1000m", "memory": "512Mi"}},
+                      "cardinal-grammeter":           {"requests": {"cpu": "100m", "memory": "128Mi"}, "limits": {"cpu": "1000m", "memory": "384Mi"}},
+                      "malaise-injection-engine":     {"requests": {"cpu": "50m",  "memory": "64Mi"},  "limits": {"cpu": "500m",  "memory": "192Mi"}},
+                      "demo-scenario-orchestrator":   {"requests": {"cpu": "50m",  "memory": "128Mi"}, "limits": {"cpu": "500m",  "memory": "384Mi"}},
+                      "dingle-arm-gateway":           {"requests": {"cpu": "200m", "memory": "128Mi"}, "limits": {"cpu": "1000m", "memory": "384Mi"}},
+                      "panametric-fam-processor":     {"requests": {"cpu": "150m", "memory": "256Mi"}, "limits": {"cpu": "1000m", "memory": "512Mi"}},
+                      "spurving-bearing-quoter":      {"requests": {"cpu": "250m", "memory": "64Mi"},  "limits": {"cpu": "1000m", "memory": "256Mi"}},
+                      "logarithmic-casing-line":      {"requests": {"cpu": "150m", "memory": "256Mi"}, "limits": {"cpu": "1000m", "memory": "512Mi"}},
+                      "nofer-trunnion-dispatch":      {"requests": {"cpu": "100m", "memory": "192Mi"}, "limits": {"cpu": "500m",  "memory": "448Mi"}},
+                      "hydrocoptic-datastore":        {"requests": {"cpu": "100m", "memory": "128Mi"}, "limits": {"cpu": "1000m", "memory": "384Mi"}},
+                      "prefabulated-amulite-depot":   {"requests": {"cpu": "100m", "memory": "192Mi"}, "limits": {"cpu": "500m",  "memory": "448Mi"}},
+                      "sinusoidal-recorder":          {"requests": {"cpu": "100m", "memory": "128Mi"}, "limits": {"cpu": "750m",  "memory": "384Mi"}},
+                      "unilateral-phase-detractor":   {"requests": {"cpu": "100m", "memory": "256Mi"}, "limits": {"cpu": "1000m", "memory": "640Mi"}},
+                      "differential-girdlespring":    {"requests": {"cpu": "50m",  "memory": "64Mi"},  "limits": {"cpu": "500m",  "memory": "192Mi"}},
+                      "side-fumbling-detector":       {"requests": {"cpu": "150m", "memory": "256Mi"}, "limits": {"cpu": "1000m", "memory": "512Mi"}}
+                    }[?schema.metadata.name].orValue(
+                      {"requests": {"cpu": "50m", "memory": "64Mi"}, "limits": {"cpu": "500m", "memory": "256Mi"}})}
+                  # readOnlyRootFilesystem, so scratch space is an emptyDir. The
+                  # orchestrator also reads extra scenarios from a ConfigMap.
+                  volumeMounts: |-
+                    ${[{"name": "tmp", "mountPath": "/tmp"}]
+                      + (schema.metadata.name == "demo-scenario-orchestrator"
+                          ? [{"name": "scenarios", "mountPath": "/etc/scenarios", "readOnly": true}] : [])}
+              volumes: |-
+                ${[{"name": "tmp", "emptyDir": {"sizeLimit": "256Mi"}}]
+                  + (schema.metadata.name == "demo-scenario-orchestrator"
+                      ? [{"name": "scenarios", "configMap": {"name": "encabulator-scenarios", "optional": true}}] : [])}
+
+    - id: autoscaledDeployment
+      includeWhen:
+        - ${schema.metadata.name in ["panametric-fam-processor", "spurving-bearing-quoter"]}
+      template:
+        apiVersion: apps/v1
+        kind: Deployment
+        metadata: *deploymentMetadata
+        spec:
+          revisionHistoryLimit: 3
+          strategy: *strategy
+          selector: *selector
+          template: *podTemplate
+
+    - id: service
+      template:
+        apiVersion: v1
+        kind: Service
+        metadata:
+          name: ${schema.metadata.name}
+          labels: &serviceLabels
+            app.kubernetes.io/name: ${schema.metadata.name}
+            app.kubernetes.io/instance: encabulator
+            app.kubernetes.io/part-of: encabulator
+            app.kubernetes.io/version: ${schema.spec.tag}
+            app.kubernetes.io/component: service
+            encabulator.io/plane: ${serviceAccount.metadata.labels["encabulator.io/plane"]}
+        spec:
+          type: ClusterIP
+          ports:
+            - name: http
+              port: 8080
+              targetPort: http
+              protocol: TCP
+              appProtocol: http
+          selector:
+            app.kubernetes.io/name: ${schema.metadata.name}
+            app.kubernetes.io/instance: encabulator
+
+    # CPU autoscaling for the two services the design scales (section 9).
+    - id: hpa
+      includeWhen:
+        - ${schema.metadata.name in ["panametric-fam-processor", "spurving-bearing-quoter"]}
+      template:
+        apiVersion: autoscaling/v2
+        kind: HorizontalPodAutoscaler
+        metadata:
+          name: ${schema.metadata.name}
+          labels: *serviceLabels
+        spec:
+          scaleTargetRef:
+            apiVersion: apps/v1
+            kind: Deployment
+            name: ${schema.metadata.name}
+          minReplicas: 2
+          maxReplicas: '${schema.metadata.name == "spurving-bearing-quoter" ? 12 : 8}'
+          metrics:
+            - type: Resource
+              resource:
+                name: cpu
+                target:
+                  type: Utilization
+                  averageUtilization: '${schema.metadata.name == "spurving-bearing-quoter" ? 65 : 70}'
+
+    # Every workload that can run more than one replica gets a PDB; the four
+    # single-replica control-plane services do not (it would only block drains).
+    - id: pdb
+      includeWhen:
+        - |-
+          ${!(schema.metadata.name in ["encabulation-control-console", "cardinal-grammeter",
+            "malaise-injection-engine", "demo-scenario-orchestrator"])}
+      template:
+        apiVersion: policy/v1
+        kind: PodDisruptionBudget
+        metadata:
+          name: ${schema.metadata.name}
+          labels: *serviceLabels
+        spec:
+          maxUnavailable: 1
+          selector: *selector
+
+    # Namespaced RBAC for the two services that talk to the Kubernetes API.
+    #   malaise-injection-engine      kills pods, scales deployments, partitions with NetworkPolicies
+    #   encabulation-control-console  reads pods and deployments, nothing else
+    - id: role
+      includeWhen:
+        - ${schema.metadata.name in ["malaise-injection-engine", "encabulation-control-console"]}
+      template:
+        apiVersion: rbac.authorization.k8s.io/v1
+        kind: Role
+        metadata:
+          name: ${schema.metadata.name}
+          labels: &rbacLabels
+            app.kubernetes.io/name: ${schema.metadata.name}
+            app.kubernetes.io/instance: encabulator
+            app.kubernetes.io/part-of: encabulator
+            app.kubernetes.io/version: ${schema.spec.tag}
+            app.kubernetes.io/component: rbac
+            encabulator.io/plane: ${serviceAccount.metadata.labels["encabulator.io/plane"]}
+        rules: |-
+          ${schema.metadata.name == "malaise-injection-engine" ? [
+              {"apiGroups": [""], "resources": ["pods"], "verbs": ["get", "list", "delete"]},
+              {"apiGroups": ["apps"], "resources": ["deployments"], "verbs": ["get", "list", "patch"]},
+              {"apiGroups": ["apps"], "resources": ["deployments/scale"], "verbs": ["get", "patch"]},
+              {"apiGroups": ["apps"], "resources": ["statefulsets"], "verbs": ["get", "list"]},
+              {"apiGroups": ["networking.k8s.io"], "resources": ["networkpolicies"], "verbs": ["get", "list", "create", "delete"]}
+            ] : [
+              {"apiGroups": [""], "resources": ["pods"], "verbs": ["get", "list"]},
+              {"apiGroups": ["apps"], "resources": ["deployments"], "verbs": ["get", "list"]}
+            ]}
+
+    - id: roleBinding
+      includeWhen:
+        - ${schema.metadata.name in ["malaise-injection-engine", "encabulation-control-console"]}
+      template:
+        apiVersion: rbac.authorization.k8s.io/v1
+        kind: RoleBinding
+        metadata:
+          name: ${schema.metadata.name}
+          labels: *rbacLabels
+        roleRef:
+          apiGroup: rbac.authorization.k8s.io
+          kind: Role
+          name: ${role.metadata.name}
+        subjects:
+          - kind: ServiceAccount
+            name: ${serviceAccount.metadata.name}
+            namespace: ${schema.metadata.namespace}
