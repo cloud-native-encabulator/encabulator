@@ -1,0 +1,98 @@
+# Test fixtures for validate-kind.sh only. Never synced by Argo CD (not in any kustomization).
+#
+# There is no ACK controller on the test cluster, so nothing creates RDS. fake-rds stands in
+# for the endpoint the faked DBInstance status points at, so the db-init Job runs for real.
+# It behaves like the RDS admin user (masterUsername) that matters here: "postgres" is NOT a
+# superuser, only LOGIN CREATEROLE CREATEDB, with the password the secret-init Job generated.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: fake-rds-init
+  namespace: encabulator
+data:
+  10-rds-admin.sh: |
+    #!/usr/bin/env bash
+    set -euo pipefail
+    psql -v ON_ERROR_STOP=1 --username "$POSTGRES_USER" --dbname postgres -v pw="$RDS_MASTER_PASSWORD" <<'SQL'
+    SELECT format('CREATE ROLE postgres LOGIN CREATEROLE CREATEDB PASSWORD %L', :'pw')
+    \gexec
+    SQL
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: fake-rds
+  namespace: encabulator
+  labels:
+    app.kubernetes.io/name: fake-rds
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: fake-rds
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: fake-rds
+    spec:
+      containers:
+        - name: postgres
+          image: docker.io/library/postgres:18.6-trixie@sha256:74935e72241653ca55e0414067e6d8763aceb8a810eb51b452253ec3dcfc4336
+          args:
+            - -c
+            - ssl=on
+            - -c
+            - ssl_cert_file=/etc/ssl/certs/ssl-cert-snakeoil.pem
+            - -c
+            - ssl_key_file=/etc/ssl/private/ssl-cert-snakeoil.key
+          env:
+            - name: POSTGRES_USER
+              value: rdsadmin
+            - name: POSTGRES_PASSWORD
+              value: fake-rds-superuser-not-a-secret
+            - name: RDS_MASTER_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: encabulator-db
+                  key: postgres-password
+          ports:
+            - name: postgres
+              containerPort: 5432
+          readinessProbe:
+            exec:
+              command: ["pg_isready", "-U", "rdsadmin", "-h", "127.0.0.1"]
+            periodSeconds: 5
+          resources:
+            requests: {cpu: 100m, memory: 128Mi}
+            limits: {cpu: 1000m, memory: 512Mi}
+          volumeMounts:
+            - name: init
+              mountPath: /docker-entrypoint-initdb.d
+      volumes:
+        - name: init
+          configMap:
+            name: fake-rds-init
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: fake-rds
+  namespace: encabulator
+spec:
+  selector:
+    app.kubernetes.io/name: fake-rds
+  ports:
+    - name: postgres
+      port: 5432
+      targetPort: postgres
+---
+# The test cluster is shared and small: let the Jobs, fake-rds and the stores run, but do not
+# start 26 service pods. Deployments are still created; their ReplicaSets report the quota.
+apiVersion: v1
+kind: ResourceQuota
+metadata:
+  name: validate-kind-pods
+  namespace: encabulator
+spec:
+  hard:
+    pods: "6"

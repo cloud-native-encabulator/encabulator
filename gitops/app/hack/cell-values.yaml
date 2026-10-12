@@ -1,0 +1,20 @@
+# Helm values that make charts/encabulator render what a cell runs: PostgreSQL on RDS,
+# Valkey on ElastiCache Serverless (TLS, no password), the gp3 StorageClass, release name
+# and namespace "encabulator". parity.py renders the chart with these and fills the two
+# hosts from the live encabulator-aws ConfigMap, then compares against what kro created.
+storageClass:
+  create: true
+postgres:
+  external:
+    enabled: true
+    host: set-by-parity-py
+    port: 5432
+    sslmode: require
+    existingSecret: encabulator-db
+valkey:
+  external:
+    enabled: true
+    host: set-by-parity-py
+    port: 6379
+    tls: true
+    existingSecret: encabulator-valkey
