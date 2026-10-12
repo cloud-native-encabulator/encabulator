@@ -12,6 +12,9 @@ postgres:
     sslmode: require
     existingSecret: encabulator-db
 valkey:
+  # Same as values-brownfield.yaml: no user, so VALKEY_URL is rediss://:@<host>:6379/0 and no
+  # client sends AUTH to ElastiCache Serverless.
+  user: ""
   external:
     enabled: true
     host: set-by-parity-py

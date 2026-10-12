@@ -156,7 +156,8 @@ kubectl get encabulator encabulator -n encabulator -o yaml | yq .status
 - Not rendered: ServiceMonitor and PrometheusRule (cells run no Prometheus Operator), the KEDA
   ScaledObject (off in the chart by default), the in-cluster postgres and valkey StatefulSets
   (RDS and ElastiCache replace them, as with the chart's `external` blocks).
-- `DATABASE_URL` uses `sslmode=require`; `VALKEY_URL` is `rediss://default:@<host>:6379/0`.
+- `DATABASE_URL` uses `sslmode=require`; `VALKEY_URL` is `rediss://:@<host>:6379/0`, the shape the
+  chart renders with `values-brownfield.yaml` (`valkey.user: ""`), so no client sends `AUTH`.
 - Autoscaled services (processor, quoter) leave `spec.replicas` to the HPA. kro 0.9 can only
   leave a field out with `omit()`, which is behind an alpha feature gate, so those two use a
   second Deployment node without `replicas`; YAML anchors keep the pod template single-sourced.
@@ -198,9 +199,9 @@ Needs a real cell with the ACK capability, so it is untested here:
 - The ACK capability reading the `encabulator-db` Secret (it needs
   `AmazonEKSSecretReaderPolicy` scoped to namespace `encabulator` on the cell's ACK access
   entry).
-- The services against ElastiCache Serverless with an empty password. go-redis and redis-rs
-  send no AUTH for an empty password; ioredis and redis-py send `AUTH default ""`, which stock
-  Valkey 8 accepts for a `nopass` default user. How ElastiCache answers it is not tested.
+- The services against ElastiCache Serverless itself. With `rediss://:@<host>` none of the five
+  Valkey clients (go-redis, ioredis, redis-rs, redis-py) sends `AUTH`; all five pass PING/SET/GET
+  over TLS against a TLS-only Valkey with that URL shape, but not against ElastiCache.
 - The kro capability's identity carrying the `encabulator:kro` group, and the NodeClass and
   NodePool on Auto Mode (no Auto Mode CRDs on kind).
 - The services themselves running against the real stores.
