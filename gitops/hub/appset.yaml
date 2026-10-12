@@ -1,0 +1,77 @@
+# Every cell gets the app. The cluster generator selects the Argo CD cluster Secrets that the
+# EncabulatorCell RGD writes (label encabulator.io/cell=true) and renders one Application per
+# cell, named after the cell (encabulator-use2) and pointed at its EKS cluster ARN.
+#
+# Region-specific ids travel on the cluster Secret's annotations and reach gitops/app through
+# kustomize patches:
+#   encabulator.io/subnet-ids                 -> Encabulator.spec.subnetIDs, NodeClass subnets
+#   encabulator.io/security-group-id          -> Encabulator.spec.securityGroupID
+#   encabulator.io/cluster-security-group-id  -> NodeClass security group
+apiVersion: argoproj.io/v1alpha1
+kind: ApplicationSet
+metadata:
+  name: encabulator
+  namespace: argocd
+spec:
+  goTemplate: true
+  goTemplateOptions: ["missingkey=error"]
+  generators:
+    - clusters:
+        selector:
+          matchLabels:
+            encabulator.io/cell: "true"
+  # Deleting this ApplicationSet (or a cell's registration) leaves the app running on the cell.
+  syncPolicy:
+    preserveResourcesOnDeletion: true
+  template:
+    metadata:
+      name: '{{ .name }}'
+      labels:
+        encabulator.io/region: '{{ index .metadata.annotations "encabulator.io/region" }}'
+    spec:
+      project: encabulator-cells
+      source:
+        repoURL: https://github.com/jlbutler/cloud-native-encabulator
+        targetRevision: carrlos
+        path: gitops/app
+        kustomize:
+          patches:
+            - target:
+                kind: Encabulator
+                name: encabulator
+                namespace: encabulator
+              patch: |-
+                - op: add
+                  path: /spec/subnetIDs
+                  value: {{ splitList "," (index .metadata.annotations "encabulator.io/subnet-ids") | toJson }}
+                - op: add
+                  path: /spec/securityGroupID
+                  value: {{ index .metadata.annotations "encabulator.io/security-group-id" | quote }}
+            # The cell's custom NodeClass (gitops/app/nodes/): nodes in the private subnets,
+            # with the cluster security group, as on the hub.
+            - target:
+                group: eks.amazonaws.com
+                kind: NodeClass
+              patch: |-
+                - op: add
+                  path: /spec/subnetSelectorTerms
+                  value: [{{ range $i, $id := splitList "," (index .metadata.annotations "encabulator.io/subnet-ids") }}{{ if $i }}, {{ end }}{"id": {{ $id | quote }}}{{ end }}]
+                - op: add
+                  path: /spec/securityGroupSelectorTerms
+                  value: [{"id": {{ index .metadata.annotations "encabulator.io/cluster-security-group-id" | quote }}}]
+      destination:
+        server: '{{ .server }}'
+        namespace: encabulator
+      syncPolicy:
+        automated:
+          prune: true
+          selfHeal: true
+        syncOptions:
+          - CreateNamespace=true
+        # A new cell's kro and ACK CRDs can still be settling on the first sync.
+        retry:
+          limit: 10
+          backoff:
+            duration: 30s
+            factor: 2
+            maxDuration: 5m
