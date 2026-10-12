@@ -1,0 +1,29 @@
+# kro APIs for the hub: the EncabulatorCell RGD plus the RBAC kro needs to build what it creates.
+# Both folders are owned by the cell work (gitops/hub/rgds, gitops/hub/rbac).
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: hub-rgds
+  namespace: argocd
+spec:
+  project: encabulator-hub
+  sources:
+    - repoURL: https://github.com/jlbutler/cloud-native-encabulator
+      targetRevision: carrlos
+      path: gitops/hub/rgds
+    - repoURL: https://github.com/jlbutler/cloud-native-encabulator
+      targetRevision: carrlos
+      path: gitops/hub/rbac
+  destination:
+    name: encabulator-usw2
+    namespace: encabulator-cells
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    retry:
+      limit: 10
+      backoff:
+        duration: 10s
+        factor: 2
+        maxDuration: 5m

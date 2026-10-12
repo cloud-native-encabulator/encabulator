@@ -1,0 +1,58 @@
+# Two Argo CD projects. Applications on the hub use encabulator-hub; the Applications the
+# cell ApplicationSet (gitops/hub/appset.yaml) generates use encabulator-cells.
+# Destinations name clusters by their Argo CD cluster name, so no cluster ARN (and no account
+# id) appears in Git. The field name clusterResourceWhitelist is fixed by the Argo CD API.
+apiVersion: argoproj.io/v1alpha1
+kind: AppProject
+metadata:
+  name: encabulator-hub
+  namespace: argocd
+spec:
+  description: OPN315 hub cluster (encabulator-usw2) applications
+  sourceRepos:
+    - https://github.com/jlbutler/cloud-native-encabulator
+  destinations:
+    - name: encabulator-usw2
+      namespace: encabulator          # brownfield ACK resources
+    - name: encabulator-usw2
+      namespace: encabulator-cells    # EncabulatorCell instances and what kro creates for them
+    - name: encabulator-usw2
+      namespace: argocd               # the cell ApplicationSet and cell cluster Secrets
+  clusterResourceWhitelist:
+    - group: kro.run
+      kind: ResourceGraphDefinition
+    - group: rbac.authorization.k8s.io
+      kind: ClusterRole
+    - group: rbac.authorization.k8s.io
+      kind: ClusterRoleBinding
+    - group: ""
+      kind: Namespace
+---
+apiVersion: argoproj.io/v1alpha1
+kind: AppProject
+metadata:
+  name: encabulator-cells
+  namespace: argocd
+spec:
+  description: OPN315 cell clusters (one per region), deployed from the hub
+  sourceRepos:
+    - https://github.com/jlbutler/cloud-native-encabulator
+  destinations:
+    - name: encabulator-*
+      namespace: encabulator
+    # never the hub itself
+    - name: "!encabulator-usw2"
+      namespace: "*"
+  clusterResourceWhitelist:
+    - group: kro.run
+      kind: ResourceGraphDefinition
+    - group: rbac.authorization.k8s.io
+      kind: ClusterRole
+    - group: rbac.authorization.k8s.io
+      kind: ClusterRoleBinding
+    - group: ""
+      kind: Namespace
+    - group: eks.amazonaws.com
+      kind: NodeClass
+    - group: karpenter.sh
+      kind: NodePool

@@ -1,0 +1,31 @@
+# One EncabulatorCell instance per region (gitops/hub/cells). Committing a new file here is
+# what builds a new region.
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: hub-cells
+  namespace: argocd
+spec:
+  project: encabulator-hub
+  source:
+    repoURL: https://github.com/jlbutler/cloud-native-encabulator
+    targetRevision: carrlos
+    path: gitops/hub/cells
+  destination:
+    name: encabulator-usw2
+    namespace: encabulator-cells
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+      # The EncabulatorCell kind exists only after kro accepts the RGD from hub-rgds.
+      # Skip the dry-run until then; the retry below picks it up.
+      - SkipDryRunOnMissingResource=true
+    retry:
+      limit: 10
+      backoff:
+        duration: 10s
+        factor: 2
+        maxDuration: 5m
