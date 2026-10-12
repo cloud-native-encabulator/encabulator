@@ -1,0 +1,19 @@
+# What Argo CD syncs to every cell. The cell ApplicationSet points at this directory and
+# patches the instance (Encabulator/encabulator in namespace encabulator) and the NodeClass.
+#
+#   rbac/      namespace + the Kubernetes RBAC the kro capability needs     sync wave -1
+#   nodes/     tagged Auto Mode NodeClass + NodePool                        sync wave -1
+#   rgds/      Encabulator and EncabulatorService                           sync wave 0
+#   instance/  the Encabulator instance (a kustomize dir)                   sync wave 1
+#
+# rbac/, nodes/ and rgds/ are listed file by file so `kubectl apply -f gitops/app/rgds/`
+# (the Act 2 IDE command) works without tripping over a kustomization.yaml.
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+  - rbac/namespace.yaml
+  - rbac/kro.yaml
+  - nodes/auto-mode.yaml
+  - rgds/encabulator-service.yaml
+  - rgds/encabulator.yaml
+  - instance

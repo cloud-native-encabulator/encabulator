@@ -1,0 +1,195 @@
+# Kubernetes RBAC for kro on a cell: exactly the kinds the encabulator and
+# encabulator-service RGDs create, nothing cluster-admin.
+#
+# Subject: the group encabulator:kro (lead decision D4). The cell's kro capability access
+# entry carries kubernetesGroups ["encabulator:kro"], so no role ARN (and no account id)
+# appears here. The capability's own AmazonEKSKROPolicy already covers RGDs and instances.
+#
+#   encabulator:kro:read          get/list/watch, cluster-wide (kro watches with informers)
+#   encabulator:kro:write         create/update/patch/delete, namespace encabulator only
+#   encabulator:kro:storageclass  the one cluster-scoped object, the encabulator-gp3 StorageClass
+#
+# Kubernetes only lets kro create a Role whose permissions kro itself holds, so the write role
+# also carries the permissions of the Roles kro creates (malaise-injection-engine,
+# encabulation-control-console, encabulator-secret-init), scoped to namespace encabulator.
+# kro never reads or writes Secrets itself; the secret-init Job does, with its own Role.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: encabulator:kro:read
+  labels:
+    app.kubernetes.io/part-of: encabulator
+    app.kubernetes.io/component: kro-rbac
+  annotations:
+    argocd.argoproj.io/sync-wave: "-1"
+rules:
+  - apiGroups: [""]
+    resources: ["configmaps", "services", "serviceaccounts"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: ["apps"]
+    resources: ["deployments", "statefulsets"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: ["batch"]
+    resources: ["jobs"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: ["autoscaling"]
+    resources: ["horizontalpodautoscalers"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: ["policy"]
+    resources: ["poddisruptionbudgets"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: ["rbac.authorization.k8s.io"]
+    resources: ["roles", "rolebindings"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: ["storage.k8s.io"]
+    resources: ["storageclasses"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: ["rds.services.k8s.aws"]
+    resources: ["dbinstances", "dbsubnetgroups"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: ["elasticache.services.k8s.aws"]
+    resources: ["serverlesscaches"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: ["kro.run"]
+    resources: ["encabulators", "encabulatorservices"]
+    verbs: ["get", "list", "watch"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: encabulator:kro:read
+  labels:
+    app.kubernetes.io/part-of: encabulator
+    app.kubernetes.io/component: kro-rbac
+  annotations:
+    argocd.argoproj.io/sync-wave: "-1"
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: encabulator:kro:read
+subjects:
+  - apiGroup: rbac.authorization.k8s.io
+    kind: Group
+    name: encabulator:kro
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: encabulator:kro:write
+  labels:
+    app.kubernetes.io/part-of: encabulator
+    app.kubernetes.io/component: kro-rbac
+  annotations:
+    argocd.argoproj.io/sync-wave: "-1"
+rules:
+  # The objects in the two graphs.
+  - apiGroups: [""]
+    resources: ["configmaps", "services", "serviceaccounts"]
+    verbs: ["create", "update", "patch", "delete"]
+  - apiGroups: ["apps"]
+    resources: ["deployments", "statefulsets"]
+    verbs: ["create", "update", "patch", "delete"]
+  - apiGroups: ["batch"]
+    resources: ["jobs"]
+    verbs: ["create", "update", "patch", "delete"]
+  - apiGroups: ["autoscaling"]
+    resources: ["horizontalpodautoscalers"]
+    verbs: ["create", "update", "patch", "delete"]
+  - apiGroups: ["policy"]
+    resources: ["poddisruptionbudgets"]
+    verbs: ["create", "update", "patch", "delete"]
+  - apiGroups: ["rbac.authorization.k8s.io"]
+    resources: ["roles", "rolebindings"]
+    verbs: ["create", "update", "patch", "delete"]
+  - apiGroups: ["rds.services.k8s.aws"]
+    resources: ["dbinstances", "dbsubnetgroups"]
+    verbs: ["create", "update", "patch", "delete"]
+  - apiGroups: ["elasticache.services.k8s.aws"]
+    resources: ["serverlesscaches"]
+    verbs: ["create", "update", "patch", "delete"]
+  # The Encabulator instance creates EncabulatorService instances; kro manages finalizers
+  # and status on both.
+  - apiGroups: ["kro.run"]
+    resources: ["encabulators", "encabulatorservices"]
+    verbs: ["create", "update", "patch", "delete"]
+  - apiGroups: ["kro.run"]
+    resources: ["encabulators/status", "encabulatorservices/status"]
+    verbs: ["get", "update", "patch"]
+  - apiGroups: ["", "events.k8s.io"]
+    resources: ["events"]
+    verbs: ["create", "patch"]
+  # Held so kro may create the Roles that grant them (RBAC escalation check).
+  #   malaise-injection-engine
+  - apiGroups: [""]
+    resources: ["pods"]
+    verbs: ["get", "list", "delete"]
+  - apiGroups: ["apps"]
+    resources: ["deployments/scale"]
+    verbs: ["get", "patch"]
+  - apiGroups: ["networking.k8s.io"]
+    resources: ["networkpolicies"]
+    verbs: ["get", "list", "create", "delete"]
+  #   encabulator-secret-init
+  - apiGroups: [""]
+    resources: ["secrets"]
+    verbs: ["create"]
+  - apiGroups: [""]
+    resources: ["secrets"]
+    resourceNames: ["encabulator-db", "encabulator-app", "encabulator-valkey", "encabulator-influxdb"]
+    verbs: ["get"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: encabulator:kro:write
+  namespace: encabulator
+  labels:
+    app.kubernetes.io/part-of: encabulator
+    app.kubernetes.io/component: kro-rbac
+  annotations:
+    argocd.argoproj.io/sync-wave: "-1"
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: encabulator:kro:write
+subjects:
+  - apiGroup: rbac.authorization.k8s.io
+    kind: Group
+    name: encabulator:kro
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: encabulator:kro:storageclass
+  labels:
+    app.kubernetes.io/part-of: encabulator
+    app.kubernetes.io/component: kro-rbac
+  annotations:
+    argocd.argoproj.io/sync-wave: "-1"
+rules:
+  # RBAC cannot scope create by name; everything after creation is limited to this class.
+  - apiGroups: ["storage.k8s.io"]
+    resources: ["storageclasses"]
+    verbs: ["create"]
+  - apiGroups: ["storage.k8s.io"]
+    resources: ["storageclasses"]
+    resourceNames: ["encabulator-gp3"]
+    verbs: ["update", "patch", "delete"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: encabulator:kro:storageclass
+  labels:
+    app.kubernetes.io/part-of: encabulator
+    app.kubernetes.io/component: kro-rbac
+  annotations:
+    argocd.argoproj.io/sync-wave: "-1"
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: encabulator:kro:storageclass
+subjects:
+  - apiGroup: rbac.authorization.k8s.io
+    kind: Group
+    name: encabulator:kro

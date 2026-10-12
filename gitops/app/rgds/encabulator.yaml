@@ -1,0 +1,842 @@
+# Encabulator: the whole Encabulator Works for one cell, as one Kubernetes object.
+#
+#   AWS, through ACK         DBSubnetGroup, DBInstance (RDS PostgreSQL), ServerlessCache (Valkey)
+#   Kubernetes               StorageClass, NATS and InfluxDB StatefulSets, the encabulator-aws
+#                            ConfigMap, and one EncabulatorService per name in spec.services
+#   One-time Jobs            secret-init (passwords and keys kro cannot generate) and db-init
+#                            (the three databases and their roles on RDS)
+#
+# No sync waves or hooks inside the graph: every ${...} that points at another resource is an
+# edge, and kro creates a resource only once everything it references exists (and is ready,
+# where a readyWhen says what ready means):
+#
+#   dbSubnets ─┐
+#   secretInit ┴─> db (available) ─> dbInit (succeeded) ─┐
+#   cache (available) ───────────────────────────────────┴─> stores ConfigMap ─> 15 x EncabulatorService
+#   storageClass ─> nats, influxdb (influxdb also waits for secretInit)
+#
+# The AWS resources use the same annotations as Act 1: adopt-or-create (an encabulator-pg that
+# already exists in the region is adopted, otherwise created) and deletion-policy retain
+# (deleting the instance never deletes the database).
+apiVersion: kro.run/v1alpha1
+kind: ResourceGraphDefinition
+metadata:
+  name: encabulator
+  annotations:
+    argocd.argoproj.io/sync-wave: "0"
+spec:
+  schema:
+    apiVersion: v1alpha1
+    kind: Encabulator
+    spec:
+      imageTag: string | default="1.0.0"
+      dbInstanceClass: string | default="db.t4g.medium"
+      # Private subnets for the DB subnet group and the serverless cache.
+      subnetIDs: "[]string"
+      # Security group allowing 5432 and 6379 from the cluster security group.
+      securityGroupID: string | required=true
+      services: "[]string"
+    status:
+      databaseHost: ${db.status.endpoint.address}
+      cacheHost: ${cache.status.endpoint.address}
+
+  resources:
+    # ------------------------------------------------------------------ AWS, through ACK
+    - id: dbSubnets
+      template:
+        apiVersion: rds.services.k8s.aws/v1alpha1
+        kind: DBSubnetGroup
+        metadata:
+          name: ${schema.metadata.name}
+          annotations: &ackAnnotations
+            services.k8s.aws/adoption-policy: adopt-or-create
+            services.k8s.aws/deletion-policy: retain
+        spec:
+          name: ${schema.metadata.name}
+          description: Encabulator databases
+          subnetIDs: ${schema.spec.subnetIDs}
+          tags: &awsTags
+            - key: auto-delete
+              value: "no"
+            - key: project
+              value: encabulator
+            - key: talk
+              value: opn315
+
+    - id: db
+      template:
+        apiVersion: rds.services.k8s.aws/v1alpha1
+        kind: DBInstance
+        metadata:
+          name: ${schema.metadata.name}-pg
+          annotations: *ackAnnotations
+        spec:
+          dbInstanceIdentifier: ${schema.metadata.name}-pg
+          engine: postgres
+          # Newest major RDS for PostgreSQL supports (18.6 as of 2026-08); RDS picks the minor.
+          engineVersion: "18"
+          dbInstanceClass: ${schema.spec.dbInstanceClass}
+          allocatedStorage: 20
+          storageType: gp3
+          storageEncrypted: true
+          publiclyAccessible: false
+          multiAZ: false
+          backupRetentionPeriod: 7
+          masterUsername: postgres
+          # Generated in-cluster by secretInit; the reference makes the database wait for it.
+          masterUserPassword:
+            namespace: ${schema.metadata.namespace}
+            name: ${secretInit.metadata.annotations["encabulator.io/db-secret"]}
+            key: postgres-password
+          dbSubnetGroupName: ${dbSubnets.spec.name}
+          vpcSecurityGroupIDs:
+            - ${schema.spec.securityGroupID}
+          tags: *awsTags
+      readyWhen:
+        - ${db.status.?dbInstanceStatus.orValue("") == "available"}
+
+    - id: cache
+      template:
+        apiVersion: elasticache.services.k8s.aws/v1alpha1
+        kind: ServerlessCache
+        metadata:
+          name: ${schema.metadata.name}-valkey
+          annotations: *ackAnnotations
+        spec:
+          serverlessCacheName: ${schema.metadata.name}-valkey
+          description: Encabulator Valkey cache
+          engine: valkey
+          majorEngineVersion: "8"
+          dailySnapshotTime: "09:00"
+          snapshotRetentionLimit: 1
+          # Serverless caches are TLS-only. No user group: access is by security group.
+          securityGroupIDs:
+            - ${schema.spec.securityGroupID}
+          subnetIDs: ${schema.spec.subnetIDs}
+          tags: *awsTags
+      readyWhen:
+        - ${cache.status.?status.orValue("").lowerAscii() == "available"}
+
+    # ------------------------------------------------------------- generated secrets
+    # The chart generated these with randAlphaNum and genPrivateKey. CEL has no secure
+    # randomness (random.seededString is seeded by a value anyone can read) and cannot make
+    # an RSA key, so a Job creates each Secret once, only if it is absent, and never prints
+    # or rewrites a value. Same Secret key names as the chart.
+    - id: secretInitScript
+      template:
+        apiVersion: v1
+        kind: ConfigMap
+        metadata:
+          name: encabulator-secret-init
+          labels: &secretInitLabels
+            app.kubernetes.io/name: encabulator-secret-init
+            app.kubernetes.io/instance: ${schema.metadata.name}
+            app.kubernetes.io/part-of: encabulator
+            app.kubernetes.io/component: secret-init
+        data:
+          secret-init.py: |
+            """Create the Encabulator's generated Secrets, each only if it does not exist yet."""
+            import base64
+            import json
+            import secrets
+            import ssl
+            import string
+            import subprocess
+            import sys
+            import time
+            import urllib.error
+            import urllib.request
+
+            SA = "/var/run/secrets/kubernetes.io/serviceaccount"
+            API = "https://kubernetes.default.svc"
+            ALNUM = string.ascii_letters + string.digits
+
+
+            def rand(n):
+                return "".join(secrets.choice(ALNUM) for _ in range(n))
+
+
+            def rsa_private_key():
+                # PKCS#1 PEM, 4096 bits: what the chart's genPrivateKey "rsa" produces.
+                out = subprocess.run(["openssl", "genrsa", "-traditional", "4096"],
+                                     check=True, capture_output=True, text=True)
+                return out.stdout
+
+
+            def influxdb_token():
+                # InfluxDB 3 Core reads the offline admin token file; the recorder reads the raw token.
+                token = "apiv3_" + rand(48)
+                doc = json.dumps({"name": "encabulator-admin", "token": token}, separators=(",", ":"))
+                return {"admin-token": token, "admin-token.json": doc}
+
+
+            # Name -> generator. Names and keys match the chart (encabulator-db is the chart's
+            # postgres.external.existingSecret).
+            WANTED = {
+                "encabulator-db": lambda: {
+                    "postgres-password": rand(24),
+                    "hydrocoptic-password": rand(24),
+                    "detractor-password": rand(24),
+                    "girdlespring-password": rand(24),
+                },
+                "encabulator-app": lambda: {
+                    "jwt-private-key": rsa_private_key(),
+                    "bootstrap-admin-password": rand(24),
+                    "bootstrap-operator-password": rand(24),
+                    "session-secret": rand(48),
+                    "customer-password-seed": rand(32),
+                },
+                # ElastiCache Serverless without a user group: TLS, no password.
+                "encabulator-valkey": lambda: {"valkey-password": ""},
+                "encabulator-influxdb": influxdb_token,
+            }
+
+
+            def call(method, path, body=None):
+                token = open(SA + "/token").read().strip()
+                req = urllib.request.Request(
+                    API + path, method=method,
+                    data=None if body is None else json.dumps(body).encode(),
+                    headers={"Authorization": "Bearer " + token, "Content-Type": "application/json"})
+                tls = ssl.create_default_context(cafile=SA + "/ca.crt")
+                try:
+                    with urllib.request.urlopen(req, context=tls, timeout=30) as resp:
+                        return resp.status
+                except urllib.error.HTTPError as err:
+                    return err.code
+
+
+            def ensure(namespace, name, generate):
+                base = "/api/v1/namespaces/" + namespace + "/secrets"
+                for _ in range(60):
+                    status = call("GET", base + "/" + name)
+                    if status == 200:
+                        print(name + ": exists, left unchanged")
+                        return
+                    if status == 404:
+                        data = {k: base64.b64encode(v.encode()).decode() for k, v in generate().items()}
+                        status = call("POST", base, {
+                            "apiVersion": "v1", "kind": "Secret", "type": "Opaque",
+                            "metadata": {"name": name, "labels": {
+                                "app.kubernetes.io/part-of": "encabulator",
+                                "app.kubernetes.io/component": "secret",
+                                "app.kubernetes.io/managed-by": "encabulator-secret-init"}},
+                            "data": data})
+                        if status in (201, 409):
+                            print(name + (": created" if status == 201 else ": created by someone else"))
+                            return
+                    # 401/403 until the RoleBinding is visible; anything else is retried too.
+                    print(name + ": API answered " + str(status) + ", retrying", file=sys.stderr)
+                    time.sleep(5)
+                sys.exit(name + ": gave up")
+
+
+            namespace = open(SA + "/namespace").read().strip()
+            for secret_name, generator in WANTED.items():
+                ensure(namespace, secret_name, generator)
+
+    - id: secretInitServiceAccount
+      template:
+        apiVersion: v1
+        kind: ServiceAccount
+        metadata:
+          name: encabulator-secret-init
+          labels: *secretInitLabels
+
+    # Create any Secret (RBAC cannot scope create by name), read only these four.
+    - id: secretInitRole
+      template:
+        apiVersion: rbac.authorization.k8s.io/v1
+        kind: Role
+        metadata:
+          name: encabulator-secret-init
+          labels: *secretInitLabels
+        rules:
+          - apiGroups: [""]
+            resources: ["secrets"]
+            verbs: ["create"]
+          - apiGroups: [""]
+            resources: ["secrets"]
+            resourceNames: ["encabulator-db", "encabulator-app", "encabulator-valkey", "encabulator-influxdb"]
+            verbs: ["get"]
+
+    - id: secretInitRoleBinding
+      template:
+        apiVersion: rbac.authorization.k8s.io/v1
+        kind: RoleBinding
+        metadata:
+          name: encabulator-secret-init
+          labels: *secretInitLabels
+        roleRef:
+          apiGroup: rbac.authorization.k8s.io
+          kind: Role
+          name: ${secretInitRole.metadata.name}
+        subjects:
+          - kind: ServiceAccount
+            name: ${secretInitServiceAccount.metadata.name}
+            namespace: ${schema.metadata.namespace}
+
+    # The annotations name the Secrets this Job produces. Resources that need one read the
+    # name from here, which makes them wait until the Job has succeeded.
+    - id: secretInit
+      template:
+        apiVersion: batch/v1
+        kind: Job
+        metadata:
+          name: encabulator-secret-init
+          labels: *secretInitLabels
+          annotations:
+            encabulator.io/db-secret: encabulator-db
+            encabulator.io/app-secret: encabulator-app
+            encabulator.io/valkey-secret: encabulator-valkey
+            encabulator.io/influxdb-secret: encabulator-influxdb
+            encabulator.io/role-binding: ${secretInitRoleBinding.metadata.name}
+        spec:
+          backoffLimit: 4
+          template:
+            metadata:
+              labels: *secretInitLabels
+            spec:
+              serviceAccountName: ${secretInitServiceAccount.metadata.name}
+              restartPolicy: Never
+              securityContext: &jobPodSecurity
+                runAsNonRoot: true
+                runAsUser: 65532
+                runAsGroup: 65532
+                seccompProfile:
+                  type: RuntimeDefault
+              containers:
+                - name: secret-init
+                  image: docker.io/library/python:3.13.16-slim-trixie@sha256:70729b46c69b4f1e97c4822c1af3df53a1476cf5ddc6c087c0c10bc3a5678c2f
+                  command: ["python3", "/scripts/secret-init.py"]
+                  env:
+                    - name: HOME
+                      value: /tmp
+                  securityContext: &jobContainerSecurity
+                    allowPrivilegeEscalation: false
+                    readOnlyRootFilesystem: true
+                    runAsNonRoot: true
+                    capabilities:
+                      drop: ["ALL"]
+                  resources: &jobResources
+                    requests: {cpu: 100m, memory: 64Mi}
+                    limits: {cpu: 1000m, memory: 256Mi}
+                  volumeMounts:
+                    - name: scripts
+                      mountPath: /scripts
+                      readOnly: true
+                    - name: tmp
+                      mountPath: /tmp
+              volumes:
+                - name: scripts
+                  configMap:
+                    name: ${secretInitScript.metadata.name}
+                - name: tmp
+                  emptyDir: {}
+      readyWhen:
+        - ${secretInit.status.?succeeded.orValue(0) > 0}
+
+    # ------------------------------------------------------- databases on the RDS instance
+    # The chart's postgres StatefulSet ran an init script on first boot. RDS has no init
+    # hook, so this Job does the same once the instance is available: one role and one
+    # database per service that owns data, owner-only CONNECT. Idempotent.
+    - id: dbInitScript
+      template:
+        apiVersion: v1
+        kind: ConfigMap
+        metadata:
+          name: encabulator-db-init
+          labels: &dbInitLabels
+            app.kubernetes.io/name: encabulator-db-init
+            app.kubernetes.io/instance: ${schema.metadata.name}
+            app.kubernetes.io/part-of: encabulator
+            app.kubernetes.io/component: db-init
+        data:
+          db-init.sh: |
+            #!/usr/bin/env bash
+            # One role and one database per record "database:role:PASSWORD_ENV_VAR".
+            # Identifiers and passwords are quoted by the server (format %I/%L), not by the shell.
+            set -euo pipefail
+
+            until pg_isready --quiet; do
+              echo "db-init: waiting for $PGHOST"
+              sleep 5
+            done
+
+            for record in $ENCABULATOR_DATABASES; do
+              IFS=: read -r db role pwvar <<<"$record"
+              pw="$(printenv "$pwvar" || true)"
+              if [ -z "$pw" ]; then
+                echo "db-init: no password in $pwvar for database $db" >&2
+                exit 1
+              fi
+              echo "db-init: database '$db' owned by role '$role'"
+              psql -v ON_ERROR_STOP=1 -v role="$role" -v pw="$pw" -v db="$db" <<'SQL'
+            SELECT format('CREATE ROLE %I LOGIN PASSWORD %L', :'role', :'pw')
+            WHERE NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = :'role')
+            \gexec
+            SELECT format('ALTER ROLE %I LOGIN PASSWORD %L', :'role', :'pw')
+            \gexec
+            -- The RDS admin user (masterUsername) is not a superuser. Since PostgreSQL 16 it may only create a
+            -- database owned by a role it can SET ROLE to, so it grants itself that role first.
+            SELECT format('GRANT %I TO %I', :'role', current_user)
+            WHERE NOT pg_has_role(current_user, :'role', 'SET')
+            \gexec
+            SELECT format('CREATE DATABASE %I OWNER %I', :'db', :'role')
+            WHERE NOT EXISTS (SELECT 1 FROM pg_database WHERE datname = :'db')
+            \gexec
+            SELECT format('GRANT ALL PRIVILEGES ON DATABASE %I TO %I', :'db', :'role')
+            \gexec
+            -- PUBLIC gets CONNECT on every new database by default; only the owner should.
+            SELECT format('REVOKE CONNECT ON DATABASE %I FROM PUBLIC', :'db')
+            \gexec
+            SQL
+              psql -v ON_ERROR_STOP=1 --dbname "$db" -v role="$role" <<'SQL'
+            SELECT format('ALTER SCHEMA public OWNER TO %I', :'role')
+            \gexec
+            SQL
+            done
+            echo "db-init: done"
+
+    - id: dbInit
+      template:
+        apiVersion: batch/v1
+        kind: Job
+        metadata:
+          name: encabulator-db-init
+          labels: *dbInitLabels
+        spec:
+          backoffLimit: 6
+          template:
+            metadata:
+              labels: *dbInitLabels
+            spec:
+              automountServiceAccountToken: false
+              restartPolicy: Never
+              securityContext:
+                runAsNonRoot: true
+                runAsUser: 999
+                runAsGroup: 999
+                seccompProfile:
+                  type: RuntimeDefault
+              containers:
+                - name: db-init
+                  image: docker.io/library/postgres:18.6-trixie@sha256:74935e72241653ca55e0414067e6d8763aceb8a810eb51b452253ec3dcfc4336
+                  command: ["bash", "/scripts/db-init.sh"]
+                  env:
+                    - name: HOME
+                      value: /tmp
+                    - name: PGHOST
+                      value: ${db.status.endpoint.address}
+                    - name: PGPORT
+                      value: ${string(db.status.endpoint.port)}
+                    - name: PGUSER
+                      value: ${db.spec.masterUsername}
+                    - name: PGDATABASE
+                      value: postgres
+                    - name: PGSSLMODE
+                      value: require
+                    - name: PGCONNECT_TIMEOUT
+                      value: "10"
+                    - name: PGPASSWORD
+                      valueFrom:
+                        secretKeyRef:
+                          name: ${db.spec.masterUserPassword.name}
+                          key: ${db.spec.masterUserPassword.key}
+                    - name: ENCABULATOR_DATABASES
+                      value: "hydrocoptic:hydrocoptic:PGPW_HYDROCOPTIC detractor:detractor:PGPW_DETRACTOR girdlespring:girdlespring:PGPW_GIRDLESPRING"
+                    - name: PGPW_HYDROCOPTIC
+                      valueFrom:
+                        secretKeyRef: {name: "${db.spec.masterUserPassword.name}", key: hydrocoptic-password}
+                    - name: PGPW_DETRACTOR
+                      valueFrom:
+                        secretKeyRef: {name: "${db.spec.masterUserPassword.name}", key: detractor-password}
+                    - name: PGPW_GIRDLESPRING
+                      valueFrom:
+                        secretKeyRef: {name: "${db.spec.masterUserPassword.name}", key: girdlespring-password}
+                  securityContext: *jobContainerSecurity
+                  resources: *jobResources
+                  volumeMounts:
+                    - name: scripts
+                      mountPath: /scripts
+                      readOnly: true
+                    - name: tmp
+                      mountPath: /tmp
+              volumes:
+                - name: scripts
+                  configMap:
+                    name: ${dbInitScript.metadata.name}
+                - name: tmp
+                  emptyDir: {}
+      readyWhen:
+        - ${dbInit.status.?succeeded.orValue(0) > 0}
+
+    # -------------------------------------------------------- in-cluster backing stores
+    # EKS Auto Mode's EBS driver. Auto Mode creates no StorageClass for it.
+    - id: storageClass
+      template:
+        apiVersion: storage.k8s.io/v1
+        kind: StorageClass
+        metadata:
+          name: encabulator-gp3
+          labels:
+            app.kubernetes.io/name: storage
+            app.kubernetes.io/instance: ${schema.metadata.name}
+            app.kubernetes.io/part-of: encabulator
+            app.kubernetes.io/version: ${schema.spec.imageTag}
+            app.kubernetes.io/component: storage
+            encabulator.io/plane: data
+        provisioner: ebs.csi.eks.amazonaws.com
+        parameters:
+          type: gp3
+          encrypted: "true"
+        reclaimPolicy: Delete
+        allowVolumeExpansion: true
+        volumeBindingMode: WaitForFirstConsumer
+
+    # NATS 2.12 with JetStream, single replica. Same config, probes and security context as
+    # the chart's templates/stores/nats.yaml.
+    - id: natsConfig
+      template:
+        apiVersion: v1
+        kind: ConfigMap
+        metadata:
+          name: nats-config
+          labels: &natsLabels
+            app.kubernetes.io/name: nats
+            app.kubernetes.io/instance: ${schema.metadata.name}
+            app.kubernetes.io/part-of: encabulator
+            app.kubernetes.io/version: ${schema.spec.imageTag}
+            # kro stamps this on objects it owns; spelled out so the PVCs carry it too.
+            app.kubernetes.io/managed-by: kro
+            app.kubernetes.io/component: backing-store
+            encabulator.io/plane: data
+        data:
+          nats-server.conf: |
+            # $POD_NAME is substituted by nats-server itself from the environment.
+            server_name: $POD_NAME
+            port: 4222
+            # The monitoring endpoint serves /healthz and /jsz. KEDA's nats-jetstream scaler reads
+            # consumer lag from here, so it is not optional.
+            http: 8222
+
+            max_payload: 2MB
+            write_deadline: 10s
+            # Needed by the preStop lame-duck signal below.
+            pid_file: /tmp/nats.pid
+            jetstream {
+              # nats-server appends "jetstream" itself, so this becomes /data/jetstream.
+              store_dir: /data
+              max_memory_store: 256MB
+              max_file_store: 8GB
+            }
+
+    - id: natsHeadless
+      template:
+        apiVersion: v1
+        kind: Service
+        metadata:
+          name: nats-headless
+          labels: *natsLabels
+        spec:
+          type: ClusterIP
+          clusterIP: None
+          publishNotReadyAddresses: true
+          ports:
+            - {name: client, port: 4222, targetPort: client, protocol: TCP}
+            - {name: monitor, port: 8222, targetPort: monitor, protocol: TCP}
+          selector: &natsSelector
+            app.kubernetes.io/name: nats
+            app.kubernetes.io/instance: ${schema.metadata.name}
+
+    - id: natsService
+      template:
+        apiVersion: v1
+        kind: Service
+        metadata:
+          name: nats
+          labels: *natsLabels
+        spec:
+          type: ClusterIP
+          ports:
+            - {name: client, port: 4222, targetPort: client, protocol: TCP}
+            - {name: monitor, port: 8222, targetPort: monitor, protocol: TCP, appProtocol: http}
+          selector: *natsSelector
+
+    - id: nats
+      template:
+        apiVersion: apps/v1
+        kind: StatefulSet
+        metadata:
+          name: nats
+          labels: *natsLabels
+        spec:
+          serviceName: ${natsHeadless.metadata.name}
+          replicas: 1
+          selector:
+            matchLabels: *natsSelector
+          template:
+            metadata:
+              labels:
+                app.kubernetes.io/name: nats
+                app.kubernetes.io/instance: ${schema.metadata.name}
+                app.kubernetes.io/part-of: encabulator
+                app.kubernetes.io/component: backing-store
+                encabulator.io/plane: data
+                encabulator.io/malaise-target: "true"
+            spec:
+              automountServiceAccountToken: false
+              # The nats image has no USER directive, so pick an arbitrary non-root id.
+              securityContext:
+                runAsNonRoot: true
+                runAsUser: 10000
+                runAsGroup: 10000
+                fsGroup: 10000
+                seccompProfile:
+                  type: RuntimeDefault
+              # Long enough for JetStream to flush and step down cleanly.
+              terminationGracePeriodSeconds: 60
+              containers:
+                - name: nats
+                  image: nats:2.12
+                  imagePullPolicy: IfNotPresent
+                  securityContext: &storeContainerSecurity
+                    allowPrivilegeEscalation: false
+                    readOnlyRootFilesystem: true
+                    runAsNonRoot: true
+                    capabilities:
+                      drop: ["ALL"]
+                  args: ["--config", "/etc/nats-config/nats-server.conf"]
+                  ports:
+                    - {name: client, containerPort: 4222, protocol: TCP}
+                    - {name: monitor, containerPort: 8222, protocol: TCP}
+                  env:
+                    - name: POD_NAME
+                      valueFrom:
+                        fieldRef:
+                          fieldPath: metadata.name
+                  lifecycle:
+                    preStop:
+                      exec:
+                        command: ["nats-server", "-sl=ldm=/tmp/nats.pid"]
+                  startupProbe:
+                    httpGet: {path: /healthz, port: monitor}
+                    periodSeconds: 3
+                    failureThreshold: 30
+                  livenessProbe:
+                    httpGet: {path: "/healthz?js-enabled-only=true", port: monitor}
+                    periodSeconds: 10
+                    timeoutSeconds: 3
+                    failureThreshold: 6
+                  readinessProbe:
+                    httpGet: {path: "/healthz?js-server-only=true", port: monitor}
+                    periodSeconds: 5
+                    timeoutSeconds: 3
+                    failureThreshold: 3
+                  resources:
+                    requests: {cpu: 100m, memory: 256Mi}
+                    limits: {cpu: 1000m, memory: 768Mi}
+                  volumeMounts:
+                    - {name: data, mountPath: /data}
+                    - {name: config, mountPath: /etc/nats-config, readOnly: true}
+                    - {name: tmp, mountPath: /tmp}
+              volumes:
+                - name: config
+                  configMap:
+                    name: ${natsConfig.metadata.name}
+                - name: tmp
+                  emptyDir: {}
+          volumeClaimTemplates:
+            - metadata:
+                name: data
+                labels: *natsLabels
+              spec:
+                accessModes: ["ReadWriteOnce"]
+                resources:
+                  requests:
+                    storage: 8Gi
+                storageClassName: ${storageClass.metadata.name}
+
+    # InfluxDB 3 Core, single replica. Same as the chart's templates/stores/influxdb.yaml: the
+    # admin token comes from the offline token file secretInit generated.
+    - id: influxdbHeadless
+      template:
+        apiVersion: v1
+        kind: Service
+        metadata:
+          name: influxdb-headless
+          labels: &influxdbLabels
+            app.kubernetes.io/name: influxdb
+            app.kubernetes.io/instance: ${schema.metadata.name}
+            app.kubernetes.io/part-of: encabulator
+            app.kubernetes.io/version: ${schema.spec.imageTag}
+            app.kubernetes.io/managed-by: kro
+            app.kubernetes.io/component: backing-store
+            encabulator.io/plane: data
+        spec:
+          type: ClusterIP
+          clusterIP: None
+          publishNotReadyAddresses: true
+          ports:
+            - {name: http, port: 8181, targetPort: http, protocol: TCP}
+          selector: &influxdbSelector
+            app.kubernetes.io/name: influxdb
+            app.kubernetes.io/instance: ${schema.metadata.name}
+
+    - id: influxdbService
+      template:
+        apiVersion: v1
+        kind: Service
+        metadata:
+          name: influxdb
+          labels: *influxdbLabels
+        spec:
+          type: ClusterIP
+          ports:
+            - {name: http, port: 8181, targetPort: http, protocol: TCP, appProtocol: http}
+          selector: *influxdbSelector
+
+    - id: influxdb
+      template:
+        apiVersion: apps/v1
+        kind: StatefulSet
+        metadata:
+          name: influxdb
+          labels: *influxdbLabels
+        spec:
+          serviceName: ${influxdbHeadless.metadata.name}
+          replicas: 1
+          selector:
+            matchLabels: *influxdbSelector
+          template:
+            metadata:
+              labels:
+                app.kubernetes.io/name: influxdb
+                app.kubernetes.io/instance: ${schema.metadata.name}
+                app.kubernetes.io/part-of: encabulator
+                app.kubernetes.io/component: backing-store
+                encabulator.io/plane: data
+                encabulator.io/malaise-target: "true"
+            spec:
+              automountServiceAccountToken: false
+              # influxdb:3-core runs as uid/gid 1500.
+              securityContext:
+                runAsNonRoot: true
+                runAsUser: 1500
+                runAsGroup: 1500
+                fsGroup: 1500
+                seccompProfile:
+                  type: RuntimeDefault
+              terminationGracePeriodSeconds: 60
+              containers:
+                - name: influxdb
+                  image: influxdb:3-core
+                  imagePullPolicy: IfNotPresent
+                  securityContext: *storeContainerSecurity
+                  ports:
+                    - {name: http, containerPort: 8181, protocol: TCP}
+                  env:
+                    - {name: INFLUXDB3_NODE_ID, value: encabulator-influxdb-0}
+                    - {name: INFLUXDB3_OBJECT_STORE, value: file}
+                    - {name: INFLUXDB3_DATA_DIR, value: /var/lib/influxdb3}
+                    - {name: INFLUXDB3_HTTP_BIND_ADDR, value: "0.0.0.0:8181"}
+                    - {name: INFLUXDB3_ADMIN_TOKEN_FILE, value: /etc/influxdb3/admin-token.json}
+                    - {name: INFLUXDB3_DISABLE_AUTHZ, value: "health,ping,metrics"}
+                    - {name: INFLUXDB3_DISABLE_TELEMETRY_UPLOAD, value: "true"}
+                    - {name: INFLUXDB3_GEN1_DURATION, value: 1m}
+                  startupProbe:
+                    httpGet: {path: /health, port: http}
+                    periodSeconds: 5
+                    failureThreshold: 60
+                  livenessProbe:
+                    httpGet: {path: /health, port: http}
+                    periodSeconds: 10
+                    timeoutSeconds: 5
+                    failureThreshold: 6
+                  readinessProbe:
+                    httpGet: {path: /health, port: http}
+                    periodSeconds: 5
+                    timeoutSeconds: 3
+                    failureThreshold: 3
+                  resources:
+                    requests: {cpu: 250m, memory: 768Mi}
+                    limits: {cpu: 2000m, memory: 2Gi}
+                  volumeMounts:
+                    - {name: data, mountPath: /var/lib/influxdb3}
+                    - {name: admin-token, mountPath: /etc/influxdb3, readOnly: true}
+                    - {name: plugins, mountPath: /plugins}
+                    - {name: tmp, mountPath: /tmp}
+              volumes:
+                - name: admin-token
+                  secret:
+                    secretName: ${secretInit.metadata.annotations["encabulator.io/influxdb-secret"]}
+                    items:
+                      - {key: admin-token.json, path: admin-token.json}
+                    # Group-readable so uid 1500 can read a root:fsGroup-owned Secret file.
+                    defaultMode: 0440
+                - name: plugins
+                  emptyDir: {}
+                - name: tmp
+                  emptyDir: {}
+          volumeClaimTemplates:
+            - metadata:
+                name: data
+                labels: *influxdbLabels
+              spec:
+                accessModes: ["ReadWriteOnce"]
+                resources:
+                  requests:
+                    storage: 16Gi
+                storageClassName: ${storageClass.metadata.name}
+
+    # Mounted (optional) by the demo scenario orchestrator at SCENARIO_DIR.
+    - id: scenarios
+      template:
+        apiVersion: v1
+        kind: ConfigMap
+        metadata:
+          name: encabulator-scenarios
+          labels:
+            app.kubernetes.io/name: demo-scenario-orchestrator
+            app.kubernetes.io/instance: ${schema.metadata.name}
+            app.kubernetes.io/part-of: encabulator
+            app.kubernetes.io/version: ${schema.spec.imageTag}
+            app.kubernetes.io/component: scenarios
+            encabulator.io/plane: control
+
+    # ------------------------------------------------------------------ the hand-off
+    # The ConfigMap Terraform writes on the hub in Act 1, same name and keys, built from ACK
+    # status. It is published once the endpoints exist and the databases are created.
+    - id: stores
+      template:
+        apiVersion: v1
+        kind: ConfigMap
+        metadata:
+          name: encabulator-aws
+          labels:
+            app.kubernetes.io/name: encabulator-aws
+            app.kubernetes.io/instance: ${schema.metadata.name}
+            app.kubernetes.io/part-of: encabulator
+            app.kubernetes.io/component: stores
+          annotations:
+            encabulator.io/databases-created-by: ${dbInit.metadata.name}
+        data:
+          POSTGRES_HOST: ${db.status.endpoint.address}
+          POSTGRES_PORT: ${string(db.status.endpoint.port)}
+          VALKEY_HOST: ${cache.status.endpoint.address}
+          VALKEY_PORT: ${string(cache.status.endpoint.port)}
+
+    # ------------------------------------------------------------------ 15 services
+    # One EncabulatorService per name. Each reads the stores ConfigMap, so none starts
+    # before the database and cache endpoints are real.
+    - id: services
+      forEach:
+        - svc: ${schema.spec.services}
+      template:
+        apiVersion: kro.run/v1alpha1
+        kind: EncabulatorService
+        metadata:
+          name: ${svc}
+        spec:
+          tag: ${schema.spec.imageTag}
+          storesConfig: ${stores.metadata.name}
