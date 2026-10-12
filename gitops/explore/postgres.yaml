@@ -1,0 +1,14 @@
+# First look: point ACK at the RDS instance Terraform built and let it read the spec back.
+# Applied by hand during Act 1 (`kubectl apply -f gitops/explore/postgres.yaml`), then deleted.
+# No Argo CD Application syncs this folder.
+apiVersion: rds.services.k8s.aws/v1alpha1
+kind: DBInstance
+metadata:
+  name: encabulator-pg
+  namespace: encabulator
+  annotations:
+    services.k8s.aws/adoption-policy: adopt
+    services.k8s.aws/adoption-fields: |
+      {"dbInstanceIdentifier": "encabulator-pg"}
+    services.k8s.aws/deletion-policy: retain
+# no spec: ACK reads it back from AWS

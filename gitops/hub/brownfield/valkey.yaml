@@ -1,0 +1,35 @@
+# The serverless Valkey cache Terraform built, now owned by Git.
+#
+# subnetIDs and securityGroupIDs are placeholders. The elasticache-controller does not
+# late-initialize them, so they must be in the spec; the real ids live on the hub's Argo CD
+# cluster Secret (written by gitops/hub/bootstrap/register-hub.sh) and the hub-brownfield
+# ApplicationSet patches them in at sync time. Do not `kubectl apply` this file directly.
+#
+# description, dailySnapshotTime and snapshotRetentionLimit must match Terraform exactly:
+# ACK reads them back and would otherwise try to change them.
+apiVersion: elasticache.services.k8s.aws/v1alpha1
+kind: ServerlessCache
+metadata:
+  name: encabulator-valkey
+  namespace: encabulator
+  annotations:
+    services.k8s.aws/adoption-policy: adopt-or-create
+    services.k8s.aws/deletion-policy: retain
+spec:
+  serverlessCacheName: encabulator-valkey
+  engine: valkey
+  majorEngineVersion: "8"
+  description: Encabulator Valkey cache
+  dailySnapshotTime: "09:00"
+  snapshotRetentionLimit: 1
+  subnetIDs:
+    - subnet-placeholder        # replaced from annotation encabulator.io/subnet-ids
+  securityGroupIDs:
+    - sg-placeholder            # replaced from annotation encabulator.io/security-group-id
+  tags:
+    - key: auto-delete
+      value: "no"
+    - key: project
+      value: encabulator
+    - key: talk
+      value: opn315

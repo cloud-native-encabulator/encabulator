@@ -1,0 +1,8 @@
+# Argo CD renders this folder with kustomize so the hub-brownfield ApplicationSet can patch the
+# environment ids into subnet-group.yaml and valkey.yaml (see gitops/hub/bootstrap/README.md).
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+  - subnet-group.yaml
+  - postgres.yaml
+  - valkey.yaml
