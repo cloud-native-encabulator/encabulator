@@ -1,0 +1,13 @@
+# One object = one region. Commit this file and the hub builds us-east-2.
+apiVersion: kro.run/v1alpha1
+kind: EncabulatorCell
+metadata:
+  name: encabulator-use2
+  namespace: encabulator-cells
+  annotations:
+    argocd.argoproj.io/sync-options: SkipDryRunOnMissingResource=true
+spec:
+  region: us-east-2
+  vpcCIDR: 10.41.0.0/16
+  availabilityZones: [us-east-2a, us-east-2b, us-east-2c]
+  argoCDRoleName: encabulator-usw2-argocd

@@ -1,0 +1,692 @@
+# EncabulatorCell: one object per region. Applied on the hub (encabulator-usw2) only.
+#
+# kro on the hub turns an EncabulatorCell into ACK resources; ACK on the hub creates them in
+# the region named on the instance (every ACK resource carries services.k8s.aws/region):
+#
+#   network   VPC, public + private subnet per AZ, internet gateway, one NAT gateway,
+#             public + private route tables
+#   IAM       cluster role, node role (for the cell's custom NodeClass), ACK and kro
+#             capability roles
+#   EKS       Auto Mode cluster with no built-in node pools, access entries, ACK and kro
+#             capabilities, access for the hub's Argo CD capability role
+#   stores    the encabulator-db security group (5432 + 6379 from the cluster security group)
+#   Argo CD   the cluster Secret in argocd that the encabulator ApplicationSet selects
+#
+# No account id lives in Git: ARNs come from ACK status, and the one ARN built here (the hub's
+# Argo CD role) takes the account from status.ackResourceMetadata.ownerAccountID.
+# Field names are checked against the CRDs of ec2-controller v1.22.0, iam-controller v1.10.0
+# and eks-controller v1.24.1 (see README.md).
+apiVersion: kro.run/v1alpha1
+kind: ResourceGraphDefinition
+metadata:
+  name: encabulator-cell
+spec:
+  schema:
+    apiVersion: v1alpha1
+    kind: EncabulatorCell
+    spec:
+      region: string | required=true pattern="^[a-z]{2}(-[a-z]+)+-[0-9]$" description="AWS Region of the cell, for example us-east-2"
+      vpcCIDR: string | required=true pattern="^[0-9]{1,3}[.][0-9]{1,3}[.]0[.]0/16$" description="A /16, split into a /19 private and a /24 public subnet per AZ"
+      availabilityZones: '[]string | required=true minItems=2 maxItems=3 uniqueItems=true description="Two or three AZs in the region"'
+      argoCDRoleName: string | required=true description="Name of the hub's Argo CD capability role; it gets an access entry on the cell"
+      kubernetesVersion: string | default="1.37" description="EKS Kubernetes minor version"
+      adminRoleName: string | default="" description="Optional IAM role name that gets cluster admin on the cell (for kubectl)"
+    status:
+      clusterARN: ${cluster.status.ackResourceMetadata.arn}
+      clusterStatus: ${cluster.status.status}
+      vpcID: ${vpc.status.vpcID}
+      privateSubnetIDs: ${privateSubnets.map(s, s.status.subnetID)}
+      securityGroupID: ${dbSecurityGroup.status.id}
+    additionalPrinterColumns:
+      - name: Region
+        type: string
+        jsonPath: .spec.region
+      - name: Cluster
+        type: string
+        jsonPath: .status.clusterStatus
+      - name: State
+        type: string
+        jsonPath: .status.state
+      - name: Age
+        type: date
+        jsonPath: .metadata.creationTimestamp
+
+  resources:
+    # ---------------------------------------------------------------------------- network
+    - id: vpc
+      template:
+        apiVersion: ec2.services.k8s.aws/v1alpha1
+        kind: VPC
+        metadata:
+          name: ${schema.metadata.name}
+          annotations:
+            services.k8s.aws/region: ${schema.spec.region}
+        spec:
+          cidrBlocks:
+            - ${schema.spec.vpcCIDR}
+          enableDNSSupport: true
+          enableDNSHostnames: true
+          tags:
+            - { key: Name, value: "${schema.metadata.name}" }
+            - { key: auto-delete, value: "no" }
+            - { key: project, value: encabulator }
+            - { key: talk, value: opn315 }
+
+    - id: internetGateway
+      template:
+        apiVersion: ec2.services.k8s.aws/v1alpha1
+        kind: InternetGateway
+        metadata:
+          name: ${schema.metadata.name}
+          annotations:
+            services.k8s.aws/region: ${schema.spec.region}
+        spec:
+          vpc: ${vpc.status.vpcID}
+          tags:
+            - { key: Name, value: "${schema.metadata.name}" }
+            - { key: auto-delete, value: "no" }
+            - { key: project, value: encabulator }
+            - { key: talk, value: opn315 }
+
+    - id: publicRouteTable
+      template:
+        apiVersion: ec2.services.k8s.aws/v1alpha1
+        kind: RouteTable
+        metadata:
+          name: ${schema.metadata.name}-public
+          annotations:
+            services.k8s.aws/region: ${schema.spec.region}
+        spec:
+          vpcID: ${vpc.status.vpcID}
+          routes:
+            - destinationCIDRBlock: 0.0.0.0/0
+              gatewayID: ${internetGateway.status.internetGatewayID}
+          tags:
+            - { key: Name, value: "${schema.metadata.name}-public" }
+            - { key: auto-delete, value: "no" }
+            - { key: project, value: encabulator }
+            - { key: talk, value: opn315 }
+
+    # One /24 per AZ at x.y.200.0, x.y.201.0, ...: the NAT gateway and internet-facing load
+    # balancers. No public IPs on launch; nothing else runs here.
+    - id: publicSubnets
+      forEach:
+        - az: ${schema.spec.availabilityZones}
+      template:
+        apiVersion: ec2.services.k8s.aws/v1alpha1
+        kind: Subnet
+        metadata:
+          name: ${schema.metadata.name}-public-${az}
+          annotations:
+            services.k8s.aws/region: ${schema.spec.region}
+        spec:
+          vpcID: ${vpc.status.vpcID}
+          availabilityZone: ${az}
+          cidrBlock: ${schema.spec.vpcCIDR.replace(".0.0/16", "") + "." + string(200 + schema.spec.availabilityZones.indexOf(az)) + ".0/24"}
+          mapPublicIPOnLaunch: false
+          routeTables:
+            - ${publicRouteTable.status.routeTableID}
+          tags:
+            - { key: Name, value: "${schema.metadata.name}-public-${az}" }
+            - { key: kubernetes.io/role/elb, value: "1" }
+            - { key: auto-delete, value: "no" }
+            - { key: project, value: encabulator }
+            - { key: talk, value: opn315 }
+
+    - id: natAddress
+      template:
+        apiVersion: ec2.services.k8s.aws/v1alpha1
+        kind: ElasticIPAddress
+        metadata:
+          name: ${schema.metadata.name}-nat
+          annotations:
+            services.k8s.aws/region: ${schema.spec.region}
+        spec:
+          tags:
+            - { key: Name, value: "${schema.metadata.name}-nat" }
+            - { key: auto-delete, value: "no" }
+            - { key: project, value: encabulator }
+            - { key: talk, value: opn315 }
+
+    # One NAT gateway keeps the demo cheap. Use one per AZ for anything that must survive the
+    # loss of an AZ.
+    - id: natGateway
+      template:
+        apiVersion: ec2.services.k8s.aws/v1alpha1
+        kind: NATGateway
+        metadata:
+          name: ${schema.metadata.name}
+          annotations:
+            services.k8s.aws/region: ${schema.spec.region}
+        spec:
+          subnetID: ${publicSubnets[0].status.subnetID}
+          allocationID: ${natAddress.status.allocationID}
+          tags:
+            - { key: Name, value: "${schema.metadata.name}" }
+            - { key: auto-delete, value: "no" }
+            - { key: project, value: encabulator }
+            - { key: talk, value: opn315 }
+
+    - id: privateRouteTable
+      template:
+        apiVersion: ec2.services.k8s.aws/v1alpha1
+        kind: RouteTable
+        metadata:
+          name: ${schema.metadata.name}-private
+          annotations:
+            services.k8s.aws/region: ${schema.spec.region}
+        spec:
+          vpcID: ${vpc.status.vpcID}
+          routes:
+            - destinationCIDRBlock: 0.0.0.0/0
+              natGatewayID: ${natGateway.status.natGatewayID}
+          tags:
+            - { key: Name, value: "${schema.metadata.name}-private" }
+            - { key: auto-delete, value: "no" }
+            - { key: project, value: encabulator }
+            - { key: talk, value: opn315 }
+
+    # One /19 per AZ at x.y.0.0, x.y.32.0, x.y.64.0: nodes, pods, RDS and ElastiCache.
+    # Auto Mode hands out /28 prefixes per node, so the subnets are large.
+    - id: privateSubnets
+      forEach:
+        - az: ${schema.spec.availabilityZones}
+      template:
+        apiVersion: ec2.services.k8s.aws/v1alpha1
+        kind: Subnet
+        metadata:
+          name: ${schema.metadata.name}-private-${az}
+          annotations:
+            services.k8s.aws/region: ${schema.spec.region}
+        spec:
+          vpcID: ${vpc.status.vpcID}
+          availabilityZone: ${az}
+          cidrBlock: ${schema.spec.vpcCIDR.replace(".0.0/16", "") + "." + string(32 * schema.spec.availabilityZones.indexOf(az)) + ".0/19"}
+          routeTables:
+            - ${privateRouteTable.status.routeTableID}
+          tags:
+            - { key: Name, value: "${schema.metadata.name}-private-${az}" }
+            - { key: kubernetes.io/role/internal-elb, value: "1" }
+            - { key: auto-delete, value: "no" }
+            - { key: project, value: encabulator }
+            - { key: talk, value: opn315 }
+
+    # ------------------------------------------------------------------------------- IAM
+    # IAM is global; the region annotation only tells ACK which endpoint to call.
+    - id: clusterRole
+      template:
+        apiVersion: iam.services.k8s.aws/v1alpha1
+        kind: Role
+        metadata:
+          name: ${schema.metadata.name}-cluster
+          annotations:
+            services.k8s.aws/region: ${schema.spec.region}
+        spec:
+          name: ${schema.metadata.name}-cluster
+          description: EKS Auto Mode cluster role for ${schema.metadata.name}
+          assumeRolePolicyDocument: |
+            {
+              "Version": "2012-10-17",
+              "Statement": [{
+                "Effect": "Allow",
+                "Principal": { "Service": "eks.amazonaws.com" },
+                "Action": ["sts:AssumeRole", "sts:TagSession"]
+              }]
+            }
+          policies:
+            - arn:aws:iam::aws:policy/AmazonEKSClusterPolicy
+            - arn:aws:iam::aws:policy/AmazonEKSComputePolicy
+            - arn:aws:iam::aws:policy/AmazonEKSBlockStoragePolicyV2
+            - arn:aws:iam::aws:policy/AmazonEKSLoadBalancingPolicy
+            - arn:aws:iam::aws:policy/AmazonEKSNetworkingPolicy
+          # The custom-tags policy from the EKS Auto Mode cluster IAM role guide, so the cell's
+          # NodeClass can put auto-delete=no on the instances, volumes and ENIs it launches.
+          # The guide compares eks:eks-cluster-name with the principal tag; this role serves
+          # one cluster, so the cluster name is written out instead.
+          inlinePolicies:
+            auto-mode-custom-tags: |
+              {
+                "Version": "2012-10-17",
+                "Statement": [
+                  {
+                    "Sid": "Compute",
+                    "Effect": "Allow",
+                    "Action": ["ec2:CreateFleet", "ec2:RunInstances", "ec2:CreateLaunchTemplate"],
+                    "Resource": "*",
+                    "Condition": {
+                      "StringEquals": { "aws:RequestTag/eks:eks-cluster-name": "${schema.metadata.name}" },
+                      "StringLike": {
+                        "aws:RequestTag/eks:kubernetes-node-class-name": "*",
+                        "aws:RequestTag/eks:kubernetes-node-pool-name": "*"
+                      }
+                    }
+                  },
+                  {
+                    "Sid": "Storage",
+                    "Effect": "Allow",
+                    "Action": ["ec2:CreateVolume", "ec2:CreateSnapshot"],
+                    "Resource": ["arn:aws:ec2:*:*:volume/*", "arn:aws:ec2:*:*:snapshot/*"],
+                    "Condition": {
+                      "StringEquals": { "aws:RequestTag/eks:eks-cluster-name": "${schema.metadata.name}" }
+                    }
+                  },
+                  {
+                    "Sid": "Networking",
+                    "Effect": "Allow",
+                    "Action": "ec2:CreateNetworkInterface",
+                    "Resource": "*",
+                    "Condition": {
+                      "StringEquals": { "aws:RequestTag/eks:eks-cluster-name": "${schema.metadata.name}" },
+                      "StringLike": { "aws:RequestTag/eks:kubernetes-cni-node-name": "*" }
+                    }
+                  },
+                  {
+                    "Sid": "LoadBalancer",
+                    "Effect": "Allow",
+                    "Action": [
+                      "elasticloadbalancing:CreateLoadBalancer",
+                      "elasticloadbalancing:CreateTargetGroup",
+                      "elasticloadbalancing:CreateListener",
+                      "elasticloadbalancing:CreateRule",
+                      "ec2:CreateSecurityGroup"
+                    ],
+                    "Resource": "*",
+                    "Condition": {
+                      "StringEquals": { "aws:RequestTag/eks:eks-cluster-name": "${schema.metadata.name}" }
+                    }
+                  },
+                  {
+                    "Sid": "ShieldProtection",
+                    "Effect": "Allow",
+                    "Action": "shield:CreateProtection",
+                    "Resource": "*",
+                    "Condition": {
+                      "StringEquals": { "aws:RequestTag/eks:eks-cluster-name": "${schema.metadata.name}" }
+                    }
+                  },
+                  {
+                    "Sid": "ShieldTagResource",
+                    "Effect": "Allow",
+                    "Action": "shield:TagResource",
+                    "Resource": "arn:aws:shield::*:protection/*",
+                    "Condition": {
+                      "StringEquals": { "aws:RequestTag/eks:eks-cluster-name": "${schema.metadata.name}" }
+                    }
+                  }
+                ]
+              }
+          tags:
+            - { key: auto-delete, value: "no" }
+            - { key: project, value: encabulator }
+            - { key: talk, value: opn315 }
+
+    # Used by the NodeClass that gitops/app/nodes/ ships to the cell (no built-in node pools).
+    - id: nodeRole
+      template:
+        apiVersion: iam.services.k8s.aws/v1alpha1
+        kind: Role
+        metadata:
+          name: ${schema.metadata.name}-node
+          annotations:
+            services.k8s.aws/region: ${schema.spec.region}
+        spec:
+          name: ${schema.metadata.name}-node
+          description: EKS Auto Mode node role for ${schema.metadata.name}
+          assumeRolePolicyDocument: |
+            {
+              "Version": "2012-10-17",
+              "Statement": [{
+                "Effect": "Allow",
+                "Principal": { "Service": "ec2.amazonaws.com" },
+                "Action": "sts:AssumeRole"
+              }]
+            }
+          policies:
+            - arn:aws:iam::aws:policy/AmazonEKSWorkerNodeMinimalPolicy
+            - arn:aws:iam::aws:policy/AmazonEC2ContainerRegistryPullOnly
+          tags:
+            - { key: auto-delete, value: "no" }
+            - { key: project, value: encabulator }
+            - { key: talk, value: opn315 }
+
+    # ACK on the cell creates the app's RDS instance and ElastiCache serverless cache.
+    # Managed policies keep the demo short; IAM role selectors are the least-privilege option.
+    - id: ackRole
+      template:
+        apiVersion: iam.services.k8s.aws/v1alpha1
+        kind: Role
+        metadata:
+          name: ${schema.metadata.name}-ack
+          annotations:
+            services.k8s.aws/region: ${schema.spec.region}
+        spec:
+          name: ${schema.metadata.name}-ack
+          description: EKS ACK capability role for ${schema.metadata.name}
+          assumeRolePolicyDocument: |
+            {
+              "Version": "2012-10-17",
+              "Statement": [{
+                "Effect": "Allow",
+                "Principal": { "Service": "capabilities.eks.amazonaws.com" },
+                "Action": ["sts:AssumeRole", "sts:TagSession"]
+              }]
+            }
+          policies:
+            - arn:aws:iam::aws:policy/AmazonRDSFullAccess
+            - arn:aws:iam::aws:policy/AmazonElastiCacheFullAccess
+          tags:
+            - { key: auto-delete, value: "no" }
+            - { key: project, value: encabulator }
+            - { key: talk, value: opn315 }
+
+    # kro makes no AWS calls: the role only needs the capabilities trust policy.
+    - id: kroRole
+      template:
+        apiVersion: iam.services.k8s.aws/v1alpha1
+        kind: Role
+        metadata:
+          name: ${schema.metadata.name}-kro
+          annotations:
+            services.k8s.aws/region: ${schema.spec.region}
+        spec:
+          name: ${schema.metadata.name}-kro
+          description: EKS kro capability role for ${schema.metadata.name}
+          assumeRolePolicyDocument: |
+            {
+              "Version": "2012-10-17",
+              "Statement": [{
+                "Effect": "Allow",
+                "Principal": { "Service": "capabilities.eks.amazonaws.com" },
+                "Action": ["sts:AssumeRole", "sts:TagSession"]
+              }]
+            }
+          tags:
+            - { key: auto-delete, value: "no" }
+            - { key: project, value: encabulator }
+            - { key: talk, value: opn315 }
+
+    # ------------------------------------------------------------------------------- EKS
+    - id: cluster
+      readyWhen:
+        - ${cluster.status.status == "ACTIVE"}
+      template:
+        apiVersion: eks.services.k8s.aws/v1alpha1
+        kind: Cluster
+        metadata:
+          name: ${schema.metadata.name}
+          annotations:
+            services.k8s.aws/region: ${schema.spec.region}
+        spec:
+          name: ${schema.metadata.name}
+          version: ${schema.spec.kubernetesVersion}
+          roleARN: ${clusterRole.status.ackResourceMetadata.arn}
+          accessConfig:
+            authenticationMode: API
+            # The creator is the hub's ACK role; it needs no Kubernetes access on the cell.
+            bootstrapClusterCreatorAdminPermissions: false
+          # Auto Mode runs networking, storage and load balancing itself.
+          bootstrapSelfManagedAddons: false
+          # Auto Mode on, built-in node pools off: their managed "default" NodeClass cannot
+          # carry custom tags. gitops/app/nodes/ adds a tagged NodeClass + NodePool.
+          computeConfig:
+            enabled: true
+            nodePools: []
+          kubernetesNetworkConfig:
+            elasticLoadBalancing:
+              enabled: true
+          storageConfig:
+            blockStorage:
+              enabled: true
+          resourcesVPCConfig:
+            subnetIDs: ${privateSubnets.map(s, s.status.subnetID)}
+            endpointPrivateAccess: true
+            endpointPublicAccess: true
+          # No extended-support charges on a demo cluster that outlives its version.
+          upgradePolicy:
+            supportType: STANDARD
+          tags:
+            auto-delete: "no"
+            project: encabulator
+            talk: opn315
+
+    # A custom NodeClass needs an EC2 access entry for its node role (EKS only creates one for
+    # the built-in node pools).
+    - id: nodeAccessEntry
+      readyWhen:
+        - ${nodeAccessEntry.status.conditions.exists(c, c.type == "ACK.ResourceSynced" && c.status == "True")}
+      template:
+        apiVersion: eks.services.k8s.aws/v1alpha1
+        kind: AccessEntry
+        metadata:
+          name: ${schema.metadata.name}-node
+          annotations:
+            services.k8s.aws/region: ${schema.spec.region}
+        spec:
+          clusterName: ${cluster.spec.name}
+          principalARN: ${nodeRole.status.ackResourceMetadata.arn}
+          type: EC2
+          accessPolicies:
+            - policyARN: arn:aws:eks::aws:cluster-access-policy/AmazonEKSAutoNodePolicy
+              accessScope:
+                type: cluster
+          tags:
+            auto-delete: "no"
+            project: encabulator
+            talk: opn315
+
+    # The capability access entries are created before the capabilities so they can carry
+    # what EKS does not add on its own. Each one also lists the capability's default access
+    # policy, so ACK never removes it.
+    #   ACK: secret read in the app namespace (the rds controller reads the database password
+    #   Secret).
+    - id: ackAccessEntry
+      readyWhen:
+        - ${ackAccessEntry.status.conditions.exists(c, c.type == "ACK.ResourceSynced" && c.status == "True")}
+      template:
+        apiVersion: eks.services.k8s.aws/v1alpha1
+        kind: AccessEntry
+        metadata:
+          name: ${schema.metadata.name}-ack
+          annotations:
+            services.k8s.aws/region: ${schema.spec.region}
+        spec:
+          clusterName: ${cluster.spec.name}
+          principalARN: ${ackRole.status.ackResourceMetadata.arn}
+          type: STANDARD
+          accessPolicies:
+            - policyARN: arn:aws:eks::aws:cluster-access-policy/AmazonEKSACKPolicy
+              accessScope:
+                type: cluster
+            - policyARN: arn:aws:eks::aws:cluster-access-policy/AmazonEKSSecretReaderPolicy
+              accessScope:
+                type: namespace
+                namespaces:
+                  - encabulator
+          tags:
+            auto-delete: "no"
+            project: encabulator
+            talk: opn315
+
+    #   kro: Kubernetes group encabulator:kro, which gitops/app/rbac/ binds. A group keeps the
+    #   account id out of Git (the role's own RBAC subjects all contain it).
+    - id: kroAccessEntry
+      readyWhen:
+        - ${kroAccessEntry.status.conditions.exists(c, c.type == "ACK.ResourceSynced" && c.status == "True")}
+      template:
+        apiVersion: eks.services.k8s.aws/v1alpha1
+        kind: AccessEntry
+        metadata:
+          name: ${schema.metadata.name}-kro
+          annotations:
+            services.k8s.aws/region: ${schema.spec.region}
+        spec:
+          clusterName: ${cluster.spec.name}
+          principalARN: ${kroRole.status.ackResourceMetadata.arn}
+          type: STANDARD
+          kubernetesGroups:
+            - encabulator:kro
+          accessPolicies:
+            - policyARN: arn:aws:eks::aws:cluster-access-policy/AmazonEKSKROPolicy
+              accessScope:
+                type: cluster
+          tags:
+            auto-delete: "no"
+            project: encabulator
+            talk: opn315
+
+    - id: ackCapability
+      readyWhen:
+        - ${ackCapability.status.status == "ACTIVE"}
+      template:
+        apiVersion: eks.services.k8s.aws/v1alpha1
+        kind: Capability
+        metadata:
+          name: ${schema.metadata.name}-ack
+          annotations:
+            services.k8s.aws/region: ${schema.spec.region}
+            encabulator.io/access-entry: ${ackAccessEntry.status.ackResourceMetadata.arn}
+        spec:
+          name: ${schema.metadata.name}-ack
+          clusterName: ${cluster.spec.name}
+          type: ACK
+          roleARN: ${ackRole.status.ackResourceMetadata.arn}
+          deletePropagationPolicy: RETAIN
+          tags:
+            auto-delete: "no"
+            project: encabulator
+            talk: opn315
+
+    - id: kroCapability
+      readyWhen:
+        - ${kroCapability.status.status == "ACTIVE"}
+      template:
+        apiVersion: eks.services.k8s.aws/v1alpha1
+        kind: Capability
+        metadata:
+          name: ${schema.metadata.name}-kro
+          annotations:
+            services.k8s.aws/region: ${schema.spec.region}
+            encabulator.io/access-entry: ${kroAccessEntry.status.ackResourceMetadata.arn}
+        spec:
+          name: ${schema.metadata.name}-kro
+          clusterName: ${cluster.spec.name}
+          type: KRO
+          roleARN: ${kroRole.status.ackResourceMetadata.arn}
+          deletePropagationPolicy: RETAIN
+          tags:
+            auto-delete: "no"
+            project: encabulator
+            talk: opn315
+
+    # The hub's Argo CD deploys to the cell through this entry. Cluster admin because the app
+    # includes cluster-scoped objects (RGDs, kro's ClusterRoles, the NodeClass and NodePool).
+    # Demo setting: production binds a Kubernetes group to narrower RBAC instead.
+    - id: argoCDAccessEntry
+      readyWhen:
+        - ${argoCDAccessEntry.status.conditions.exists(c, c.type == "ACK.ResourceSynced" && c.status == "True")}
+      template:
+        apiVersion: eks.services.k8s.aws/v1alpha1
+        kind: AccessEntry
+        metadata:
+          name: ${schema.metadata.name}-argocd
+          annotations:
+            services.k8s.aws/region: ${schema.spec.region}
+        spec:
+          clusterName: ${cluster.spec.name}
+          principalARN: arn:aws:iam::${cluster.status.ackResourceMetadata.ownerAccountID}:role/${schema.spec.argoCDRoleName}
+          type: STANDARD
+          accessPolicies:
+            - policyARN: arn:aws:eks::aws:cluster-access-policy/AmazonEKSClusterAdminPolicy
+              accessScope:
+                type: cluster
+          tags:
+            auto-delete: "no"
+            project: encabulator
+            talk: opn315
+
+    # Optional: kubectl access for a presenter role (spec.adminRoleName).
+    - id: adminAccessEntry
+      includeWhen:
+        - ${schema.spec.adminRoleName != ""}
+      template:
+        apiVersion: eks.services.k8s.aws/v1alpha1
+        kind: AccessEntry
+        metadata:
+          name: ${schema.metadata.name}-admin
+          annotations:
+            services.k8s.aws/region: ${schema.spec.region}
+        spec:
+          clusterName: ${cluster.spec.name}
+          principalARN: arn:aws:iam::${cluster.status.ackResourceMetadata.ownerAccountID}:role/${schema.spec.adminRoleName}
+          type: STANDARD
+          accessPolicies:
+            - policyARN: arn:aws:eks::aws:cluster-access-policy/AmazonEKSClusterAdminPolicy
+              accessScope:
+                type: cluster
+          tags:
+            auto-delete: "no"
+            project: encabulator
+            talk: opn315
+
+    # ---------------------------------------------------------------------------- stores
+    # The app's RDS instance and ElastiCache cache on the cell use this group
+    # (Encabulator.spec.securityGroupID, set by the ApplicationSet).
+    - id: dbSecurityGroup
+      template:
+        apiVersion: ec2.services.k8s.aws/v1alpha1
+        kind: SecurityGroup
+        metadata:
+          name: ${schema.metadata.name}-db
+          annotations:
+            services.k8s.aws/region: ${schema.spec.region}
+        spec:
+          name: encabulator-db
+          description: "Encabulator stores: PostgreSQL and Valkey from the EKS cluster security group"
+          vpcID: ${vpc.status.vpcID}
+          ingressRules:
+            - ipProtocol: tcp
+              fromPort: 5432
+              toPort: 5432
+              userIDGroupPairs:
+                - groupID: ${cluster.status.clusterSecurityGroupID}
+                  description: postgres from the ${schema.metadata.name} cluster security group
+            - ipProtocol: tcp
+              fromPort: 6379
+              toPort: 6379
+              userIDGroupPairs:
+                - groupID: ${cluster.status.clusterSecurityGroupID}
+                  description: valkey from the ${schema.metadata.name} cluster security group
+          tags:
+            - { key: Name, value: encabulator-db }
+            - { key: auto-delete, value: "no" }
+            - { key: project, value: encabulator }
+            - { key: talk, value: opn315 }
+
+    # --------------------------------------------------------------------------- Argo CD
+    # Registering the cell is one more resource in the graph. The EKS Argo CD capability
+    # addresses clusters by ARN. The annotations carry the region's ids to the ApplicationSet,
+    # and the references to the capabilities and access entry hold registration back until
+    # the cell can take a sync.
+    - id: register
+      template:
+        apiVersion: v1
+        kind: Secret
+        metadata:
+          name: ${schema.metadata.name}
+          namespace: argocd
+          labels:
+            argocd.argoproj.io/secret-type: cluster
+            encabulator.io/cell: "true"
+          annotations:
+            encabulator.io/region: ${schema.spec.region}
+            encabulator.io/subnet-ids: ${privateSubnets.map(s, s.status.subnetID).join(",")}
+            encabulator.io/security-group-id: ${dbSecurityGroup.status.id}
+            encabulator.io/cluster-security-group-id: ${cluster.status.clusterSecurityGroupID}
+            encabulator.io/ack-capability: ${ackCapability.status.ackResourceMetadata.arn}
+            encabulator.io/kro-capability: ${kroCapability.status.ackResourceMetadata.arn}
+            encabulator.io/argocd-access-entry: ${argoCDAccessEntry.status.ackResourceMetadata.arn}
+        type: Opaque
+        stringData:
+          name: ${schema.metadata.name}
+          server: ${cluster.status.ackResourceMetadata.arn}
+          project: encabulator-cells
