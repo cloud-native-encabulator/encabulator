@@ -838,6 +838,12 @@ Backing stores:
 The chart builds `DATABASE_URL` and `VALKEY_URL` with Kubernetes `$(VAR)` expansion from secret-backed
 `PGPASSWORD` and `VALKEY_PASSWORD` variables.
 
+Every Valkey client accepts `rediss://` as well as `redis://`. TLS verifies the server certificate
+against the client's default root store: the image's system store for Go, Rust and Python, and Node's
+bundled store for TypeScript. An external Valkey such as ElastiCache Serverless, which only
+accepts TLS and, without a user group, has no password, gets `rediss://:@<host>:6379/0`
+(`valkey.external.tls=true`, empty `valkey.user` and password); with that shape no client sends AUTH.
+
 Service-specific:
 
 | Service | Variables |
