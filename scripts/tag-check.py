@@ -19,6 +19,7 @@ tag being checked:
   RDS            DB instances and DB subnet groups in the VPC, the instances' snapshots
   ElastiCache    serverless caches in the VPC's subnets and their snapshots
   IAM            roles named <name>-*, and their instance profiles
+  ECR            repositories named encabulator/* in the stack's region (once per region)
 
 Usage:
   scripts/tag-check.py [--stack REGION:NAME ...] [--aws "aws --profile x"]
@@ -43,6 +44,9 @@ import sys
 from pathlib import Path
 
 DEFAULT_STACKS = ["us-west-2:encabulator-usw2", "us-east-2:encabulator-use2"]
+# ECR repositories are per project, not per stack: every repository under this prefix in a
+# stack's region (images mirrored for a live run, e.g. encabulator/dingle-arm-gateway).
+ECR_PREFIX = "encabulator/"
 REQUIRED = ("auto-delete", "no")
 CONTRACT = {"auto-delete": "no", "project": "encabulator", "talk": "opn315"}
 READ_ONLY = ("describe-", "list-", "get-")
@@ -275,6 +279,15 @@ def check_stack(src, report, region, name):
             pname = profile["InstanceProfileName"]
             tags = call("iam", "list-instance-profile-tags", "--instance-profile-name", pname)["Tags"]
             report.resource(region, "iam instance-profile", pname, tags, f"role {rname}")
+
+    # ECR (per region, shared by every stack in it: counted once)
+    for repo in call("ecr", "describe-repositories")["repositories"]:
+        rname, arn = repo["repositoryName"], repo["repositoryArn"]
+        if not rname.startswith(ECR_PREFIX) or arn in report.seen:
+            continue
+        tags = call("ecr", "list-tags-for-resource", "--resource-arn", arn)["tags"]
+        report.resource(region, "ecr repository", rname, tags)
+        report.seen.add(arn)
 
 
 def main():

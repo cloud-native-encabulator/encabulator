@@ -2252,6 +2252,75 @@
     }
    ]
   },
+  "ecr describe-repositories --region us-east-2": {
+   "repositories": []
+  },
+  "ecr describe-repositories --region us-west-2": {
+   "repositories": [
+    {
+     "encryptionConfiguration": {
+      "encryptionType": "AES256"
+     },
+     "imageTagMutability": "MUTABLE",
+     "registryId": "111122223333",
+     "repositoryArn": "arn:aws:ecr:us-west-2:111122223333:repository/encabulator/dingle-arm-gateway",
+     "repositoryName": "encabulator/dingle-arm-gateway",
+     "repositoryUri": "111122223333.dkr.ecr.us-west-2.amazonaws.com/encabulator/dingle-arm-gateway"
+    },
+    {
+     "encryptionConfiguration": {
+      "encryptionType": "AES256"
+     },
+     "imageTagMutability": "MUTABLE",
+     "registryId": "111122223333",
+     "repositoryArn": "arn:aws:ecr:us-west-2:111122223333:repository/encabulator/spurving-bearing-quoter",
+     "repositoryName": "encabulator/spurving-bearing-quoter",
+     "repositoryUri": "111122223333.dkr.ecr.us-west-2.amazonaws.com/encabulator/spurving-bearing-quoter"
+    },
+    {
+     "encryptionConfiguration": {
+      "encryptionType": "AES256"
+     },
+     "imageTagMutability": "MUTABLE",
+     "registryId": "111122223333",
+     "repositoryArn": "arn:aws:ecr:us-west-2:111122223333:repository/other-team/unrelated-app",
+     "repositoryName": "other-team/unrelated-app",
+     "repositoryUri": "111122223333.dkr.ecr.us-west-2.amazonaws.com/other-team/unrelated-app"
+    }
+   ]
+  },
+  "ecr list-tags-for-resource --region us-west-2 --resource-arn arn:aws:ecr:us-west-2:111122223333:repository/encabulator/dingle-arm-gateway": {
+   "tags": [
+    {
+     "Key": "auto-delete",
+     "Value": "no"
+    },
+    {
+     "Key": "project",
+     "Value": "encabulator"
+    },
+    {
+     "Key": "talk",
+     "Value": "opn315"
+    }
+   ]
+  },
+  "ecr list-tags-for-resource --region us-west-2 --resource-arn arn:aws:ecr:us-west-2:111122223333:repository/encabulator/spurving-bearing-quoter": {
+   "tags": [
+    {
+     "Key": "auto-delete",
+     "Value": "no"
+    },
+    {
+     "Key": "project",
+     "Value": "encabulator"
+    },
+    {
+     "Key": "talk",
+     "Value": "opn315"
+    }
+   ]
+  },
   "eks describe-access-entry --region us-east-2 --cluster-name encabulator-use2 --principal-arn arn:aws:iam::111122223333:role/encabulator-use2-ack": {
    "accessEntry": {
     "clusterName": "encabulator-use2",

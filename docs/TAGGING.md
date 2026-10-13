@@ -52,8 +52,9 @@ Read-only AWS CLI calls (describe and list) with whatever credentials the CLI fi
 resource; exit 1 naming every resource without `auto-delete=no`. Run it at least 10 minutes after
 the last change so the tagger has had a pass. It finds resources by structure (the VPC tagged
 `Name=<stack>` and what is in it, the EKS cluster `<stack>`, roles `<stack>-*`), never by the tag
-it checks. Offline tests: `scripts/tag-check_test.py` (the tests' fixtures are in
-`scripts/tag-check-fixtures/`).
+it checks. ECR repositories named `encabulator/*` in each stack's region are checked too (once per
+region): no stack creates them, but a live run that mirrors images does. Offline tests:
+`scripts/tag-check_test.py` (the tests' fixtures are in `scripts/tag-check-fixtures/`).
 
 ## The audit
 
