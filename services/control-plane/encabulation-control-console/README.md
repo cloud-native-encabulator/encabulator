@@ -22,7 +22,8 @@ it should exist.
 | Nodes | A static registry of the 15 services and 4 backing stores, merged with live pods from the Kubernetes API |
 | Pod dots | `app.kubernetes.io/part-of=encabulator` pods: name, phase, readiness, restarts |
 | Per-pod rate, p50, p99, errors | `http_server_request_duration_seconds` by `pod`, in Prometheus |
-| Edges | Only the OTel service graph: `traces_service_graph_request_total`, `…_failed_total`, `…_server_seconds_bucket`, over one minute |
+| Edges | Only the OTel service graph: `traces_service_graph_request_total`, `…_failed_total`, `…_server_seconds_bucket` (and `…_client_seconds_bucket` for the publish leg of a message), by `client`, `server` and `connection_type`, over one minute. A `messaging_system` pair is drawn through the NATS plate: producer → NATS and NATS → consumer |
+| Store plate rate, p50, p99, errors | The edges into the store: summed rate, rate-weighted p50, worst p99, summed failures over summed rate. Stores serve no HTTP metrics of their own |
 | Headline gauges | The ledger's `/v1/stats`, the detector's `/v1/stats`, the depot's `/v1/parts`, the recorder's `/v1/summary` |
 | Feeds and narration | The ledger, the detector, dispatch, and the orchestrator's run log |
 
@@ -265,13 +266,13 @@ current spawn multiplier.
 ## Tests
 
 ```bash
-make test     # 263 tests, no containers, no cluster, no network
+make test     # 273 tests, no containers, no cluster, no network
 ```
 
 - **BFF role enforcement** · the whole proxy route table × every role.
 - **Topology assembly** · recorded Prometheus and Kubernetes responses in, snapshot out;
-  including NaN, missing series, unreachable sources, alias collapsing, and peers outside the
-  registry.
+  including NaN, missing series, unreachable sources, alias collapsing, peers outside the
+  registry, messaging pairs routed through NATS, and store plates measured by their inbound edges.
 - **SSE** · framing, fan-out, cached replay, heartbeat, and that polling starts on the first
   client and stops on the last.
 - **Sessions** · cookie flags, expiry, a tampered signature, and that no token ever reaches a

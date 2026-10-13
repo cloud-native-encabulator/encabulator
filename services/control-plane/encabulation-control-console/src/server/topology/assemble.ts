@@ -11,6 +11,11 @@
  *  - Edges come only from the OTel service graph metrics. There is no fallback,
  *    no inference from the registry, and no drawing of edges the design document
  *    says exist but telemetry has not confirmed.
+ *  - A `messaging_system` pair (a producer span paired with its consumer span)
+ *    is a message that went through NATS, so it is drawn as two edges,
+ *    producer -> nats and nats -> consumer, not as a line between the services.
+ *  - Backing stores are not instrumented and have no HTTP server metrics, so a
+ *    store node's rate, latency and error ratio are those of the edges into it.
  *  - A service-graph peer that is not a registry node is reported in `unmapped`
  *    so the UI can say how much traffic it is not drawing, rather than inventing
  *    a node or silently dropping the edge.
@@ -28,7 +33,12 @@ import {
 } from '../../shared/topology.js'
 import { IGNORED_PEERS, REGISTRY, isStore, resolvePeer } from '../../shared/registry.js'
 import type { ClusterSnapshot } from './kubernetes.js'
-import { byLabel, byPair, pairKey, type PromQueryResult } from './prometheus.js'
+import { byEdge, byLabel, pairKey, type EdgeSample, type PromQueryResult } from './prometheus.js'
+
+/** The registry node every `messaging_system` pair is routed through. */
+export const BUS_NODE = 'nats'
+/** The service graph's connection type for a producer/consumer pair. */
+export const MESSAGING_CONNECTION = 'messaging_system'
 
 export interface PodMetrics {
   rps: PromQueryResult
@@ -42,6 +52,13 @@ export interface EdgeMetrics {
   failed: PromQueryResult
   p50: PromQueryResult
   p99: PromQueryResult
+  /**
+   * Producer-side latency of `messaging_system` pairs (the client span, i.e.
+   * the publish). Optional: without it the publish leg into NATS has no
+   * latency, rather than borrowing the consumer's.
+   */
+  clientP50?: PromQueryResult
+  clientP99?: PromQueryResult
 }
 
 export interface AssembleInput {
@@ -116,6 +133,8 @@ export function assembleTopology(input: AssembleInput): TopologySnapshot {
   const podP50 = input.pods === null ? new Map<string, Measure>() : byLabel(input.pods.p50, 'pod')
   const podP99 = input.pods === null ? new Map<string, Measure>() : byLabel(input.pods.p99, 'pod')
 
+  const { edges, unmapped } = assembleEdges(input.edges)
+
   const nodes: NodeView[] = REGISTRY.map((registration) => {
     const observed = podsByApp.get(registration.name) ?? []
     const pods: PodView[] = observed
@@ -137,28 +156,21 @@ export function assembleTopology(input: AssembleInput): TopologySnapshot {
       })
 
     const workload = workloadsByApp.get(registration.name)
-    const nodeRps = sumMeasures(pods.map((p) => p.rps))
-    const nodeErrors = sumMeasures(
-      pods.map((p) => (p.errorRatio === null || p.rps === null ? null : p.errorRatio * p.rps)),
-    )
-    const nodeP99 = maxMeasure(pods.map((p) => p.p99Ms))
-    const nodeP50 = weightedMean(pods.map((p) => ({ value: p.p50Ms, weight: p.rps })))
-    const errorRatio = ratio(nodeErrors, nodeRps)
+    // A backing store is measured by the traffic into it; a service by its pods.
+    const stats =
+      registration.kind === 'store'
+        ? storeStats(edges.filter((e) => e.target === registration.name))
+        : podStats(pods)
 
     return {
       ...registration,
       pods,
       desiredReplicas: workload?.desiredReplicas ?? null,
       readyReplicas: workload?.readyReplicas ?? null,
-      rps: nodeRps,
-      p50Ms: nodeP50,
-      p99Ms: nodeP99,
-      errorRatio,
-      health: classifyHealth(nodeP99, errorRatio, nodeRps),
+      ...stats,
+      health: classifyHealth(stats.p99Ms, stats.errorRatio, stats.rps),
     }
   })
-
-  const { edges, unmapped } = assembleEdges(input.edges)
 
   const prometheusOk =
     input.pods !== null &&
@@ -192,94 +204,197 @@ interface ObservedPodLike {
   restarts: number
 }
 
+/** A node's rate, latency and error ratio. */
+interface NodeStats {
+  rps: Measure
+  p50Ms: Measure
+  p99Ms: Measure
+  errorRatio: Measure
+}
+
+/** A service: the sum of its pods' rates and the worst pod p99, from its own HTTP server metrics. */
+function podStats(pods: PodView[]): NodeStats {
+  const rps = sumMeasures(pods.map((p) => p.rps))
+  const errors = sumMeasures(
+    pods.map((p) => (p.errorRatio === null || p.rps === null ? null : p.errorRatio * p.rps)),
+  )
+  return {
+    rps,
+    p50Ms: weightedMean(pods.map((p) => ({ value: p.p50Ms, weight: p.rps }))),
+    p99Ms: maxMeasure(pods.map((p) => p.p99Ms)),
+    errorRatio: ratio(errors, rps),
+  }
+}
+
+/**
+ * A backing store: nothing instruments it and it serves no HTTP metrics, so it
+ * is measured by the edges into it. Rate is their summed rate, p99 the worst
+ * edge p99, p50 the rate-weighted mean of the edge p50s, and the error ratio
+ * their summed failure rate over their summed rate. No inbound edge, or none
+ * with a value, leaves the store at null ("no data"), never zero.
+ */
+export function storeStats(inbound: EdgeView[]): NodeStats {
+  const rps = sumMeasures(inbound.map((e) => e.rps))
+  const failed = sumMeasures(
+    inbound.map((e) => (e.errorRatio === null || e.rps === null ? null : e.errorRatio * e.rps)),
+  )
+  return {
+    rps,
+    p50Ms: weightedMean(inbound.map((e) => ({ value: e.p50Ms, weight: e.rps }))),
+    p99Ms: maxMeasure(inbound.map((e) => e.p99Ms)),
+    errorRatio: ratio(failed, rps),
+  }
+}
+
+/** An edge being built up from one or more service-graph series. */
+interface EdgeAccumulator {
+  source: string
+  target: string
+  via: EdgeView['via']
+  rps: Measure
+  /** Failed requests per second, kept apart so merged edges add failures, not ratios. */
+  failed: Measure
+  p50Ms: Measure
+  p99Ms: Measure
+}
+
+/**
+ * Add one leg to the edge set. Several series can land on the same registry
+ * pair (two aliases of one store, or several producer/consumer pairs sharing a
+ * leg through NATS): add the rates and failures, keep the worse latency.
+ */
+function addLeg(edges: Map<string, EdgeAccumulator>, leg: EdgeAccumulator): void {
+  const key = pairKey(leg.source, leg.target)
+  const existing = edges.get(key)
+  if (existing === undefined) {
+    edges.set(key, { ...leg })
+    return
+  }
+  existing.rps = sumMeasures([existing.rps, leg.rps])
+  existing.failed = sumMeasures([existing.failed, leg.failed])
+  existing.p50Ms = maxMeasure([existing.p50Ms, leg.p50Ms])
+  existing.p99Ms = maxMeasure([existing.p99Ms, leg.p99Ms])
+}
+
 export function assembleEdges(metrics: EdgeMetrics | null): {
   edges: EdgeView[]
   unmapped: UnmappedEdge[]
 } {
   if (metrics === null) return { edges: [], unmapped: [] }
 
-  const rps = byPair(metrics.rps, 'client', 'server')
-  const failed = byPair(metrics.failed, 'client', 'server')
-  const p50 = byPair(metrics.p50, 'client', 'server')
-  const p99 = byPair(metrics.p99, 'client', 'server')
+  const none = new Map<string, EdgeSample>()
+  const rps = byEdge(metrics.rps)
+  const failed = byEdge(metrics.failed)
+  const p50 = byEdge(metrics.p50)
+  const p99 = byEdge(metrics.p99)
+  const clientP50 = metrics.clientP50 === undefined ? none : byEdge(metrics.clientP50)
+  const clientP99 = metrics.clientP99 === undefined ? none : byEdge(metrics.clientP99)
 
-  // Every pair any of the four queries mentioned: a pair with latency but no
-  // rate is still a real observation.
-  const keys = new Set<string>([...rps.keys(), ...failed.keys(), ...p50.keys(), ...p99.keys()])
+  // Every series any of the queries mentioned: a pair with latency but no rate
+  // is still a real observation.
+  const keys = new Set<string>([
+    ...rps.keys(),
+    ...failed.keys(),
+    ...p50.keys(),
+    ...p99.keys(),
+    ...clientP50.keys(),
+    ...clientP99.keys(),
+  ])
 
-  const edges = new Map<string, EdgeView>()
-  const unmapped: UnmappedEdge[] = []
+  const edges = new Map<string, EdgeAccumulator>()
+  const unmapped = new Map<string, UnmappedEdge>()
 
   for (const key of [...keys].sort()) {
-    const sample = rps.get(key) ?? failed.get(key) ?? p50.get(key) ?? p99.get(key)
+    const sample =
+      rps.get(key) ?? failed.get(key) ?? p50.get(key) ?? p99.get(key) ?? clientP50.get(key) ?? clientP99.get(key)
     if (sample === undefined) continue
-    const client = sample.a
-    const server = sample.b
+    const { client, server, connectionType } = sample
     if (IGNORED_PEERS.has(client.toLowerCase()) || IGNORED_PEERS.has(server.toLowerCase())) {
       continue
     }
 
+    const edgeRps = rps.get(key)?.value ?? null
     const source = resolvePeer(client)
     const target = resolvePeer(server)
     if (source === null || target === null) {
-      unmapped.push({ client, server, rps: rps.get(key)?.value ?? null })
+      // One unmapped pair, however many connection types it was seen with.
+      const uk = pairKey(client, server)
+      const existing = unmapped.get(uk)
+      unmapped.set(uk, {
+        client,
+        server,
+        rps: existing === undefined ? edgeRps : sumMeasures([existing.rps, edgeRps]),
+      })
       continue
     }
+
+    const edgeFailed = failed.get(key)?.value ?? null
+    const serverP50 = toMs(p50.get(key)?.value ?? null)
+    const serverP99 = toMs(p99.get(key)?.value ?? null)
+
+    if (connectionType === MESSAGING_CONNECTION && source !== BUS_NODE && target !== BUS_NODE) {
+      // A producer span paired with its consumer span: the message went through
+      // the bus. The publish leg carries the producer's latency, the delivery leg
+      // the consumer's. The connector does not say which side failed, so a failed
+      // pair counts against both legs.
+      addLeg(edges, {
+        source,
+        target: BUS_NODE,
+        via: 'messaging',
+        rps: edgeRps,
+        failed: edgeFailed,
+        p50Ms: toMs(clientP50.get(key)?.value ?? null),
+        p99Ms: toMs(clientP99.get(key)?.value ?? null),
+      })
+      addLeg(edges, {
+        source: BUS_NODE,
+        target,
+        via: 'messaging',
+        rps: edgeRps,
+        failed: edgeFailed,
+        p50Ms: serverP50,
+        p99Ms: serverP99,
+      })
+      continue
+    }
+
     if (source === target) continue
 
-    const edgeRps = rps.get(key)?.value ?? null
-    const edgeFailed = failed.get(key)?.value ?? null
-    const edgeP50 = toMs(p50.get(key)?.value ?? null)
-    const edgeP99 = toMs(p99.get(key)?.value ?? null)
-    const errorRatio = ratio(edgeFailed, edgeRps)
-
     const via: EdgeView['via'] = isStore(target)
-      ? target === 'nats'
+      ? target === BUS_NODE
         ? 'messaging'
         : 'database'
       : 'http'
 
-    const pk = pairKey(source, target)
-    const existing = edges.get(pk)
-    if (existing === undefined) {
-      edges.set(pk, {
-        source,
-        target,
-        via,
-        rps: edgeRps,
-        errorRatio,
-        p50Ms: edgeP50,
-        p99Ms: edgeP99,
-        health: classifyHealth(edgeP99, errorRatio, edgeRps),
-      })
-    } else {
-      // Two service-graph aliases collapsed onto the same registry pair: add
-      // the rates, keep the worse latency.
-      const mergedRps = sumMeasures([existing.rps, edgeRps])
-      const mergedFailed = sumMeasures([
-        existing.errorRatio === null || existing.rps === null
-          ? null
-          : existing.errorRatio * existing.rps,
-        edgeFailed,
-      ])
-      const mergedP99 = maxMeasure([existing.p99Ms, edgeP99])
-      const mergedP50 = maxMeasure([existing.p50Ms, edgeP50])
-      const mergedRatio = ratio(mergedFailed, mergedRps)
-      edges.set(pk, {
-        ...existing,
-        rps: mergedRps,
-        errorRatio: mergedRatio,
-        p50Ms: mergedP50,
-        p99Ms: mergedP99,
-        health: classifyHealth(mergedP99, mergedRatio, mergedRps),
-      })
-    }
+    addLeg(edges, {
+      source,
+      target,
+      via,
+      rps: edgeRps,
+      failed: edgeFailed,
+      p50Ms: serverP50,
+      p99Ms: serverP99,
+    })
   }
 
   return {
-    edges: [...edges.values()].sort(
-      (a, b) => a.source.localeCompare(b.source) || a.target.localeCompare(b.target),
+    edges: [...edges.values()]
+      .map((e): EdgeView => {
+        const errorRatio = ratio(e.failed, e.rps)
+        return {
+          source: e.source,
+          target: e.target,
+          via: e.via,
+          rps: e.rps,
+          errorRatio,
+          p50Ms: e.p50Ms,
+          p99Ms: e.p99Ms,
+          health: classifyHealth(e.p99Ms, errorRatio, e.rps),
+        }
+      })
+      .sort((a, b) => a.source.localeCompare(b.source) || a.target.localeCompare(b.target)),
+    unmapped: [...unmapped.values()].sort(
+      (a, b) => a.client.localeCompare(b.client) || a.server.localeCompare(b.server),
     ),
-    unmapped: unmapped.sort((a, b) => a.client.localeCompare(b.client) || a.server.localeCompare(b.server)),
   }
 }

@@ -117,30 +117,43 @@ export function byLabel(result: PromQueryResult, label: string): Map<string, Mea
   return out
 }
 
-/** Index a result by two labels joined with a null byte. */
-export function byPair(
-  result: PromQueryResult,
-  a: string,
-  b: string,
-): Map<string, { a: string; b: string; value: Measure }> {
-  const out = new Map<string, { a: string; b: string; value: Measure }>()
-  for (const sample of result.samples) {
-    const av = sample.labels[a]
-    const bv = sample.labels[b]
-    if (av === undefined || bv === undefined || av === '' || bv === '') continue
-    out.set(`${av}\u0000${bv}`, { a: av, b: bv, value: sample.value })
-  }
-  return out
-}
-
 export function pairKey(a: string, b: string): string {
   return `${a}\u0000${b}`
+}
+
+/** One service-graph series: its client, server and `connection_type` (empty for a plain request). */
+export interface EdgeSample {
+  client: string
+  server: string
+  connectionType: string
+  value: Measure
+}
+
+/** Index a service-graph result by client, server and connection type. */
+export function byEdge(result: PromQueryResult): Map<string, EdgeSample> {
+  const out = new Map<string, EdgeSample>()
+  for (const sample of result.samples) {
+    const client = sample.labels['client']
+    const server = sample.labels['server']
+    if (client === undefined || server === undefined || client === '' || server === '') continue
+    const connectionType = sample.labels['connection_type'] ?? ''
+    out.set(`${client}\u0000${server}\u0000${connectionType}`, {
+      client,
+      server,
+      connectionType,
+      value: sample.value,
+    })
+  }
+  return out
 }
 
 // ── The queries ───────────────────────────────────────────────────────────────
 // Per-pod server stats come from `http_server_request_duration_seconds`, which
 // every service in the system exposes with the same labels (design section 7).
-// Edges come only from the OTel collector's service graph connector.
+// Edges come only from the OTel collector's service graph connector. Every edge
+// query keeps `connection_type`, because a `messaging_system` pair is a
+// producer and a consumer talking through NATS and is drawn through the NATS
+// node, not as a direct line between the two services.
 
 export interface QuerySet {
   podRps: string
@@ -151,6 +164,9 @@ export interface QuerySet {
   edgeFailed: string
   edgeP50: string
   edgeP99: string
+  /** Producer-side (client span) latency of messaging pairs: the publish leg into NATS. */
+  edgeClientP50: string
+  edgeClientP99: string
 }
 
 export function buildQueries(opts: { namespace: string | null; window?: string }): QuerySet {
@@ -169,9 +185,11 @@ export function buildQueries(opts: { namespace: string | null; window?: string }
     podErrors: `sum by (pod) (rate(http_server_request_duration_seconds_count${sel('http_response_status_code=~"5.."')}[${w}]))`,
     podP50: `histogram_quantile(0.5, sum by (pod, le) (rate(http_server_request_duration_seconds_bucket${sel()}[${w}])))`,
     podP99: `histogram_quantile(0.99, sum by (pod, le) (rate(http_server_request_duration_seconds_bucket${sel()}[${w}])))`,
-    edgeRps: `sum by (client, server) (rate(traces_service_graph_request_total[${w}]))`,
-    edgeFailed: `sum by (client, server) (rate(traces_service_graph_request_failed_total[${w}]))`,
-    edgeP50: `histogram_quantile(0.5, sum by (client, server, le) (rate(traces_service_graph_request_server_seconds_bucket[${w}])))`,
-    edgeP99: `histogram_quantile(0.99, sum by (client, server, le) (rate(traces_service_graph_request_server_seconds_bucket[${w}])))`,
+    edgeRps: `sum by (client, server, connection_type) (rate(traces_service_graph_request_total[${w}]))`,
+    edgeFailed: `sum by (client, server, connection_type) (rate(traces_service_graph_request_failed_total[${w}]))`,
+    edgeP50: `histogram_quantile(0.5, sum by (client, server, connection_type, le) (rate(traces_service_graph_request_server_seconds_bucket[${w}])))`,
+    edgeP99: `histogram_quantile(0.99, sum by (client, server, connection_type, le) (rate(traces_service_graph_request_server_seconds_bucket[${w}])))`,
+    edgeClientP50: `histogram_quantile(0.5, sum by (client, server, connection_type, le) (rate(traces_service_graph_request_client_seconds_bucket{connection_type="messaging_system"}[${w}])))`,
+    edgeClientP99: `histogram_quantile(0.99, sum by (client, server, connection_type, le) (rate(traces_service_graph_request_client_seconds_bucket{connection_type="messaging_system"}[${w}])))`,
   }
 }
