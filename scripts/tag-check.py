@@ -31,6 +31,9 @@ Run it at least 10 minutes after the last change: what AWS creates without tags 
 route table, cluster security group, requester-managed interfaces, ...) is tagged by the hub's
 tagger CronJob, which runs every 10 minutes.
 
+EKS Auto Mode nodes are EC2 managed instances, hidden from DescribeInstances by default; the
+instance, volume, network interface and launch template calls pass --include-managed-resources.
+
 Exit status: 0 every resource carries auto-delete=no, 1 at least one does not (or a stack is
 missing), 2 an AWS CLI call failed.
 """
@@ -52,6 +55,10 @@ CONTRACT = {"auto-delete": "no", "project": "encabulator", "talk": "opn315"}
 READ_ONLY = ("describe-", "list-", "get-")
 NOT_FOUND = {"ResourceNotFoundException", "NoSuchEntity", "DBInstanceNotFound", "DBInstanceNotFoundFault",
              "ServerlessCacheNotFoundFault"}
+# EKS Auto Mode nodes are EC2 managed instances: DescribeInstances (and the volume, network
+# interface and launch template calls) leave them out unless asked, so without this flag every
+# node, its volumes and its interfaces would go unchecked.
+MANAGED = "--include-managed-resources"
 
 
 class CallError(Exception):
@@ -177,7 +184,7 @@ def check_vpc(call, report, region, vpc):
         allocations |= {a.get("AllocationId") for a in nat.get("NatGatewayAddresses", [])}
         report.resource(region, "ec2 natgateway", nat["NatGatewayId"], nat.get("Tags"))
     enis = set()
-    for eni in call("ec2", "describe-network-interfaces", "--filters", in_vpc)["NetworkInterfaces"]:
+    for eni in call("ec2", "describe-network-interfaces", MANAGED, "--filters", in_vpc)["NetworkInterfaces"]:
         enis.add(eni["NetworkInterfaceId"])
         detail = f"requester-managed: {eni.get('Description', '')}" if eni.get("RequesterManaged") else eni.get("Description", "")
         report.resource(region, "ec2 network-interface", eni["NetworkInterfaceId"], eni.get("TagSet"), detail)
@@ -185,14 +192,14 @@ def check_vpc(call, report, region, vpc):
         if addr.get("AllocationId") in allocations or addr.get("NetworkInterfaceId") in enis:
             report.resource(region, "ec2 elastic-ip", addr["AllocationId"], addr.get("Tags"), addr.get("PublicIp", ""))
     instances = []
-    for res in call("ec2", "describe-instances", "--filters", in_vpc,
+    for res in call("ec2", "describe-instances", MANAGED, "--filters", in_vpc,
                     "Name=instance-state-name,Values=pending,running,stopping,stopped")["Reservations"]:
         for inst in res["Instances"]:
             instances.append(inst["InstanceId"])
             report.resource(region, "ec2 instance", inst["InstanceId"], inst.get("Tags"), inst.get("InstanceType", ""))
     volumes = {}
     if instances:
-        for vol in call("ec2", "describe-volumes", "--filters", f"Name=attachment.instance-id,Values={','.join(instances)}")["Volumes"]:
+        for vol in call("ec2", "describe-volumes", MANAGED, "--filters", f"Name=attachment.instance-id,Values={','.join(instances)}")["Volumes"]:
             volumes[vol["VolumeId"]] = vol
     for vid, vol in sorted(volumes.items()):
         report.resource(region, "ec2 volume", vid, vol.get("Tags"), f"{vol.get('Size', '?')} GiB, {vol.get('State', '')}")
@@ -212,12 +219,12 @@ def check_stack(src, report, region, name):
         report.resource(region, "ec2 vpc", v["VpcId"], v.get("Tags"), name)
         subnet_ids += check_vpc(call, report, region, v["VpcId"])
     vols = {}
-    for vol in call("ec2", "describe-volumes", "--filters", f"Name=tag:eks:eks-cluster-name,Values={name}")["Volumes"]:
+    for vol in call("ec2", "describe-volumes", MANAGED, "--filters", f"Name=tag:eks:eks-cluster-name,Values={name}")["Volumes"]:
         vols[vol["VolumeId"]] = vol
     for vid, vol in sorted(vols.items()):
         if vid not in report.seen:
             report.resource(region, "ec2 volume", vid, vol.get("Tags"), f"{vol.get('Size', '?')} GiB, {vol.get('State', '')}")
-    for lt in call("ec2", "describe-launch-templates", "--filters", f"Name=tag:eks:eks-cluster-name,Values={name}")["LaunchTemplates"]:
+    for lt in call("ec2", "describe-launch-templates", MANAGED, "--filters", f"Name=tag:eks:eks-cluster-name,Values={name}")["LaunchTemplates"]:
         report.resource(region, "ec2 launch-template", lt["LaunchTemplateId"], lt.get("Tags"), lt.get("LaunchTemplateName", ""))
 
     # EKS
