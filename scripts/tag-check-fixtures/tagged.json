@@ -2192,6 +2192,94 @@
     }
    ]
   },
+  "ec2 describe-vpc-endpoints --region us-east-2 --filters Name=vpc-id,Values=vpc-010000000000000001": {
+   "VpcEndpoints": [
+    {
+     "VpcEndpointId": "vpce-01000000000000001",
+     "VpcEndpointType": "Interface",
+     "VpcId": "vpc-010000000000000001",
+     "State": "available",
+     "ServiceName": "com.amazonaws.elasticache.serverless.us-east-2.vpce-svc-0use20000000000001",
+     "RequesterManaged": true,
+     "Tags": [
+      {
+       "Key": "AmazonElastiCacheManaged",
+       "Value": "true"
+      },
+      {
+       "Key": "auto-delete",
+       "Value": "no"
+      },
+      {
+       "Key": "project",
+       "Value": "encabulator"
+      },
+      {
+       "Key": "talk",
+       "Value": "opn315"
+      }
+     ]
+    },
+    {
+     "VpcEndpointId": "vpce-010000000000000dd",
+     "VpcEndpointType": "Interface",
+     "VpcId": "vpc-010000000000000001",
+     "State": "deleted",
+     "ServiceName": "com.amazonaws.elasticache.serverless.us-east-2.vpce-svc-0use200000000000dd",
+     "RequesterManaged": true,
+     "Tags": [
+      {
+       "Key": "AmazonElastiCacheManaged",
+       "Value": "true"
+      }
+     ]
+    }
+   ]
+  },
+  "ec2 describe-vpc-endpoints --region us-west-2 --filters Name=vpc-id,Values=vpc-000000000000000001": {
+   "VpcEndpoints": [
+    {
+     "VpcEndpointId": "vpce-00000000000000001",
+     "VpcEndpointType": "Interface",
+     "VpcId": "vpc-000000000000000001",
+     "State": "available",
+     "ServiceName": "com.amazonaws.elasticache.serverless.us-west-2.vpce-svc-0usw20000000000001",
+     "RequesterManaged": true,
+     "Tags": [
+      {
+       "Key": "AmazonElastiCacheManaged",
+       "Value": "true"
+      },
+      {
+       "Key": "auto-delete",
+       "Value": "no"
+      },
+      {
+       "Key": "project",
+       "Value": "encabulator"
+      },
+      {
+       "Key": "talk",
+       "Value": "opn315"
+      }
+     ]
+    },
+    {
+     "VpcEndpointId": "vpce-000000000000000dd",
+     "VpcEndpointType": "Interface",
+     "VpcId": "vpc-000000000000000001",
+     "State": "deleted",
+     "ServiceName": "com.amazonaws.elasticache.serverless.us-west-2.vpce-svc-0usw200000000000dd",
+     "RequesterManaged": true,
+     "Tags": [
+      {
+       "Key": "AmazonElastiCacheManaged",
+       "Value": "true"
+      }
+     ]
+    }
+   ]
+  },
   "ec2 describe-vpcs --region us-east-2 --filters Name=tag:Name,Values=encabulator-use2": {
    "Vpcs": [
     {

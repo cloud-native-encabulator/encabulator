@@ -11,8 +11,8 @@ tag being checked:
 
   VPC            the VPC tagged Name=<name>, then in it: subnets, route tables, network ACLs,
                  security groups, internet gateways, NAT gateways, network interfaces (requester-
-                 managed ones too), instances, and the Elastic IPs of its NAT gateways and
-                 network interfaces
+                 managed ones too), VPC endpoints (ElastiCache Serverless creates three), instances,
+                 and the Elastic IPs of its NAT gateways and network interfaces
   EBS            volumes attached to those instances, plus volumes tagged eks:eks-cluster-name=<name>
   EC2            launch templates tagged eks:eks-cluster-name=<name> (EKS Auto Mode)
   EKS            cluster <name>, its capabilities, access entries and Pod Identity associations
@@ -188,6 +188,14 @@ def check_vpc(call, report, region, vpc):
         enis.add(eni["NetworkInterfaceId"])
         detail = f"requester-managed: {eni.get('Description', '')}" if eni.get("RequesterManaged") else eni.get("Description", "")
         report.resource(region, "ec2 network-interface", eni["NetworkInterfaceId"], eni.get("TagSet"), detail)
+    # ElastiCache Serverless puts requester-managed interface endpoints in the VPC.
+    for vpce in call("ec2", "describe-vpc-endpoints", "--filters", in_vpc)["VpcEndpoints"]:
+        if vpce.get("State", "").lower() in ("deleted", "deleting"):
+            continue
+        detail = vpce.get("ServiceName", "").split(".vpce-svc-")[0]
+        if vpce.get("RequesterManaged"):
+            detail = f"requester-managed: {detail}"
+        report.resource(region, "ec2 vpc-endpoint", vpce["VpcEndpointId"], vpce.get("Tags"), detail)
     for addr in call("ec2", "describe-addresses")["Addresses"]:
         if addr.get("AllocationId") in allocations or addr.get("NetworkInterfaceId") in enis:
             report.resource(region, "ec2 elastic-ip", addr["AllocationId"], addr.get("Tags"), addr.get("PublicIp", ""))

@@ -93,7 +93,7 @@ def tag_holders(node, path=()):
 
 # Most specific first: a subnet also names its VPC, an Elastic IP its network interface.
 ID_FIELDS = ("AllocationId", "NatGatewayId", "NetworkInterfaceId", "InstanceId", "VolumeId", "LaunchTemplateId",
-             "RouteTableId", "NetworkAclId", "GroupId", "InternetGatewayId", "SubnetId", "VpcId")
+             "VpcEndpointId", "RouteTableId", "NetworkAclId", "GroupId", "InternetGatewayId", "SubnetId", "VpcId")
 
 
 def owner(calls, path):
@@ -157,7 +157,7 @@ class TagCheckTest(unittest.TestCase):
                 kinds.add(re.split(r"\s{2,}", missing[0])[2])
         required = {
             "ec2 vpc", "ec2 subnet", "ec2 route-table", "ec2 network-acl", "ec2 security-group",
-            "ec2 internet-gateway", "ec2 natgateway", "ec2 elastic-ip", "ec2 network-interface",
+            "ec2 internet-gateway", "ec2 natgateway", "ec2 elastic-ip", "ec2 network-interface", "ec2 vpc-endpoint",
             "ec2 instance", "ec2 volume", "rds db-instance", "elasticache serverless-cache",
             "eks cluster", "eks capability", "eks access-entry", "iam role", "ecr repository",
         }
