@@ -37,6 +37,14 @@ JAEGER_PORT       ?= 16686
 PROMETHEUS_PORT   ?= 9090
 OBS_NAMESPACE     ?= encabulator-observability
 
+# Brownfield to GitOps. TERRAFORM can be a wrapper, e.g. TERRAFORM="mise exec terraform@1.14.9 -- terraform".
+TERRAFORM         ?= terraform
+TF_DIR            := terraform/brownfield
+KIND_KUBECONFIG   ?=
+REGISTER_ARGS     ?=
+TAG_CHECK_ARGS    ?=
+DECK_PORT         ?= 8000
+
 export CONTAINER_RUNTIME REGISTRY VERSION PLATFORMS PUSH
 
 SERVICE_COUNT     := $(shell ./scripts/services.sh count)
@@ -154,6 +162,41 @@ credentials: ## Print the bootstrap admin/operator and Grafana passwords
 	@$(KUBECTL) -n $(NAMESPACE) get secret $(RELEASE)-app -o jsonpath='{.data.bootstrap-operator-password}' | base64 -d; echo
 	@printf '$(BOLD)%-22s$(OFF) ' 'grafana admin'
 	-@$(KUBECTL) -n $(OBS_NAMESPACE) get secret prometheus-stack-grafana -o jsonpath='{.data.admin-password}' | base64 -d; echo
+
+## Brownfield to GitOps (Terraform, ACK, Argo CD, kro)
+.PHONY: brownfield-init brownfield-test brownfield-plan brownfield-apply brownfield-deploy gitops-register gitops-bootstrap gitops-validate tag-check talk
+brownfield-init: ## terraform init for terraform/brownfield, the hub's starting point
+	$(TERRAFORM) -chdir=$(TF_DIR) init
+
+brownfield-test: ## Offline contract checks for the Terraform stack (no AWS calls)
+	$(TERRAFORM) -chdir=$(TF_DIR) init -backend=false
+	$(TERRAFORM) -chdir=$(TF_DIR) test
+
+brownfield-plan: ## terraform plan (needs AWS credentials and terraform/brownfield/encabulator.auto.tfvars)
+	$(TERRAFORM) -chdir=$(TF_DIR) plan
+
+brownfield-apply: ## terraform apply: VPC, EKS Auto Mode, RDS, ElastiCache and the Argo CD, ACK and kro capabilities (about 25 minutes, costs money)
+	$(TERRAFORM) -chdir=$(TF_DIR) apply
+
+brownfield-deploy: ## Deploy the app onto the hub's RDS and ElastiCache (run `make platform` first)
+	@./$(TF_DIR)/deploy-app.sh
+
+gitops-register: ## Register the hub with its own Argo CD (REGISTER_ARGS=--dry-run shows the Secret first)
+	@./gitops/hub/bootstrap/register-hub.sh $(REGISTER_ARGS)
+
+gitops-bootstrap: ## Apply the Argo CD projects, the hub ApplicationSet and the hub Applications
+	$(KUBECTL) apply -f gitops/hub/bootstrap/
+
+gitops-validate: ## Validate gitops/app on a local kind cluster, no AWS (KIND_KUBECONFIG=path)
+	@test -n "$(KIND_KUBECONFIG)" || { echo "set KIND_KUBECONFIG=<kubeconfig of a kind cluster>"; exit 2; }
+	@./gitops/app/hack/validate-kind.sh --kubeconfig "$(KIND_KUBECONFIG)"
+
+tag-check: ## Read-only: fail on any AWS resource of the stacks that lacks the auto-delete=no tag
+	@python3 scripts/tag-check.py $(TAG_CHECK_ARGS)
+
+talk: ## Serve the OPN315 talk slides on http://localhost:DECK_PORT (press P for the presenter view)
+	@printf '$(BOLD)==> http://localhost:$(DECK_PORT)$(OFF)  (ctrl-c to stop)\n'
+	@cd docs/opn315 && python3 -m http.server $(DECK_PORT) --bind 127.0.0.1
 
 ## Local development
 .PHONY: dev-up dev-down dev-logs kind-up kind-down kind-load

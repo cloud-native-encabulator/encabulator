@@ -171,6 +171,27 @@ If you expose the console through an ingress, raise the idle timeout and turn of
 buffering, or its live stream will appear frozen. The chart's ingress template sets the right
 annotations for the ALB and nginx controllers.
 
+### On AWS with managed stores, then GitOps
+
+The chart can also point at Amazon RDS and Amazon ElastiCache instead of the in-cluster stores, and
+the repository carries the whole path from Terraform to GitOps. Each step has a target; `make help`
+lists them all, and each directory's README has the detail.
+
+```bash
+make brownfield-test     # offline contract checks for terraform/brownfield, no AWS calls
+make brownfield-plan     # terraform plan (needs credentials and terraform/brownfield/encabulator.auto.tfvars)
+make brownfield-apply    # VPC, EKS Auto Mode, RDS, ElastiCache, Argo CD, ACK and kro capabilities
+make platform && make brownfield-deploy   # observability, then the app on RDS and ElastiCache
+make gitops-register     # register the hub with its own Argo CD (REGISTER_ARGS=--dry-run first)
+make gitops-bootstrap    # Argo CD projects, the hub ApplicationSet and the hub Applications
+make gitops-validate KIND_KUBECONFIG=...  # the kro APIs on a local kind cluster, no AWS
+make tag-check           # read-only: fail on any AWS resource without the auto-delete=no tag
+make talk                # serve the OPN315 slides on http://localhost:8000
+```
+
+Set `TERRAFORM` to use a wrapper such as `mise exec terraform@1.14.9 -- terraform`. These targets
+create billable resources; see the README for what and for the clean-up note.
+
 ## Debugging
 
 - **A pod is not ready.** `kubectl logs` names the failing dependency. Readiness reflects a
@@ -182,6 +203,12 @@ annotations for the ALB and nginx controllers.
 - **No edges on the Factory Floor.** Edges come from the collector's service-graph metrics, which
   need a minute of traffic before they appear. Check that
   `traces_service_graph_request_total` exists in Prometheus.
+- **Services connect but a store has no line.** The console only draws a line when the far end of the
+  service-graph edge is named `postgres`, `valkey`, `nats` or `influxdb` (or an alias in
+  `src/shared/registry.ts`). Look at the `server` label of `traces_service_graph_request_total`: the
+  collector's `database_name_attributes` in `platform/opentelemetry-collector.values.yaml` must name
+  database servers after the database system, not after the database. Client spans need
+  `db.system` or `db.system.name`.
 - **Orders are rejected with `insufficient_parts`.** The depot ran out. Either restock on the Works
   page or raise the `amulite-foundry-rate` flag.
 - **A fault will not go away.** Every malaise expires on its own, and the engine reverts
@@ -196,6 +223,9 @@ annotations for the ALB and nginx controllers.
 ```
 charts/encabulator/          Helm chart: the application and its backing stores
 platform/                    Pinned values and dashboards for upstream platform charts
+terraform/brownfield/        The AWS starting point: VPC, EKS Auto Mode, RDS, ElastiCache, capabilities
+gitops/                      What Argo CD syncs: the hub (adoption, cells) and the application as kro APIs
+docs/opn315/                 The OPN315 talk: slides and run of show
 libs/go/kit/                 Go service kit
 libs/ts/kit/                 TypeScript service kit (@encabulator/kit)
 libs/python/encabulator-kit/ Python service kit
