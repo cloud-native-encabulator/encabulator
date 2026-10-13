@@ -99,6 +99,11 @@ class Run:
     malaise_ids: dict[str, str] = field(default_factory=dict)
     #: Flags this run changed, and what they were, so they can be put back.
     flag_restores: dict[str, Any] = field(default_factory=dict)
+    #: The grammeter settings when the run started, put back if the run changed traffic.
+    traffic_restore: dict[str, Any] | None = None
+    traffic_changed: bool = False
+    #: Malaise references skipped because their target is a managed store with no pod here.
+    skipped_malaises: set[str] = field(default_factory=set)
     error: str | None = None
 
     @property

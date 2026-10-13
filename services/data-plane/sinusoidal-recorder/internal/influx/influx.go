@@ -10,15 +10,28 @@ import (
 	"log/slog"
 	"math"
 	"net/http"
+	"net/url"
 	"strconv"
 	"strings"
 	"time"
 
 	"github.com/InfluxCommunity/influxdb3-go/v2/influxdb3"
+	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/codes"
+	"go.opentelemetry.io/otel/trace"
 )
 
 // Table is the InfluxDB table (measurement) every reading lands in.
 const Table = "readings"
+
+// tracerName names the instrumentation scope of the InfluxDB client spans.
+const tracerName = "github.com/jlbutler/cloud-native-encabulator/services/data-plane/sinusoidal-recorder/internal/influx"
+
+// DBSystem is the db.system.name on every InfluxDB client span. The collector's
+// service_graph connector names the server of a database edge after it, which is
+// the console's `influxdb` node.
+const DBSystem = "influxdb"
 
 // Limits on the read path.
 const (
@@ -84,6 +97,9 @@ type Config struct {
 	Logger *slog.Logger
 	// HTTPClient overrides the client used for the health and admin endpoints.
 	HTTPClient *http.Client
+	// TracerProvider records the InfluxDB client spans. Defaults to the global
+	// provider, which kit.Bootstrap configures.
+	TracerProvider trace.TracerProvider
 }
 
 // Client talks to InfluxDB 3 Core. Writes use the HTTP line-protocol API and
@@ -95,6 +111,10 @@ type Client struct {
 	token    string
 	database string
 	log      *slog.Logger
+	tracer   trace.Tracer
+	// server.address and server.port of the InfluxDB endpoint, for the spans.
+	host string
+	port int
 }
 
 // New builds a client. It does not touch the network.
@@ -137,6 +157,12 @@ func New(cfg Config) (*Client, error) {
 		return nil, fmt.Errorf("influx: client: %w", err)
 	}
 
+	tp := cfg.TracerProvider
+	if tp == nil {
+		tp = otel.GetTracerProvider()
+	}
+	host, port := hostPort(base)
+
 	return &Client{
 		influx:   client,
 		http:     httpClient,
@@ -144,7 +170,61 @@ func New(cfg Config) (*Client, error) {
 		token:    cfg.Token,
 		database: database,
 		log:      log,
+		tracer:   tp.Tracer(tracerName),
+		host:     host,
+		port:     port,
 	}, nil
+}
+
+// hostPort splits the InfluxDB URL into server.address and server.port.
+func hostPort(base string) (string, int) {
+	u, err := url.Parse(base)
+	if err != nil {
+		return "", 0
+	}
+	port, err := strconv.Atoi(u.Port())
+	if err != nil {
+		switch u.Scheme {
+		case "https":
+			port = 443
+		case "http":
+			port = 80
+		}
+	}
+	return u.Hostname(), port
+}
+
+// startSpan opens the CLIENT span for one InfluxDB call. Nothing instruments
+// InfluxDB itself, so this span is the only evidence of the recorder -> influxdb
+// edge: the collector's service_graph connector turns a client span carrying
+// db.system.name into a database edge named after it. The health check is not
+// traced (design section 7: no spans for readiness).
+func (c *Client) startSpan(ctx context.Context, operation string) (context.Context, trace.Span) {
+	attrs := []attribute.KeyValue{
+		attribute.String("db.system.name", DBSystem),
+		attribute.String("db.namespace", c.database),
+		attribute.String("db.collection.name", Table),
+		attribute.String("db.operation.name", operation),
+	}
+	if c.host != "" {
+		attrs = append(attrs, attribute.String("server.address", c.host))
+	}
+	if c.port > 0 {
+		attrs = append(attrs, attribute.Int("server.port", c.port))
+	}
+	return c.tracer.Start(ctx, operation+" "+Table,
+		trace.WithSpanKind(trace.SpanKindClient),
+		trace.WithAttributes(attrs...),
+	)
+}
+
+// endSpan records err, if any, as the span's outcome and ends it.
+func endSpan(span trace.Span, err error) {
+	if err != nil {
+		span.RecordError(err)
+		span.SetStatus(codes.Error, err.Error())
+	}
+	span.End()
 }
 
 // Database returns the configured database name.
@@ -265,10 +345,14 @@ func (c *Client) authorize(req *http.Request) {
 
 // Write stores a batch of readings. Tags are serial, order_id, model, stage and
 // metric; the single field is value.
-func (c *Client) Write(ctx context.Context, readings []Reading) error {
+func (c *Client) Write(ctx context.Context, readings []Reading) (err error) {
 	if len(readings) == 0 {
 		return nil
 	}
+	ctx, span := c.startSpan(ctx, "write")
+	span.SetAttributes(attribute.Int("db.operation.batch.size", len(readings)))
+	defer func() { endSpan(span, err) }()
+
 	points := make([]*influxdb3.Point, 0, len(readings))
 	for _, r := range readings {
 		at := r.Time
@@ -303,13 +387,15 @@ SELECT time, serial, order_id, model, stage, metric, value
 // The serial is bound as a query parameter and never interpolated. The limit is
 // interpolated, but only after being clamped to an integer in a fixed range, so
 // no caller-supplied text reaches the query.
-func (c *Client) ReadingsBySerial(ctx context.Context, serial string, limit int) ([]Reading, error) {
+func (c *Client) ReadingsBySerial(ctx context.Context, serial string, limit int) (_ []Reading, err error) {
 	if limit <= 0 {
 		limit = DefaultReadLimit
 	}
 	if limit > MaxReadLimit {
 		limit = MaxReadLimit
 	}
+	ctx, span := c.startSpan(ctx, "SELECT")
+	defer func() { endSpan(span, err) }()
 
 	it, err := c.influx.QueryWithParameters(ctx,
 		readingsSQL+strconv.Itoa(limit),
@@ -356,8 +442,10 @@ SELECT metric,
  ORDER BY metric`
 
 // Summary returns per-metric aggregates across the whole factory over window.
-func (c *Client) Summary(ctx context.Context, window time.Duration) ([]MetricSummary, error) {
+func (c *Client) Summary(ctx context.Context, window time.Duration) (_ []MetricSummary, err error) {
 	since := time.Now().UTC().Add(-window)
+	ctx, span := c.startSpan(ctx, "SELECT")
+	defer func() { endSpan(span, err) }()
 
 	it, err := c.influx.QueryWithParameters(ctx, summarySQL,
 		influxdb3.QueryParameters{"since": since.Format("2006-01-02 15:04:05.000000")},

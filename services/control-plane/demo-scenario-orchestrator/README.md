@@ -110,10 +110,20 @@ Runs execute as asyncio tasks, never inside a request. **One run at a time**: tw
 fighting over the same flags and the same traffic generator would tell the audience nothing.
 
 Whatever a run changed, it puts back · flags to their previous values unless the step said
-`keep: true`, and any malaise it created cleared · whether it completed, failed, or was cancelled.
-The cleanup is shielded from the cancellation that triggered it, and `POST /cancel` does not return
-until the restoration has finished. Run history is capped (`RUN_HISTORY`, default 50) and lives
-only in memory: a restart loses the history, not the factory.
+`keep: true`, any malaise it created cleared, and the grammeters set back to the settings they
+had when the run started (`running`, `rps`, `pattern`, `periodSeconds`, `customers`, `mix`, read
+from `GET /v1/traffic` at the start, put back only if a `traffic` step ran) · whether it completed,
+failed, or was cancelled. The cleanup is shielded from the cancellation that triggered it, and
+`POST /cancel` does not return until the restoration has finished. Run history is capped
+(`RUN_HISTORY`, default 50) and lives only in memory: a restart loses the history, not the factory.
+
+**Managed stores.** Where PostgreSQL or Valkey is a managed AWS service (RDS, ElastiCache) there is
+no store pod, and the malaise engine answers a `pod-kill` on `postgres` or `valkey` with
+`400 unknown_target`. That one answer, for those two targets, does not fail the run: the
+orchestrator narrates that the store is a managed AWS service with no pod to delete, skips the rest
+of that act up to and including the `clearMalaise` that names its `ref` (a `clearMalaise: all`
+still runs, to lift the act's other malaises), and carries on. Every other error still fails the
+run. The built-in `hydrocoptic-outage` and `grand-tour` both have such an act.
 
 ## Identity
 

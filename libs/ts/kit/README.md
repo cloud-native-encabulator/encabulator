@@ -34,6 +34,14 @@ Import `@encabulator/kit/telemetry` first and only then dynamic-import the rest.
 hoists static imports, so this is what gives the OpenTelemetry instrumentations a chance to
 patch `http`, `undici` and `ioredis` before those modules load.
 
+Ordering alone is not enough for `ioredis`: its instrumentation patches the CommonJS exports
+when the module is `require`d, and an ESM `import 'ioredis'` never goes through `require`, so
+nothing was patched and the depot and dispatch produced no Valkey spans. After the SDK starts,
+`startTelemetry` therefore `require`s each module in `REQUIRE_PATCHED_MODULES` that the service
+can resolve (from the process entry point, or `modulesFrom`), which patches the same instance
+the service later imports. Valkey client spans carry `db.system=redis` (the protocol) and
+`db.system.name=valkey`, both set by the kit, which is what names the console's Valkey node.
+
 ```ts
 // src/index.ts
 import { startTelemetry } from '@encabulator/kit/telemetry';

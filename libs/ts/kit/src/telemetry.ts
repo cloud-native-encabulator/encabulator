@@ -5,8 +5,10 @@
  * the whole thing is a no-op, which keeps unit tests and local runs quiet.
  *
  * Import this module (`@encabulator/kit/telemetry`) rather than the kit barrel from a
- * service entrypoint: it deliberately pulls in no Fastify, ioredis or undici code, so
- * the instrumentations get a chance to register before those modules load. The usual
+ * service entrypoint: it deliberately imports no Fastify, ioredis or undici code, so
+ * the instrumentations get a chance to register before those modules load. (Once the
+ * SDK has started it does `require` ioredis, when the service has it, so the patch
+ * reaches an ESM service too; see `REQUIRE_PATCHED_MODULES`.) The usual
  * shape of a service entrypoint is:
  *
  *     import { startTelemetry } from '@encabulator/kit/telemetry';
@@ -15,8 +17,10 @@
  *     await main(telemetry);
  */
 
+import { createRequire } from 'node:module';
+import path from 'node:path';
 import { FastifyOtelInstrumentation } from '@fastify/otel';
-import { type Context, context, type Tracer, trace } from '@opentelemetry/api';
+import { type Context, context, type Span, type Tracer, trace } from '@opentelemetry/api';
 import { suppressTracing } from '@opentelemetry/core';
 import { OTLPTraceExporter } from '@opentelemetry/exporter-trace-otlp-proto';
 import type { Instrumentation } from '@opentelemetry/instrumentation';
@@ -44,6 +48,54 @@ export interface TelemetryOptions {
   endpoint?: string | undefined;
   /** Extra instrumentations, e.g. a service-specific database client. */
   instrumentations?: Instrumentation[];
+  /**
+   * A file the service's own dependencies resolve from, used to load the
+   * require-patched modules (see `REQUIRE_PATCHED_MODULES`). Defaults to the
+   * process entry point, which is the service's `dist/index.js`.
+   */
+  modulesFrom?: string;
+}
+
+/**
+ * Modules whose instrumentation patches their CommonJS exports when they are
+ * first `require`d. A service written as ESM loads them with `import`, which
+ * Node resolves without `require`, so require-in-the-middle never sees them and
+ * the instrumentation silently patches nothing: the depot and dispatch produced
+ * no Valkey client spans at all. Loading each one once through `require`, right
+ * after the SDK starts, patches the module object the service's later `import`
+ * receives, because Node keeps one CommonJS instance for both.
+ */
+export const REQUIRE_PATCHED_MODULES: readonly string[] = ['ioredis'];
+
+/**
+ * `require` each of `REQUIRE_PATCHED_MODULES` that `fromFile` can resolve, and
+ * return the ones loaded. A module the service does not depend on is skipped.
+ */
+export function loadRequirePatchedModules(fromFile: string): string[] {
+  const load = createRequire(fromFile);
+  const loaded: string[] = [];
+  for (const id of REQUIRE_PATCHED_MODULES) {
+    try {
+      load(id);
+      loaded.push(id);
+    } catch (err) {
+      if ((err as NodeJS.ErrnoException).code !== 'MODULE_NOT_FOUND') throw err;
+    }
+  }
+  return loaded;
+}
+
+/**
+ * The backing store is Valkey, which speaks the Redis protocol. ioredis 0.70's
+ * instrumentation reports only the stable `db.system.name=redis`; keep
+ * `db.system=redis` (the protocol, and what the Python services report) and set
+ * `db.system.name=valkey` to name the store: the collector's service_graph
+ * connector names the server of a database edge after `db.system.name`, which is
+ * the console's `valkey` node.
+ */
+export function markValkey(span: Pick<Span, 'setAttribute'>): void {
+  span.setAttribute('db.system', 'redis');
+  span.setAttribute('db.system.name', 'valkey');
 }
 
 /** Structural type for the Fastify plugin produced by `@fastify/otel`. */
@@ -85,7 +137,10 @@ function buildInstrumentations(
     ignoreRequestHook: (req) => isUntracedOutgoingPath(req.path),
   });
 
-  const ioredis = new IORedisInstrumentation({ requireParentSpan: false });
+  const ioredis = new IORedisInstrumentation({
+    requireParentSpan: false,
+    requestHook: (span) => markValkey(span),
+  });
 
   return [http, undici, ioredis, fastifyInstrumentation as Instrumentation, ...extra];
 }
@@ -131,6 +186,9 @@ export function startTelemetry(opts: TelemetryOptions): Telemetry {
     instrumentations: buildInstrumentations(fastifyInstrumentation, opts.instrumentations ?? []),
   });
   sdk.start();
+  loadRequirePatchedModules(
+    opts.modulesFrom ?? process.argv[1] ?? path.join(process.cwd(), 'index.js'),
+  );
 
   let stopped = false;
   return {

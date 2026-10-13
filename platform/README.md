@@ -153,6 +153,11 @@ interesting window is the last few minutes, and a pod restart losing history is 
 provisioning volumes. The commented-out `storageSpec` in the Prometheus values is the switch if
 you disagree.
 
+Jaeger's in-memory store is capped at 15,000 traces (`jaeger.args` in the values) with a 1 GiB
+memory limit. Its built-in default of 100,000 traces grew it to 1.7 GB on a 4 GB node, which
+starved every pod there of page cache until liveness probes failed across the node. At roughly
+1.3 KB per span the cap still holds the last several minutes of a busy run.
+
 ## Bumping a version
 
 One line in `versions.env` at a time, then:

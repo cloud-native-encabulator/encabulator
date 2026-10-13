@@ -327,7 +327,8 @@ not log request bodies, tokens, or passwords. `LOG_LEVEL` sets the level (defaul
 - W3C trace context over HTTP and NATS headers.
 - Instrument inbound HTTP (server spans), outbound HTTP (client spans with `peer.service` or
   `server.address` set to the target service name), database and cache clients (`db.system`,
-  `db.name` / `db.namespace`), and NATS (producer and consumer spans).
+  `db.name` / `db.namespace`; the recorder's InfluxDB calls carry `db.system.name=influxdb`), and
+  NATS (producer and consumer spans).
 - Do not trace `/healthz`, `/readyz`, `/metrics`, or the malaise and flag polling loops.
 
 ### Malaise (fault injection) middleware
@@ -661,6 +662,13 @@ Rehearses the demo so the presenter does not have to.
 - `GET /v1/scenarios`, `POST /v1/scenarios/{id}/runs` (202 with a run; 409 if a run is active),
   `GET /v1/runs?limit=20`, `GET /v1/runs/{id}` (status, current step, log with narration),
   `POST /v1/runs/{id}/cancel` (reverts flags and clears malaises it created).
+- A run that completes, fails or is cancelled leaves the traffic as it found it: the grammeter
+  settings read at the start of the run are put back in the same cleanup that restores the flags
+  and clears the malaises, if the run changed the traffic.
+- Where `postgres` or `valkey` is a managed AWS service there is no store pod, and the engine answers
+  a malaise on it with `400 unknown_target`. For those two targets only, the run narrates that the
+  store is a managed AWS service with no pod to delete, skips the rest of that act up to its
+  `clearMalaise`, and carries on; every other error still fails the run.
 - Built-in scenarios: `morning-shift` (ramp up traffic), `marzlevane-shortage` (stop the foundry,
   watch 409s, restart), `hydrocoptic-outage` (kill Postgres, watch recovery), `side-fumbling-outbreak`
   (slow the casing line and tighten inspection), `dingle-arm-congestion` (congest the gateway under
