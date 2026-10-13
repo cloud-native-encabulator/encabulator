@@ -85,6 +85,42 @@ pre.term .ln.out::before{content:""}pre.term .ln.out{color:var(--muted)}
 #ov.open{display:block}#ov button{display:block;width:100%;text-align:left;background:none;border:0;color:var(--text);padding:6px 8px;font:inherit;cursor:pointer;border-radius:6px}
 #ov button:hover{background:#1b2547}#ov .a{color:var(--muted);margin-right:8px}
 aside.notes{display:none}
+#ov .help{break-inside:avoid;margin-top:22px;color:var(--muted);font-size:15px;line-height:1.8}
+#ov .help kbd{font:inherit;color:var(--brass);margin-right:6px}
+#toast{position:fixed;left:50%;bottom:28px;transform:translateX(-50%);display:none;z-index:20;background:#1d1a10;
+ border:1px solid var(--brass);color:#ffe2a8;padding:10px 18px;border-radius:10px;font-size:16px}
+/* presenter view: the same file opened as ?presenter in a popup, kept in step with the slide window */
+body.presenter #stage,body.presenter #bar,body.presenter #notes,body.presenter #ov{display:none!important}
+#pv{display:none}
+body.presenter #pv{position:fixed;inset:0;display:grid;grid-template-columns:minmax(0,1.05fr) minmax(0,1fr);
+ grid-template-rows:auto minmax(0,1fr);gap:12px 16px;padding:12px 16px;box-sizing:border-box;background:#070b16;
+ color:var(--text);font-size:15px}
+#pv button,#pv select{font:inherit;color:var(--text);background:#16203b;border:1px solid var(--line);border-radius:8px;padding:7px 12px;cursor:pointer}
+#pv button:hover{background:#1f2c52}
+#pv .hd{grid-column:1/-1;display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap}
+#pv .hl{display:flex;align-items:center;gap:12px;color:var(--muted)}#pv .hl b{color:var(--text);font-size:17px}
+#pv .dot{width:11px;height:11px;border-radius:50%;background:var(--bad)}#pv .dot.on{background:var(--ok)}
+#pv #pvblank{display:none;color:#ff9aa4;border:1px solid var(--bad);background:#3a1218;border-radius:999px;padding:3px 12px;font-size:13px}
+body.pblack #pv #pvblank{display:inline-block}
+#pv .tmr{display:flex;align-items:baseline;gap:18px;flex-wrap:wrap}
+#pv #pvel{font-size:40px;font-weight:750;font-variant-numeric:tabular-nums;line-height:1}
+#pv #pvrem,#pv #pvpace{font-size:18px;color:var(--muted);font-variant-numeric:tabular-nums}
+#pv #pvrem.over,#pv #pvpace.behind{color:var(--bad)}#pv #pvpace.ahead{color:var(--ok)}
+#pv .hr{display:flex;align-items:center;gap:8px}
+#pv #pvclock{color:var(--muted);margin-right:8px;font-variant-numeric:tabular-nums}
+#pv .left{display:grid;grid-template-rows:minmax(0,1.7fr) minmax(0,1fr);gap:12px;min-height:0}
+#pv .pane{background:#0c1328;border:1px solid var(--line);border-radius:12px;padding:10px 12px;display:flex;flex-direction:column;min-height:0;min-width:0}
+#pv .pane h5{margin:0 0 8px;font-size:12px;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);font-weight:700}
+#pv .pv-view{position:relative;flex:1;min-height:0;overflow:hidden;background:#05080f;border-radius:8px}
+#pv .pv-view .frame{position:absolute;left:50%;top:50%;width:1920px;height:1080px;transform-origin:center center}
+#pv .pv-view.empty::after{content:"End of talk";position:absolute;inset:0;display:flex;align-items:center;justify-content:center;color:var(--muted);font-size:20px}
+#pv .right{gap:10px}
+#pv .nav{display:flex;gap:8px}#pv .nav select{flex:1;min-width:0}
+#pv #pvnh{font-size:17px;color:var(--brass);font-weight:700}
+#pv #pvnb{flex:1;min-height:0;overflow:auto;font-size:var(--nfs,26px);line-height:1.5;padding-right:8px}
+#pv #pvnb p{margin:0 0 .75em}#pv #pvnb code{font-family:var(--mono);font-size:.88em;background:#16203b;padding:1px 6px;border-radius:5px}
+#pv #pvnb ul,#pv #pvnb ol{margin:0 0 .75em;padding-left:1.3em}#pv #pvnb b,#pv #pvnb strong{color:var(--brass)}
+#pv .muted{color:var(--muted)}
 @media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
 /* slide-specific */
 .planes{display:grid;grid-template-columns:repeat(4,1fr);gap:28px}
@@ -1116,7 +1152,9 @@ kubectl --context use2 get encabulator,dbinstances.rds,serverlesscaches -n encab
   const bar = document.getElementById('bar'), ov = document.getElementById('ov');
   const MODES = {live: ['live', 'Cooked live'], baked: ['baked', 'From the oven'], ide: ['ide', 'Switch to IDE']};
   let i = 0, s = 0;
-
+  // The presenter view is this same file opened as ?presenter in a popup (key P in the slide window).
+  const PRESENTER = /[?&]presenter(?:[=&]|$)/.test(location.search);
+  let black = false;
   // ---- code highlighting (YAML, HCL, shell) -------------------------------
   const esc = t => t.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
   function splitComment(line) {
@@ -1173,7 +1211,8 @@ kubectl --context use2 get encabulator,dbinstances.rds,serverlesscaches -n encab
     el.prepend(top);
   });
   const title = el => el.dataset.title || ((el.querySelector('h2,h1') || {}).textContent || '').trim();
-  ov.innerHTML = slides.map((el, k) => '<button data-k="' + k + '"><span class="a">' + (k + 1) + '</span>' + title(el) + '</button>').join('');
+  ov.innerHTML = slides.map((el, k) => '<button data-k="' + k + '"><span class="a">' + (k + 1) + '</span>' + title(el) + '</button>').join('') +
+    '<div class="help"><kbd>P</kbd>presenter view in a second window<br><kbd>N</kbd>notes panel<br><kbd>B</kbd>blank the screen<br><kbd>F</kbd>fullscreen<br><kbd>Space</kbd>next build<br><kbd>Backspace</kbd>previous build</div>';
   ov.addEventListener('click', e => { const b = e.target.closest('button'); if (b) { ov.classList.remove('open'); go(+b.dataset.k, 0); } });
 
   const maxStep = el => {
@@ -1182,39 +1221,257 @@ kubectl --context use2 get encabulator,dbinstances.rds,serverlesscaches -n encab
     el.querySelectorAll('[data-cls]').forEach(e => e.dataset.cls.split(/\s+/).forEach(p => m = Math.max(m, +p.split(':')[0])));
     return m;
   };
-  function render() {
-    slides.forEach((el, k) => el.classList.toggle('active', k === i));
-    const el = slides[i];
-    el.querySelectorAll('[data-step]').forEach(e => e.classList.toggle('shown', +e.dataset.step <= s));
-    el.querySelectorAll('[data-cls]').forEach(e => e.dataset.cls.split(/\s+/).forEach(p => {
-      const [n, c] = p.split(':'); e.classList.toggle(c, s >= +n);
+  function applySteps(root, st) {
+    root.querySelectorAll('[data-step]').forEach(e => e.classList.toggle('shown', +e.dataset.step <= st));
+    root.querySelectorAll('[data-cls]').forEach(e => e.dataset.cls.split(/\s+/).forEach(p => {
+      const [n, c] = p.split(':'); e.classList.toggle(c, st >= +n);
     }));
-    counter.textContent = (i + 1) + ' / ' + slides.length;
-    bar.style.width = ((i + 1) / slides.length * 100) + '%';
-    const n = el.querySelector('aside.notes');
-    notesEl.innerHTML = '<b>' + (i + 1) + '. ' + title(el) + '</b> · build ' + s + ' of ' + maxStep(el) + (n ? n.innerHTML : '');
-    history.replaceState(null, '', '#' + (i + 1) + '.' + s);
   }
-  function go(k, st) {
+  function render() {
+    if (PRESENTER) renderPresenter();
+    else {
+      slides.forEach((el, k) => el.classList.toggle('active', k === i));
+      const el = slides[i];
+      applySteps(el, s);
+      counter.textContent = (i + 1) + ' / ' + slides.length;
+      bar.style.width = ((i + 1) / slides.length * 100) + '%';
+      const n = el.querySelector('aside.notes');
+      notesEl.innerHTML = '<b>' + (i + 1) + '. ' + title(el) + '</b> · build ' + s + ' of ' + maxStep(el) + (n ? n.innerHTML : '');
+    }
+    history.replaceState(null, '', '#' + (i + 1) + '.' + s);
+    if (!PRESENTER) pushState();
+  }
+  // setPos moves this window only. go() is what a key or button calls: in the presenter window it
+  // also tells the slide window (absolute position, so a message delivered twice is harmless).
+  function setPos(k, st) {
     i = Math.max(0, Math.min(slides.length - 1, k));
     s = Math.max(0, Math.min(maxStep(slides[i]), st));
     render();
   }
+  function go(k, st) {
+    setPos(k, st);
+    if (PRESENTER) send({t: 'go', i, s});
+  }
   const next = () => s < maxStep(slides[i]) ? go(i, s + 1) : go(i + 1, 0);
   const prev = () => s > 0 ? go(i, s - 1) : (i > 0 ? go(i - 1, 99) : 0);
+  function setBlack(v) {
+    black = !!v;
+    document.body.classList.toggle(PRESENTER ? 'pblack' : 'black', black);
+    if (PRESENTER) $('pvbl').textContent = black ? 'Unblank' : 'Blank';
+    else pushState();
+  }
+
+  // ---- presenter view: a popup kept in step with the slide window -----------
+  // Two channels carry the same messages: postMessage between the popup and its opener (works from
+  // file://) and a BroadcastChannel (also covers a presenter tab opened by hand, or a reloaded slide
+  // window). Every message has an id, so one that arrives on both channels is applied once.
+  const bc = (() => { try { return new BroadcastChannel('opn315-deck'); } catch (_) { return null; } })();
+  const seen = new Set();
+  let pop = null, lastState = 0;
+  function send(m) {
+    m.src = 'opn315'; m.id = Math.random().toString(36).slice(2);
+    const peer = PRESENTER ? window.opener : pop;
+    try { if (peer && !peer.closed) peer.postMessage(m, '*'); } catch (_) {}
+    if (bc) bc.postMessage(m);
+  }
+  function pushState() { send({t: 'state', i, s, black}); }
+  function onMsg(m) {
+    if (!m || m.src !== 'opn315' || typeof m.id !== 'string' || seen.has(m.id)) return;
+    seen.add(m.id);
+    if (seen.size > 64) seen.delete(seen.values().next().value);
+    const pos = Number.isInteger(m.i) && Number.isInteger(m.s);
+    if (PRESENTER) {
+      if (m.t !== 'state' || !pos) return;
+      lastState = Date.now();
+      if (m.i !== i || m.s !== s) setPos(m.i, m.s);
+      if (!!m.black !== black) setBlack(m.black);
+      updateLink();
+    } else if (m.t === 'hello') pushState();
+    else if (m.t === 'go' && pos) setPos(m.i, m.s);
+    else if (m.t === 'black') setBlack(m.v);
+  }
+  addEventListener('message', e => {
+    if (!PRESENTER && !pop && e.source && e.source !== window) {
+      // a presenter window that this page did not open itself (the slide window was reloaded)
+      try { if (e.source.opener === window) pop = e.source; } catch (_) {}
+    }
+    if (e.source && e.source === (PRESENTER ? window.opener : pop)) onMsg(e.data);
+  });
+  if (bc) bc.onmessage = e => onMsg(e.data);
+
+  const toastEl = document.createElement('div');
+  toastEl.id = 'toast';
+  document.body.appendChild(toastEl);
+  function toast(text) {
+    toastEl.textContent = text;
+    toastEl.style.display = 'block';
+    clearTimeout(toast.t);
+    toast.t = setTimeout(() => { toastEl.style.display = 'none'; }, 4000);
+  }
+  function openPresenter() {
+    if (pop && !pop.closed) { pop.focus(); pushState(); return; }
+    const url = location.href.replace(/[?#].*$/, '') + '?presenter#' + (i + 1) + '.' + s;
+    pop = window.open(url, 'opn315-presenter', 'popup=yes,width=1440,height=900,left=60,top=40');
+    if (!pop) toast('Popup blocked. Allow popups for this page, then press P again.');
+  }
+
+  // Presenter window: current slide, what comes next, notes, a timer against the 60 minute plan.
+  const TOTAL = 60 * 60e3;
+  const $ = id => document.getElementById(id);
+  const fmt = ms => {
+    const t = Math.max(0, Math.round(ms / 1000)), h = Math.floor(t / 3600), m = Math.floor(t % 3600 / 60), sec = t % 60;
+    return (h ? h + ':' + String(m).padStart(2, '0') : m) + ':' + String(sec).padStart(2, '0');
+  };
+  const store = {
+    get(k) { try { return JSON.parse(localStorage.getItem('opn315.' + k)); } catch (_) { return null; } },
+    set(k, v) { try { localStorage.setItem('opn315.' + k, JSON.stringify(v)); } catch (_) {} }
+  };
+  let tm = {base: 0, since: 0}, nfs = 26, plan = null, prevAt = null;
+  const elapsed = () => tm.base + (tm.since ? Date.now() - tm.since : 0);
+  function toggleTm() {
+    if (tm.since) { tm.base = elapsed(); tm.since = 0; } else tm.since = Date.now();
+    store.set('timer', tm); tick();
+  }
+  function resetTm() { tm = {base: 0, since: 0}; store.set('timer', tm); tick(); }
+  function setFont(v) {
+    nfs = Math.max(16, Math.min(60, v));
+    $('pv').style.setProperty('--nfs', nfs + 'px');
+    store.set('nfs', nfs);
+  }
+  function updateLink() {
+    const on = Date.now() - lastState < 6000;
+    $('pvlink').classList.toggle('on', on);
+    $('pvlink').title = on ? 'Linked to the slide window' : 'Not linked: press P in the slide window';
+  }
+  function tick() {
+    const ms = elapsed(), rem = TOTAL - ms;
+    $('pvel').textContent = fmt(ms);
+    $('pvrem').textContent = rem >= 0 ? fmt(rem) + ' left' : fmt(-rem) + ' over';
+    $('pvrem').classList.toggle('over', rem < 0);
+    const pace = $('pvpace');
+    pace.className = '';
+    if (!plan) pace.textContent = '';
+    else if (!tm.since && !tm.base) pace.textContent = 'Plan ' + fmt(plan[0] * 1000) + '-' + fmt(plan[1] * 1000);
+    else {
+      const sec = ms / 1000, label = 'Plan ' + fmt(plan[0] * 1000) + '-' + fmt(plan[1] * 1000) + ' · ';
+      if (sec < plan[0] - 30) { pace.textContent = label + 'ahead ' + fmt((plan[0] - sec) * 1000); pace.className = 'ahead'; }
+      else if (sec > plan[1] + 30) { pace.textContent = label + 'behind ' + fmt((sec - plan[1]) * 1000); pace.className = 'behind'; }
+      else pace.textContent = label + 'on pace';
+    }
+    $('pvtm').textContent = tm.since ? 'Pause' : (tm.base ? 'Resume' : 'Start');
+    $('pvclock').textContent = new Date().toLocaleTimeString([], {hour: 'numeric', minute: '2-digit'});
+    updateLink();
+  }
+  function paint(viewId, k, st) {
+    const view = $(viewId), frame = view.firstElementChild;
+    frame.replaceChildren();
+    view.classList.toggle('empty', k === null);
+    if (k === null) return;
+    const c = slides[k].cloneNode(true);
+    c.classList.add('active');
+    applySteps(c, st);
+    frame.appendChild(c);
+  }
+  function fitViews() {
+    document.querySelectorAll('#pv .pv-view').forEach(v => {
+      const sc = Math.min(v.clientWidth / 1920, v.clientHeight / 1080);
+      v.firstElementChild.style.transform = 'translate(-50%,-50%) scale(' + sc + ')';
+    });
+  }
+  function renderPresenter() {
+    const el = slides[i], max = maxStep(el), n = el.querySelector('aside.notes');
+    paint('pvcur', i, s);
+    let ni = null, ns = 0, label = 'Next · end of talk';
+    if (s < max) { ni = i; ns = s + 1; label = 'Next · build ' + ns + ' of ' + max; }
+    else if (i < slides.length - 1) { ni = i + 1; label = 'Next · slide ' + (ni + 1) + ': ' + title(slides[ni]); }
+    paint('pvnxt', ni, ns);
+    $('pvnxtl').textContent = label;
+    $('pvpos').textContent = (i + 1) + ' / ' + slides.length + ' · build ' + s + ' of ' + max;
+    $('pvsel').value = i;
+    $('pvnh').textContent = (i + 1) + '. ' + title(el);
+    $('pvnb').innerHTML = n ? n.innerHTML : '<p class="muted">No speaker notes for this slide.</p>';
+    $('pvnb').scrollTop = 0;
+    const cue = n && n.textContent.match(/⏱\s*(\d+):(\d{2})\s*-\s*(\d+):(\d{2})/);
+    plan = cue ? [+cue[1] * 60 + +cue[2], +cue[3] * 60 + +cue[4]] : null;
+    // the timer starts by itself on the first move away from the title slide
+    if (prevAt && prevAt[0] === 0 && prevAt[1] === 0 && (i > 0 || s > 0) && !tm.since && !tm.base) toggleTm();
+    prevAt = [i, s];
+    fitViews();
+    tick();
+  }
+  function buildPresenter() {
+    document.body.classList.add('presenter');
+    document.title = 'Presenter · ' + document.title;
+    const pv = document.createElement('div');
+    pv.id = 'pv';
+    pv.innerHTML =
+      '<div class="hd">' +
+        '<div class="hl"><b>Presenter view</b><span id="pvpos"></span><span id="pvlink" class="dot"></span><span id="pvblank">Audience screen is blank</span></div>' +
+        '<div class="tmr"><span id="pvel">0:00</span><span id="pvrem"></span><span id="pvpace"></span></div>' +
+        '<div class="hr"><span id="pvclock"></span><button data-a="tm" id="pvtm">Start</button><button data-a="reset">Reset</button>' +
+          '<button data-a="blank" id="pvbl">Blank</button><button data-a="fm" title="Smaller notes">A-</button><button data-a="fp" title="Larger notes">A+</button></div>' +
+      '</div>' +
+      '<div class="left">' +
+        '<div class="pane"><h5>Now</h5><div class="pv-view" id="pvcur"><div class="frame"></div></div></div>' +
+        '<div class="pane"><h5 id="pvnxtl">Next</h5><div class="pv-view" id="pvnxt"><div class="frame"></div></div></div>' +
+      '</div>' +
+      '<div class="pane right">' +
+        '<div class="nav"><button data-a="prev">&#9664; Back</button><select id="pvsel"></select><button data-a="next">Next &#9654;</button></div>' +
+        '<div id="pvnh"></div><div id="pvnb"></div>' +
+      '</div>';
+    document.body.appendChild(pv);
+    const sel = $('pvsel');
+    slides.forEach((el, k) => {
+      const o = document.createElement('option');
+      o.value = k; o.textContent = (k + 1) + '. ' + title(el);
+      sel.appendChild(o);
+    });
+    sel.addEventListener('change', () => { go(+sel.value, 0); sel.blur(); });
+    pv.addEventListener('click', e => {
+      const b = e.target.closest('button');
+      if (!b) return;
+      const a = b.dataset.a;
+      if (a === 'next') next(); else if (a === 'prev') prev();
+      else if (a === 'tm') toggleTm(); else if (a === 'reset') resetTm();
+      else if (a === 'blank') requestBlank();
+      else if (a === 'fm') setFont(nfs - 2); else if (a === 'fp') setFont(nfs + 2);
+      b.blur();
+    });
+    const saved = store.get('timer');
+    if (saved && Number.isFinite(saved.base) && Number.isFinite(saved.since)) tm = saved;
+    if (elapsed() > 3 * 3600e3) tm = {base: 0, since: 0};   // a timer left running by an old rehearsal
+    const f = store.get('nfs');
+    setFont(Number.isFinite(f) ? f : nfs);
+    new ResizeObserver(fitViews).observe(pv);
+    setInterval(tick, 500);
+    // ask the slide window for its position until it answers, and again if it goes quiet
+    setInterval(() => { if (Date.now() - lastState > 5000) send({t: 'hello'}); }, 1500);
+    send({t: 'hello'});
+  }
+  function requestBlank() {
+    setBlack(!black);
+    send({t: 'black', v: black});
+  }
 
   document.addEventListener('keydown', e => {
     const k = e.key;
+    if (e.ctrlKey || e.metaKey || e.altKey) return;   // leave browser shortcuts (Ctrl+P prints) alone
+    if (e.target.matches && e.target.matches('select,input,textarea')) { if (k === 'Escape') e.target.blur(); return; }
     if (['ArrowRight', 'PageDown', ' ', 'Enter'].includes(k)) { e.preventDefault(); next(); }
     else if (['ArrowLeft', 'PageUp', 'Backspace'].includes(k)) { e.preventDefault(); prev(); }
     else if (k === 'ArrowDown') { e.preventDefault(); go(i + 1, 0); }
     else if (k === 'ArrowUp') { e.preventDefault(); go(i - 1, 99); }
     else if (k === 'Home') go(0, 0);
     else if (k === 'End') go(slides.length - 1, 99);
+    else if (k === 'b' || k === 'B') PRESENTER ? requestBlank() : setBlack(!black);
+    else if (k === 'f' || k === 'F') document.fullscreenElement ? document.exitFullscreen() : document.documentElement.requestFullscreen();
+    else if (PRESENTER) {
+      if (k === 't' || k === 'T') toggleTm();
+      else if (k === '+' || k === '=') setFont(nfs + 2);
+      else if (k === '-') setFont(nfs - 2);
+    } else if (k === 'p' || k === 'P') openPresenter();
     else if (k === 'n' || k === 'N') notesEl.classList.toggle('open');
     else if (k === 'o' || k === 'O') ov.classList.toggle('open');
-    else if (k === 'b' || k === 'B') document.body.classList.toggle('black');
-    else if (k === 'f' || k === 'F') document.fullscreenElement ? document.exitFullscreen() : document.documentElement.requestFullscreen();
     else if (k === 'Escape') ov.classList.remove('open');
   });
 
@@ -1224,8 +1481,10 @@ kubectl --context use2 get encabulator,dbinstances.rds,serverlesscaches -n encab
   }
   addEventListener('resize', fit);
   fit();
+  if (PRESENTER) buildPresenter();
+  else setInterval(pushState, 2000);   // a heartbeat, so the presenter window can tell the slide window is still there
   const h = location.hash.slice(1).split('.');
-  go((+h[0] || 1) - 1, +h[1] || 0);
+  setPos((+h[0] || 1) - 1, +h[1] || 0);
 })();
 </script>
 </body>

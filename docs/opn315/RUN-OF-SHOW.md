@@ -1,7 +1,9 @@
 # OPN315 run of show: Bootstrapping GitOps on Amazon EKS with Argo CD, ACK, and kro
 
 Code Talk, 60 minutes, level 300. Carlos Santana and Jesse Butler.
-Deck: [index.html](index.html) in this folder (open it in a browser; N = notes, O = slide list, F = fullscreen).
+Deck: [index.html](index.html) in this folder (open it in a browser; N = notes, O = slide list and key help, B = blank the screen, F = fullscreen, P = presenter view).
+
+Presenter view: with the deck open on the projector screen, press P. A second window opens with the current slide, a preview of the next build or slide, the speaker notes (A- and A+ or the + and - keys change their size), a timer against the 60 minute plan, and the planned time for the slide with an ahead or behind readout. Drag it to your own screen, drag the deck to the projector and press F. Both windows follow each other: arrow keys, Space and the Back and Next buttons work in either one, and B blanks the projector from the presenter window. The timer starts by itself on the first move off the title slide (T pauses it, Reset zeroes it). Allow popups for the page the first time. If the popup is blocked, open the same address with `?presenter` on the end in a second window. Reloading the deck window is fine, the presenter view finds it again.
 
 Format: a cooking show. Each act does one thing live. Anything that has to wait (cluster
 creation, capabilities becoming ACTIVE, RDS or ElastiCache creation) is baked before the session.
