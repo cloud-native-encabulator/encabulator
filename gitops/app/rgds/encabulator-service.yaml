@@ -232,10 +232,12 @@ spec:
                                 stores.data.?POSTGRES_HOST.orValue("") + ":" + stores.data.?POSTGRES_PORT.orValue("5432") + "/" + pg.database + "?sslmode=require"}
                             ])[0] : [])
                       // Valkey on ElastiCache Serverless: TLS, no password (VALKEY_PASSWORD is empty).
+                      // No user either, the chart's brownfield shape (valkey.user ""): rediss://:@host,
+                      // so no client sends AUTH (ioredis and redis-py would send AUTH default "").
                       + (schema.metadata.name in ["malaise-injection-engine", "spurving-bearing-quoter", "nofer-trunnion-dispatch",
                           "prefabulated-amulite-depot", "side-fumbling-detector"]
                           ? [{"name": "VALKEY_PASSWORD", "valueFrom": {"secretKeyRef": {"name": "encabulator-valkey", "key": "valkey-password"}}},
-                             {"name": "VALKEY_URL", "value": "rediss://default:$(VALKEY_PASSWORD)@" +
+                             {"name": "VALKEY_URL", "value": "rediss://:$(VALKEY_PASSWORD)@" +
                                stores.data.?VALKEY_HOST.orValue("") + ":" + stores.data.?VALKEY_PORT.orValue("6379") + "/0"}] : [])
                       // NATS JetStream, in-cluster.
                       + (schema.metadata.name in ["panametric-fam-processor", "logarithmic-casing-line", "nofer-trunnion-dispatch",

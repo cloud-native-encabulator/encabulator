@@ -29,6 +29,8 @@ resource "helm_release" "nodes" {
   })]
 
   depends_on = [
+    # The Kubernetes and Helm providers act as the principal running `terraform apply`.
+    aws_eks_access_policy_association.admin,
     aws_eks_access_policy_association.node,
     aws_iam_role_policy_attachment.node,
   ]

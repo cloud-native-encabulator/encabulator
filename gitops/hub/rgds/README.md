@@ -38,7 +38,10 @@ argocd cluster Secret ◄────────────┘  waits for both
 
 - Every ACK resource carries `services.k8s.aws/region: ${schema.spec.region}` and the three
   contract tags (`auto-delete=no`, `project=encabulator`, `talk=opn315`). EC2 resources also get
-  a `Name` tag. EC2 and IAM tags are `[{key, value}]` lists; EKS tags are maps.
+  a `Name` tag. EC2 and IAM tags are `[{key, value}]` lists; EKS tags are maps. What EC2 and EKS
+  create on their own (main route table, default security group and network ACL, cluster
+  security group, requester-managed network interfaces) is tagged by the hub's tagger CronJob
+  (`docs/TAGGING.md`).
 - Subnets: `vpcCIDR` must be a /16 (schema pattern). Private subnets are /19s at `x.y.0.0`,
   `x.y.32.0`, `x.y.64.0`; public subnets are /24s at `x.y.200.0`, `x.y.201.0`, `x.y.202.0`,
   the same split the hub's Terraform uses. Private subnets carry
@@ -215,6 +218,8 @@ Argo CD controllers:
   run here against EKS).
 - ACK reconciliation against AWS: IAM policy document normalization, EC2 and EKS late
   initialization, deletion order.
-- Resources EKS or AWS create implicitly carry no contract tags: the EKS cluster security
-  group, the VPC's main route table, default security group and default network ACL. ACK
-  cannot tag what it does not own; tag them after creation if the account requires it.
+- That the hub's tagger CronJob (`terraform/brownfield/tagger.tf`) tags what EC2 and EKS create in
+  the cell without a tag request: the VPC's main route table, default security group and default
+  network ACL, the EKS cluster security group and the requester-managed network interfaces. The
+  RGD cannot tag them (ACK only tags what it owns); the tagger finds the cell's VPC by its
+  `project` and `talk` tags in every region of `var.ack_regions`. See `docs/TAGGING.md`.
