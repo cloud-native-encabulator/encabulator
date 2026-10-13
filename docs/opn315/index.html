@@ -320,7 +320,7 @@ resource "kubernetes_config_map_v1" "aws" {
  <h2>EKS Capabilities: <span class="accent">Argo CD · ACK · kro</span></h2>
  <svg class="dia" viewBox="0 0 1700 560" style="width:1300px;margin:0 auto">
   <rect fill="none" stroke="#8a96b3" stroke-width="2" stroke-dasharray="12 10" x="60" y="10" width="1580" height="240" rx="24"/>
-  <text class="sm" x="90" y="46">Managed by AWS · runs outside your worker nodes</text>
+  <text class="sm" x="90" y="46">Managed by AWS · runs outside your nodes</text>
   <rect class="box k8s" x="60" y="330" width="1580" height="220" rx="24"/>
   <text class="lbl-s" x="90" y="370">Your EKS cluster · encabulator-usw2</text>
   <rect class="box k8s" x="700" y="345" width="300" height="70" rx="14"/><text class="lbl-s" x="850" y="389" text-anchor="middle">Kubernetes API</text>
@@ -391,7 +391,7 @@ metadata:
   <div style="display:flex;flex-direction:column;gap:28px">
    <pre class="code term sm" data-lang="sh" data-step="1" data-out="3-4">
 kubectl apply -f gitops/explore/postgres.yaml
-kubectl get dbinstance encabulator-pg
+kubectl get dbinstances.rds encabulator-pg
 NAME             STATUS
 encabulator-pg   available
    </pre>
@@ -408,7 +408,7 @@ spec:
  </div>
  <aside class="notes">
   <p>⏱ 15:00-19:00. LIVE. Type or paste the manifest. The highlighted annotations do the work: the adoption policy, and the field ACK uses to find the instance (<code>dbInstanceIdentifier</code> for RDS). No spec at all; with <code>adopt</code>, ACK fills it in from the real instance.</p>
-  <p>Build 1: apply and watch STATUS read <code>available</code> (the ACK.ResourceSynced condition goes True). Build 2: <code>kubectl get dbinstance encabulator-pg -o yaml | yq .spec</code>. The read-back also contains <code>kmsKeyID</code>, an ARN with the account id, and <code>availabilityZone</code>: scroll past them, never paste them into Git. The file we commit next keeps only the fields Git owns. Build 3: always add the retain annotation before you touch anything that holds data.</p>
+  <p>Build 1: apply and watch STATUS read <code>available</code> (the ACK.ResourceSynced condition goes True). Build 2: <code>kubectl get dbinstances.rds encabulator-pg -o yaml | yq .spec</code>. Always type <code>dbinstances.rds</code>: with the ACK capability the bare <code>dbinstance</code> resolves to the DocumentDB kind and prints "No resources found". The read-back also contains <code>kmsKeyID</code>, an ARN with the account id, and <code>availabilityZone</code>: scroll past them, never paste them into Git. The file we commit next keeps only the fields Git owns. Build 3: always add the retain annotation before you touch anything that holds data.</p>
  </aside>
 </section>
 
@@ -497,8 +497,8 @@ spec:
   <div style="display:flex;flex-direction:column;gap:24px">
    <pre class="code term sm" data-lang="sh">
 kubectl apply -f gitops/explore/postgres.yaml
-kubectl get dbinstance -w
-kubectl get dbinstance encabulator-pg -o yaml | yq .spec
+kubectl get dbinstances.rds -w
+kubectl get dbinstances.rds encabulator-pg -o yaml | yq .spec
 kubectl delete -f gitops/explore/postgres.yaml
 git add gitops/hub/brownfield/
 git -C terraform/brownfield rm stores.tf
@@ -533,7 +533,7 @@ resources:
  <div class="tip" data-step="4" style="margin-top:36px">AWS resources unchanged. The stores moved from Terraform to Git.</div>
  <aside class="notes">
   <p>⏱ 24:00-26:00. The serverless cache and the DB subnet group went through the same recipe before the talk: Argo CD synced <code>valkey.yaml</code> and <code>subnet-group.yaml</code> with adopt-or-create, and the Terraform apply we just ran dropped all three stores from state. The VPC and the <code>encabulator-db</code> security group stay with Terraform, and so does the hub cluster: the stores keep referring to the group by id. That is fine. The point is one owner per resource.</p>
-  <p>Optional oven move here: commit <code>gitops/hub/cells/use2.yaml</code> now so the new region builds during Act 2.</p>
+  <p>Optional oven move here: commit <code>gitops/hub/cells/use2.yaml</code> now so the new region builds during Act 2 (only if <code>hub-cells</code> is staged on a revision without it, see the trigger note in Act 3). In a run of this demo the cell was ACTIVE about 20 minutes after the trigger and the app Healthy about 14 minutes after that, so from here the cell is registered by about 45:00 but the app is ready only near the end of the talk: the Act 3 result still comes from the pre-baked cell.</p>
  </aside>
 </section>
 
@@ -544,7 +544,7 @@ resources:
   <g data-step="1">
    <rect class="box k8s" x="20" y="220" width="440" height="280" rx="20"/>
    <text class="sm" x="44" y="258">you write</text>
-   <g class="tmono"><text x="44" y="310" style="fill:#86b4ff">kind: Encabulator</text><text x="44" y="356">imageTag: 1.0.0</text><text x="44" y="402">dbInstanceClass: db.t4g…</text><text x="44" y="448">services: [15 names]</text></g>
+   <g class="tmono"><text x="44" y="310" style="fill:#86b4ff">kind: Encabulator</text><text x="44" y="356">imageTag: 1.0.1</text><text x="44" y="402">dbInstanceClass: db.t4g…</text><text x="44" y="448">services: [15 names]</text></g>
   </g>
   <g data-step="2">
    <path class="ar kro" d="M460 360 H534"/>
@@ -581,7 +581,7 @@ resources:
 <section class="slide" data-act="2 · Package" data-mode="live" data-title="The schema is the API">
  <h2>The schema is the API</h2>
  <div class="cols c64">
-  <pre class="code sm" data-file="gitops/app/rgds/encabulator.yaml" data-hl="9,11-15" data-steps="2:16-18">
+  <pre class="code sm" data-file="gitops/app/rgds/encabulator.yaml" data-hl="9,11-16" data-steps="2:17-19">
 apiVersion: kro.run/v1alpha1
 kind: ResourceGraphDefinition
 metadata:
@@ -592,7 +592,8 @@ spec:
     apiVersion: v1alpha1
     kind: Encabulator
     spec:
-      imageTag: string | default="1.0.0"
+      imageTag: string | default="1.0.1"
+      registry: string | default="ghcr.io/jlbutler/cloud-native-encabulator"
       dbInstanceClass: string | default="db.t4g.medium"
       subnetIDs: "[]string"
       securityGroupID: string | required=true
@@ -602,12 +603,13 @@ spec:
       cacheHost: ${cache.status.endpoint.address}
   </pre>
   <div style="display:flex;flex-direction:column;gap:28px">
-   <pre class="code term xs" data-lang="sh" data-step="1" data-out="3-8">
+   <pre class="code term xs" data-lang="sh" data-step="1" data-out="3-9">
 kubectl apply -f gitops/app/rgds/
 kubectl explain encabulator.spec
 FIELDS:
   dbInstanceClass   &lt;string&gt;
   imageTag          &lt;string&gt;
+  registry          &lt;string&gt;
   securityGroupID   &lt;string&gt; -required-
   services          &lt;[]string&gt;
   subnetIDs         &lt;[]string&gt;
@@ -617,7 +619,7 @@ FIELDS:
   </div>
  </div>
  <aside class="notes">
-  <p>⏱ 28:00-31:00. LIVE in the terminal. SimpleSchema: a type, then markers like default and required. Apply both RGDs (the Encabulator RGD stamps out EncabulatorService objects, so kro needs that API too) and kro generates the encabulators CRD; kubectl explain proves it is a real API. Build 2: the status block uses CEL references into resources we have not written yet; kro checks them against the real ACK schemas when you apply.</p>
+  <p>⏱ 28:00-31:00. LIVE in the terminal. SimpleSchema: a type, then markers like default and required. Apply both RGDs (the Encabulator RGD stamps out EncabulatorService objects, so kro needs that API too) and kro generates the encabulators CRD; kubectl explain proves it is a real API. Images are <code>&lt;registry&gt;/&lt;service&gt;:&lt;imageTag&gt;</code>, like the chart's <code>global.registry</code>: <code>registry</code> defaults to the project's public registry, and a cell can point it at a mirror without a hostname in Git (next act). Build 2: the status block uses CEL references into resources we have not written yet; kro checks them against the real ACK schemas when you apply.</p>
  </aside>
 </section>
 
@@ -669,7 +671,7 @@ FIELDS:
 <section class="slide" data-act="2 · Package" data-mode="live" data-title="15 services, one definition">
  <h2>15 services, one definition</h2>
  <div class="cols c64">
-  <pre class="code xs" data-file="gitops/app/rgds/encabulator.yaml" data-hl="14-15,23" data-steps="1:1-12;2:13-23">
+  <pre class="code xs" data-file="gitops/app/rgds/encabulator.yaml" data-hl="14-15,24" data-steps="1:1-12;2:13-24">
 - id: stores
   template:
     apiVersion: v1
@@ -692,6 +694,7 @@ FIELDS:
       name: ${svc}
     spec:
       tag: ${schema.spec.imageTag}
+      registry: ${schema.spec.registry}
       storesConfig: ${stores.metadata.name}
   </pre>
   <div data-step="3">
@@ -711,7 +714,7 @@ FIELDS:
   </div>
  </div>
  <aside class="notes">
-  <p>⏱ 34:00-37:00. Build 1: the stores ConfigMap, built from ACK status: the same <code>encabulator-aws</code> name and four keys Terraform writes on the hub. It also waits for the one-time Job that creates the three databases, so it is published only once they exist. Build 2: forEach turns one template into fifteen EncabulatorService instances, one per name in <code>spec.services</code>. Each one reads the ConfigMap, so no service starts before the endpoints are real. Build 3: what one EncabulatorService expands to: a ServiceAccount, a Deployment and a Service for every service; an HPA for the processor and the quoter, a PodDisruptionBudget for the eleven that run more than one replica, and a Role for the console and the malaise engine. Per-service settings (plane, replicas, resources, which stores, which services it calls) are lookup tables in <code>encabulator-service.yaml</code>, keyed by name and copied from the chart's values. A name with no entry gets the chart's defaults.</p>
+  <p>⏱ 34:00-37:00. Build 1: the stores ConfigMap, built from ACK status: the same <code>encabulator-aws</code> name and four keys Terraform writes on the hub. It also waits for the one-time Job that creates the three databases, so it is published only once they exist. Build 2: forEach turns one template into fifteen EncabulatorService instances, one per name in <code>spec.services</code>. Each one reads the ConfigMap, so no service starts before the endpoints are real, and each gets the instance's <code>imageTag</code> and <code>registry</code>, so its image is <code>&lt;registry&gt;/&lt;name&gt;:&lt;tag&gt;</code>. Build 3: what one EncabulatorService expands to: a ServiceAccount, a Deployment and a Service for every service; an HPA for the processor and the quoter, a PodDisruptionBudget for the eleven that run more than one replica, and a Role for the console and the malaise engine. Per-service settings (plane, replicas, resources, which stores, which services it calls) are lookup tables in <code>encabulator-service.yaml</code>, keyed by name and copied from the chart's values. A name with no entry gets the chart's defaults.</p>
  </aside>
 </section>
 
@@ -870,7 +873,7 @@ kubectl get encabulator encabulator -n encabulator -o yaml | yq .status
 
 <section class="slide" data-act="3 · Replicate" data-mode="live" data-title="ApplicationSet">
  <h2>Every cell gets the app</h2>
- <div class="cols">
+ <div class="cols c46">
   <pre class="code xs" data-file="gitops/hub/appset.yaml" data-hl="2,8,12,17">
 spec:
   goTemplate: true
@@ -891,7 +894,7 @@ spec:
         server: '{{ .server }}'
         namespace: encabulator
   </pre>
-  <pre class="code xs" data-file="gitops/hub/appset.yaml" data-step="3" data-hl="5,10,13">
+  <pre class="code xs" data-file="gitops/hub/appset.yaml" data-step="3" data-hl="5,10,13,15,17">
 path: gitops/app
 kustomize:
   patches:
@@ -906,6 +909,11 @@ kustomize:
         - op: add
           path: /spec/securityGroupID
           # ...
+        {{- with index .metadata.annotations "encabulator.io/registry" }}
+        - op: add
+          path: /spec/registry
+          value: {{ . | quote }}
+        {{- end }}
     # ... and the NodeClass subnets and security group
   </pre>
  </div>
@@ -918,7 +926,8 @@ kustomize:
  </div>
  <aside class="notes">
   <p>⏱ 45:00-47:00. The cluster generator watches Argo CD cluster Secrets. Label the Secret (kro already did) and an Application appears for that cluster. With <code>goTemplate</code>, <code>{{ .name }}</code> is the Secret's name, so the Application is called <code>encabulator-use2</code>, and <code>{{ .server }}</code> is the cluster ARN. It points at <code>gitops/app</code>: RBAC, the tagged NodeClass, the two RGDs and the Encabulator instance.</p>
-  <p>Build 3: region-specific values never enter Git. Two kustomize patches copy the Secret's annotations into the instance (<code>spec.subnetIDs</code>, <code>spec.securityGroupID</code>) and into the NodeClass. <code>missingkey=error</code> fails the render if an annotation is missing instead of rendering an empty value. Automated sync with prune and self-heal: Git is the source. <code>preserveResourcesOnDeletion</code> keeps a running region if the ApplicationSet is deleted.</p>
+  <p>Build 3: region-specific values never enter Git. Two kustomize patches copy the Secret's annotations into the instance (<code>spec.subnetIDs</code>, <code>spec.securityGroupID</code>) and into the NodeClass. <code>missingkey=error</code> fails the render if an annotation is missing instead of rendering an empty value. The third patch is optional: when the Secret carries <code>encabulator.io/registry</code>, it sets <code>spec.registry</code> and every image comes from that registry (a mirror, for example); without it the RGD default applies. Automated sync with prune and self-heal: Git is the source. <code>preserveResourcesOnDeletion</code> keeps a running region if the ApplicationSet is deleted.</p>
+  <p>Presenter prep: until 1.0.1 is on GHCR and the dingle-arm-gateway package there is public, all 15 images come from the mirror. Annotate the cell's cluster Secret the moment kro creates it, before Argo CD's first sync: <code>kubectl -n argocd wait --for=create secret/encabulator-use2 --timeout=40m &amp;&amp; kubectl -n argocd annotate secret encabulator-use2 encabulator.io/registry=&lt;account&gt;.dkr.ecr.us-west-2.amazonaws.com/encabulator</code>. kro applies the Secret with server-side apply and does not own that annotation, so it keeps it.</p>
  </aside>
 </section>
 
@@ -928,17 +937,72 @@ kustomize:
   <line x1="80" y1="300" x2="1620" y2="300" stroke="#2a3658" stroke-width="6"/>
   <g style="font-size:26px;font-weight:700" text-anchor="middle">
    <g data-step="1"><circle cx="80" cy="300" r="22" fill="#ffb547"/><text x="110" y="220" text-anchor="start">git push</text><text x="110" y="252" text-anchor="start" class="sm">cells/use2.yaml</text></g>
-   <g data-step="2"><line x1="102" y1="300" x2="315" y2="300" stroke="#3ddcb0" stroke-width="6"/><circle cx="337" cy="300" r="22" fill="#3ddcb0"/><text x="337" y="380">EncabulatorCell</text><text x="337" y="412" class="sm">kro · hub</text></g>
-   <g data-step="3"><line x1="359" y1="300" x2="571" y2="300" stroke="#ff9900" stroke-width="6"/><circle cx="593" cy="300" r="22" fill="#ff9900"/><text x="593" y="220">EKS + capabilities</text><text x="593" y="252" class="sm">ACK · hub · takes minutes</text></g>
-   <g data-step="4"><line x1="615" y1="300" x2="828" y2="300" stroke="#ef7b4d" stroke-width="6"/><circle cx="850" cy="300" r="22" fill="#ef7b4d"/><text x="850" y="380">Registered</text><text x="850" y="412" class="sm">Argo CD cluster Secret</text></g>
-   <g data-step="5"><line x1="872" y1="300" x2="1085" y2="300" stroke="#ef7b4d" stroke-width="6"/><circle cx="1107" cy="300" r="22" fill="#ef7b4d"/><text x="1107" y="220">App synced</text><text x="1107" y="252" class="sm">ApplicationSet → cell</text></g>
-   <g data-step="6"><line x1="1129" y1="300" x2="1341" y2="300" stroke="#ff9900" stroke-width="6"/><circle cx="1363" cy="300" r="22" fill="#ff9900"/><text x="1363" y="380">RDS + ElastiCache</text><text x="1363" y="412" class="sm">ACK · cell · takes minutes</text></g>
-   <g data-step="7"><line x1="1385" y1="300" x2="1598" y2="300" stroke="#3ddc97" stroke-width="6"/><circle cx="1620" cy="300" r="22" fill="#3ddc97"/><text x="1600" y="220" text-anchor="end">15 services Ready</text><text x="1600" y="252" text-anchor="end" class="sm">traffic flowing</text></g>
+   <g data-step="2"><line x1="102" y1="300" x2="278" y2="300" stroke="#3ddcb0" stroke-width="6"/><circle cx="300" cy="300" r="22" fill="#3ddcb0"/><text x="300" y="380">EncabulatorCell</text><text x="300" y="412" class="sm">kro · hub</text></g>
+   <g data-step="3"><line x1="322" y1="300" x2="498" y2="300" stroke="#ff9900" stroke-width="6"/><circle cx="520" cy="300" r="22" fill="#ff9900"/><text x="520" y="220">VPC + EKS cluster</text><text x="520" y="252" class="sm">ACK · hub</text></g>
+   <g data-step="4"><line x1="542" y1="300" x2="718" y2="300" stroke="#ff9900" stroke-width="6"/><circle cx="740" cy="300" r="22" fill="#ff9900"/><text x="740" y="380">ACK + kro capabilities</text><text x="740" y="412" class="sm">ACK · hub · on the new cluster</text></g>
+   <g data-step="5"><line x1="762" y1="300" x2="938" y2="300" stroke="#ef7b4d" stroke-width="6"/><circle cx="960" cy="300" r="22" fill="#ef7b4d"/><text x="960" y="220">Registered</text><text x="960" y="252" class="sm">Argo CD cluster Secret</text></g>
+   <g data-step="6"><line x1="982" y1="300" x2="1158" y2="300" stroke="#ef7b4d" stroke-width="6"/><circle cx="1180" cy="300" r="22" fill="#ef7b4d"/><text x="1180" y="380">App synced</text><text x="1180" y="412" class="sm">ApplicationSet → cell</text></g>
+   <g data-step="7"><line x1="1202" y1="300" x2="1378" y2="300" stroke="#ff9900" stroke-width="6"/><circle cx="1400" cy="300" r="22" fill="#ff9900"/><text x="1400" y="220">RDS + ElastiCache</text><text x="1400" y="252" class="sm">ACK · cell</text></g>
+   <g data-step="8"><line x1="1422" y1="300" x2="1598" y2="300" stroke="#3ddc97" stroke-width="6"/><circle cx="1620" cy="300" r="22" fill="#3ddc97"/><text x="1640" y="380" text-anchor="end">15 services Ready</text><text x="1640" y="412" text-anchor="end" class="sm">traffic flowing</text></g>
   </g>
-  <g data-step="8"><rect x="430" y="490" width="840" height="84" rx="16" fill="#2e2410" stroke="#ffb547" stroke-width="2"/><text x="850" y="545" text-anchor="middle" style="font-size:30px;fill:#ffd389;font-weight:700">The waits are real: here's one we baked earlier</text></g>
+  <g data-step="9"><rect x="430" y="490" width="840" height="84" rx="16" fill="#2e2410" stroke="#ffb547" stroke-width="2"/><text x="850" y="545" text-anchor="middle" style="font-size:30px;fill:#ffd389;font-weight:700">The waits are real: here's one we baked earlier</text></g>
  </svg>
  <aside class="notes">
-  <p>⏱ 47:00-51:00. LIVE trigger: commit and push cells/use2.yaml (or show it was committed at 25:00, the oven move). Refresh <code>hub-cells</code> in the Argo CD UI so it does not wait for the 3-minute Git poll. Walk the builds while the Argo CD UI shows the new Application. The EKS docs put Auto Mode cluster creation at about 15 minutes, and the database takes more, so at build 8 switch to the pre-baked cell: Argo CD tree green, <code>kubectl --context use2 get encabulator -n encabulator</code> showing the status hosts, the console in us-east-2 with traffic.</p>
+  <p>⏱ 47:00-50:00. LIVE trigger: commit and push cells/use2.yaml (or show it was committed earlier, the oven move). Refresh <code>hub-cells</code> in the Argo CD UI so it does not wait for the 3-minute Git poll. Walk the builds while the Argo CD UI shows the new Application. Build 3: ACK on the hub creates the VPC and the EKS Auto Mode cluster. Build 4: once the cluster is ACTIVE, the ACK and kro capabilities on it; kro is ready in a minute or two, ACK takes several more and is the step that gates the registration. In a run of this demo the cell was ACTIVE about 20 minutes after the trigger and the app Healthy about 14 minutes after that (next slide), so at build 9 switch to the pre-baked cell: Argo CD tree green, <code>kubectl --context use2 get encabulator -n encabulator</code> showing the status hosts, the console in us-east-2 with traffic.</p>
+  <p>Presenter prep, how the trigger is staged: the push is the trigger only if <code>hub-cells</code> is already applied and tracks a revision without <code>cells/use2.yaml</code> (run of show, open decisions 2 and 3). If use2.yaml is already on that revision, applying <code>hub-cells</code> starts the build instead.</p>
+  <p>First sync: the new cell's NodePool reads Degraded for about 10 seconds while its NodeClass validates, so Argo CD's first sync of <code>encabulator-use2</code> fails that wave and the UI shows "Retrying attempt #1". It heals on its own (backoff 30 s, factor 2, a few minutes in all); say so if it is on screen.</p>
+ </aside>
+</section>
+
+<section class="slide" data-act="3 · Replicate" data-mode="baked" data-title="Where the time goes">
+ <h2>Where the time goes</h2>
+ <svg class="dia" viewBox="0 0 1700 590">
+  <g class="sm" text-anchor="middle" style="font-size:20px">
+   <text x="430" y="26">0</text><text x="600" y="26">5</text><text x="770" y="26">10</text><text x="940" y="26">15</text>
+   <text x="1110" y="26">20</text><text x="1280" y="26">25</text><text x="1450" y="26">30</text><text x="1620" y="26">35 min</text>
+  </g>
+  <g stroke="#2a3658" stroke-width="2">
+   <line x1="600" y1="40" x2="600" y2="452"/><line x1="770" y1="40" x2="770" y2="452"/><line x1="940" y1="40" x2="940" y2="452"/>
+   <line x1="1110" y1="40" x2="1110" y2="452"/><line x1="1280" y1="40" x2="1280" y2="452"/><line x1="1450" y1="40" x2="1450" y2="452"/><line x1="1620" y1="40" x2="1620" y2="452"/>
+  </g>
+  <line x1="430" y1="40" x2="430" y2="540" stroke="#ffb547" stroke-width="4"/>
+  <text x="430" y="572" style="font-size:24px;font-weight:700;fill:#ffd389">git push</text>
+  <g data-step="1">
+   <text class="lbl-s" x="400" y="84" text-anchor="end">VPC and NAT gateway</text>
+   <rect x="439" y="56" width="93" height="40" rx="8" fill="#ff9900"/><text class="sm" x="546" y="84" style="font-size:22px;paint-order:stroke;stroke:#0a0f1e;stroke-width:10px;stroke-linejoin:round">≈ 3 min</text>
+   <text class="lbl-s" x="400" y="142" text-anchor="end">EKS Auto Mode cluster</text>
+   <rect x="443" y="114" width="384" height="40" rx="8" fill="#ff9900"/><text class="sm" x="841" y="142" style="font-size:22px;paint-order:stroke;stroke:#0a0f1e;stroke-width:10px;stroke-linejoin:round">≈ 11 min</text>
+  </g>
+  <g data-step="2">
+   <text class="lbl-s" x="400" y="200" text-anchor="end">kro capability</text>
+   <rect x="827" y="172" width="57" height="40" rx="8" fill="#3ddcb0"/><text class="sm" x="898" y="200" style="font-size:22px;paint-order:stroke;stroke:#0a0f1e;stroke-width:10px;stroke-linejoin:round">≈ 1.5 min</text>
+   <text class="lbl-s" x="400" y="258" text-anchor="end">ACK capability</text>
+   <rect x="827" y="230" width="266" height="40" rx="8" fill="#ff9900"/><text class="sm" x="1107" y="258" style="font-size:22px;paint-order:stroke;stroke:#0a0f1e;stroke-width:10px;stroke-linejoin:round">≈ 7.5 min</text>
+  </g>
+  <g data-step="3">
+   <line x1="1094" y1="40" x2="1094" y2="540" stroke="#ffb547" stroke-width="3" stroke-dasharray="10 8"/>
+   <text x="1094" y="572" text-anchor="middle" style="font-size:24px;font-weight:700;fill:#ffd389">cell ACTIVE ≈ 20 min</text>
+   <text class="lbl-s" x="400" y="316" text-anchor="end">Argo CD sync</text>
+   <rect x="1106" y="288" width="153" height="40" rx="8" fill="#ef7b4d"/><text class="sm" x="1273" y="316" style="font-size:22px;paint-order:stroke;stroke:#0a0f1e;stroke-width:10px;stroke-linejoin:round">≈ 4.5 min</text>
+  </g>
+  <g data-step="4">
+   <text class="lbl-s" x="400" y="374" text-anchor="end">ElastiCache Serverless</text>
+   <rect x="1260" y="346" width="53" height="40" rx="8" fill="#ff9900"/><text class="sm" x="1327" y="374" style="font-size:22px;paint-order:stroke;stroke:#0a0f1e;stroke-width:10px;stroke-linejoin:round">≈ 1.5 min</text>
+   <text class="lbl-s" x="400" y="432" text-anchor="end">RDS for PostgreSQL</text>
+   <rect x="1276" y="404" width="294" height="40" rx="8" fill="#ff9900"/><text class="sm" x="1584" y="432" style="font-size:22px;paint-order:stroke;stroke:#0a0f1e;stroke-width:10px;stroke-linejoin:round">≈ 8.5 min</text>
+  </g>
+  <g data-step="5">
+   <path d="M1094 466 V482 H1577 V466" fill="none" stroke="#3ddc97" stroke-width="3"/>
+   <text x="1335" y="514" text-anchor="middle" style="font-size:22px;fill:#3ddc97">app Healthy ≈ 14 min after the cell</text>
+   <line x1="1634" y1="452" x2="1634" y2="540" stroke="#3ddc97" stroke-width="3" stroke-dasharray="10 8"/>
+   <text x="1690" y="572" text-anchor="end" style="font-size:24px;font-weight:700;fill:#3ddc97">first order ≈ 35 min</text>
+  </g>
+ </svg>
+ <div class="tip" data-step="6" style="margin-top:18px">The cluster, the ACK capability and RDS set the pace: create a region before you need it.</div>
+ <div style="margin-top:12px;font-size:20px;color:var(--muted)">Captured from a run of this demo</div>
+ <aside class="notes">
+  <p>⏱ 50:00-51:00. Where the time went in a run of this demo, counted from the trigger. Build 1: ACK on the hub has the network (VPC, subnets, NAT gateway) in about 3 minutes and the EKS Auto Mode cluster in about 11. Build 2: then the capabilities on the new cluster: kro about 1.5 minutes after the cluster, ACK about 7.5. Build 3: about 20 minutes in, kro marks the cell ACTIVE and writes the cluster Secret; the Application appears the same second and Argo CD syncs the RGDs, the NodeClass and the instance. Build 4: ACK on the cell creates ElastiCache Serverless (about 1.5 minutes) and RDS (about 8.5 minutes). RDS takes less time than the cluster; it finishes last because it starts only after the cell and the first sync. Build 5: the app is Healthy about 14 minutes after the cell, and the first order through the cell's gateway is delivered at about 35 minutes.</p>
+  <p>Presenter-only detail: the Argo CD bar includes the first sync's retries while the NodePool settles (previous slide's notes), about 4.5 minutes of the critical path. Do not promise these numbers as a guarantee: they are one run in us-east-2.</p>
  </aside>
 </section>
 
@@ -977,11 +1041,11 @@ kubectl get encabulatorcells -n encabulator-cells -w
 kubectl get secrets -n argocd -l encabulator.io/cell=true
 kubectl get applications -n argocd
 aws eks update-kubeconfig --region us-east-2 --name encabulator-use2 --alias use2
-kubectl --context use2 get encabulator,dbinstances,serverlesscaches -n encabulator
+kubectl --context use2 get encabulator,dbinstances.rds,serverlesscaches -n encabulator
  </pre>
  <aside class="notes">
   <p>Show cells/use2.yaml: 13 lines (name, region, VPC range, zones, the hub's Argo CD role). That file is the whole difference between one region and two. Then the full encabulator-cell.yaml and appset.yaml.</p>
-  <p>Presenter prep: <code>--context use2</code> needs an access entry for your own role on the cell. Set <code>spec.adminRoleName</code> to your presenter role on the cell you will show, then run the <code>update-kubeconfig</code> line. While it builds: <code>kubectl -n encabulator-cells get clusters.eks.services.k8s.aws,capabilities,accessentries</code> and <code>kubectl -n encabulator-cells get encabulatorcell encabulator-use2 -o jsonpath='{.status}'</code>.</p>
+  <p>Presenter prep: the cell's cluster is created without creator admin permissions, so <code>--context use2</code> is refused until the cell has an access entry for your own role. Set <code>spec.adminRoleName</code> to your presenter role on the cell you will show (kro then creates the entry), or create an access entry for that role by hand, then run the <code>update-kubeconfig</code> line. Type <code>dbinstances.rds</code>: the bare <code>dbinstances</code> resolves to DocumentDB on the cell too. While it builds: <code>kubectl -n encabulator-cells get clusters.eks.services.k8s.aws,capabilities.eks.services.k8s.aws,accessentries.eks.services.k8s.aws</code> and <code>kubectl -n encabulator-cells get encabulatorcell encabulator-use2 -o jsonpath='{.status}'</code>. On the cell: <code>kubectl --context use2 -n encabulator get encabulator encabulator -o yaml | yq .status</code>.</p>
  </aside>
 </section>
 
