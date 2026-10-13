@@ -82,6 +82,8 @@ spec:
           publiclyAccessible: false
           multiAZ: false
           backupRetentionPeriod: 7
+          # Automated backups (and any manual snapshot) get the instance's three tags.
+          copyTagsToSnapshot: true
           masterUsername: postgres
           # Generated in-cluster by secretInit; the reference makes the database wait for it.
           masterUserPassword:
@@ -473,6 +475,10 @@ spec:
 
     # -------------------------------------------------------- in-cluster backing stores
     # EKS Auto Mode's EBS driver. Auto Mode creates no StorageClass for it.
+    # tagSpecification_N puts the three contract tags on every volume a PVC creates, same as the
+    # hub's StorageClass (charts/encabulator/values-brownfield.yaml). It needs the custom-tags
+    # Storage statement on the cell's cluster role (EncabulatorCell RGD). StorageClass
+    # parameters are immutable: a changed tag list means deleting and recreating the class.
     - id: storageClass
       template:
         apiVersion: storage.k8s.io/v1
@@ -490,6 +496,9 @@ spec:
         parameters:
           type: gp3
           encrypted: "true"
+          tagSpecification_1: "auto-delete=no"
+          tagSpecification_2: "project=encabulator"
+          tagSpecification_3: "talk=opn315"
         reclaimPolicy: Delete
         allowVolumeExpansion: true
         volumeBindingMode: WaitForFirstConsumer
