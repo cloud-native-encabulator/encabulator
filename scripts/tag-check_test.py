@@ -53,6 +53,19 @@ class MemorySource(tc.FixtureSource):
         self.calls = calls
 
 
+class HidingSource(MemorySource):
+    """AWS with managed resource visibility hidden (the default): EKS Auto Mode nodes, their
+    volumes, interfaces and launch templates are only returned with --include-managed-resources."""
+
+    EMPTY = {"describe-instances": "Reservations", "describe-volumes": "Volumes",
+             "describe-network-interfaces": "NetworkInterfaces", "describe-launch-templates": "LaunchTemplates"}
+
+    def call(self, service, op, region, *args):
+        if service == "ec2" and op in self.EMPTY and "--include-managed-resources" not in args:
+            return {self.EMPTY[op]: []}
+        return super().call(service, op, region, *args)
+
+
 def check_in_process(calls, stacks=(("us-west-2", "encabulator-usw2"), ("us-east-2", "encabulator-use2"))):
     report = tc.Report()
     src = MemorySource(calls)
@@ -80,7 +93,7 @@ def tag_holders(node, path=()):
 
 # Most specific first: a subnet also names its VPC, an Elastic IP its network interface.
 ID_FIELDS = ("AllocationId", "NatGatewayId", "NetworkInterfaceId", "InstanceId", "VolumeId", "LaunchTemplateId",
-             "RouteTableId", "NetworkAclId", "GroupId", "InternetGatewayId", "SubnetId", "VpcId")
+             "VpcEndpointId", "RouteTableId", "NetworkAclId", "GroupId", "InternetGatewayId", "SubnetId", "VpcId")
 
 
 def owner(calls, path):
@@ -144,7 +157,7 @@ class TagCheckTest(unittest.TestCase):
                 kinds.add(re.split(r"\s{2,}", missing[0])[2])
         required = {
             "ec2 vpc", "ec2 subnet", "ec2 route-table", "ec2 network-acl", "ec2 security-group",
-            "ec2 internet-gateway", "ec2 natgateway", "ec2 elastic-ip", "ec2 network-interface",
+            "ec2 internet-gateway", "ec2 natgateway", "ec2 elastic-ip", "ec2 network-interface", "ec2 vpc-endpoint",
             "ec2 instance", "ec2 volume", "rds db-instance", "elasticache serverless-cache",
             "eks cluster", "eks capability", "eks access-entry", "iam role", "ecr repository",
         }
@@ -160,6 +173,22 @@ class TagCheckTest(unittest.TestCase):
         for foreign in ("eipalloc-000000000000ffff", "unrelated-db", "unrelated-cache", "nat-0000000000000dead", " Admin\n",
                         "other-team/unrelated-app"):
             self.assertNotIn(foreign, text + "\n")
+
+    def test_auto_mode_managed_nodes_are_checked(self):
+        # Every node of both stacks, and an untagged one, must be seen through hidden visibility.
+        report = tc.Report()
+        src = HidingSource(self.tagged)
+        for region, name in (("us-west-2", "encabulator-usw2"), ("us-east-2", "encabulator-use2")):
+            tc.check_stack(src, report, region, name)
+        instances = [line for line in report.lines if " ec2 instance " in line]
+        self.assertEqual(len(instances), 4, report.lines)
+        path = next(p for p in tag_holders(self.tagged) if owner(self.tagged, p) == "i-01000000000000001")
+        report = tc.Report()
+        src = HidingSource(drop_auto_delete(self.tagged, [path]))
+        tc.check_stack(src, report, "us-east-2", "encabulator-use2")
+        missing = [line for line in report.lines if line.startswith("MISSING")]
+        self.assertEqual(len(missing), 1, missing)
+        self.assertIn("i-01000000000000001", missing[0])
 
     def test_ecr_repositories_are_counted_once_per_region(self):
         report = check_in_process(self.tagged, stacks=(("us-west-2", "encabulator-usw2"), ("us-west-2", "encabulator-usw2")))
