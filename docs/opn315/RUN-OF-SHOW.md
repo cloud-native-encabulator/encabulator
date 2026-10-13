@@ -16,12 +16,12 @@ Slides carry diagrams and partial YAML. The full files are shown in the IDE.
 | 0:00-2:00 | Open | Title, who we are | - |
 | 2:00-6:00 | Open | Encabulator console: Factory Floor, place an order | Live (app already running) |
 | 6:00-8:00 | Open | Two toolchains (Terraform + Helm, ConfigMap hand-off); the menu | Slides |
-| 8:00-11:00 | 1 Adopt | Starting point in us-west-2: Terraform built VPC, EKS, RDS, ElastiCache and wrote the ConfigMap `encabulator-aws` (from data sources) + Secret `encabulator-db` | Baked |
+| 8:00-11:00 | 1 Adopt | At 8:00, one push of `gitops/hub/cells/use2.yaml` puts the second region in the oven (Act 3 picks it up). Starting point in us-west-2: Terraform built VPC, EKS, RDS, ElastiCache and wrote the ConfigMap `encabulator-aws` (from data sources) + Secret `encabulator-db` | Baked |
 | 11:00-13:00 | 1 Adopt | EKS Capabilities: Argo CD, ACK, kro on the hub cluster, roles `encabulator-usw2-argocd/-ack/-kro` | Baked (`describe-capability` live) |
 | 13:00-24:00 | 1 Adopt | Adopt the RDS instance with ACK: `adopt`, read the spec back, commit it to Git, Terraform `removed {}` (`handoff.tf.example` becomes `handoff.tf`), change a setting from Git | Live |
 | 24:00-26:00 | 1 Adopt | Same recipe for the serverless cache and the DB subnet group; the VPC and security group stay with Terraform | Baked |
 | 26:00-40:00 | 2 Package | kro RGDs: `Encabulator` (stores + 15 services) and `EncabulatorService`; CEL wiring; `forEach`; graph order | Live (walk the RGD in the IDE, apply it) |
-| 40:00-53:00 | 3 Replicate | Hub and spoke: `EncabulatorCell` on the hub creates the us-east-2 VPC, cluster, ACK and kro capabilities and Argo CD registration; ApplicationSet syncs the app; ACK on the cell creates RDS + ElastiCache; where the time goes (a captured run) | Live trigger, baked result |
+| 40:00-53:00 | 3 Replicate | Hub and spoke: `EncabulatorCell` on the hub creates the us-east-2 VPC, cluster, ACK and kro capabilities and Argo CD registration; ApplicationSet syncs the app; ACK on the cell creates RDS + ElastiCache; the region started at 8:00 is up, show it; where the time goes (a captured run) | Live result (trigger pushed at 8:00), baked cell as fallback |
 | 53:00-56:00 | Close | Day 2: three reconcile loops (delete a Deployment, change the DB class in Git) | Live |
 | 56:00-60:00 | Close | Recipe card (best practices), links, Q&A | Slides |
 
@@ -32,11 +32,20 @@ Healthy about 14 minutes after that (ElastiCache Serverless 1.5 minutes, RDS 8.5
 order at about 35 minutes. The critical path is the cluster, the ACK capability, the first sync's
 retries and RDS. The "Where the time goes" slide shows these as a captured run.
 
-Oven move (optional): commit `gitops/hub/cells/use2.yaml` at about 25:00, before Act 2, so the new
-region builds while we explain kro. It starts the build only if `hub-cells` is staged as in "Act 3
-trigger" below. From 25:00 the cell is registered by about 45:00 but the app is Healthy only near
-59:00, so the pre-baked cell still carries the Act 3 result (open decision 5). Keep it running as
-the fallback.
+Oven move, at 8:00: push `gitops/hub/cells/use2.yaml` at the start of Act 1, so the new region
+builds while we adopt the stores and explain kro, and Act 3 shows it live. It starts the build only
+if `hub-cells` is staged as in "Act 3 trigger" below. On the clock of the talk, using the run above:
+the cell is ACTIVE near 28:00 (during the Act 2 opening), registered with Argo CD the same second,
+the app Healthy near 42:00 and the first order near 43:00, two to three minutes into Act 3. The
+latest push that still shows a delivered order before the Act 3 build slides (47:00) is about 12:00;
+a push at 14:00 still has the app Healthy by 48:00. Keep the baked cell running as the fallback: if
+the live cell is not Healthy when Act 3 reaches it, switch to the baked one and say so.
+
+Right after the push, in a second terminal, start the registry annotation wait described under
+"Act 3, what the presenter types" (it blocks until kro creates the cell's Secret, near 28:00, and
+annotates it). Not rehearsed yet: the cell build (hub ACK EC2, EKS and IAM controllers, hub kro)
+runs at the same time as the live RDS adoption in Act 1 (hub ACK RDS controller) and the live RGD
+apply in Act 2. They use different controllers, but the combination needs one full rehearsal.
 
 ## Architecture we demo
 
@@ -98,16 +107,17 @@ Act 3 trigger, how it is staged:
 - `hub-cells` (`gitops/hub/bootstrap/hub-cells.yaml`) must already be applied and track a
   revision without `cells/use2.yaml`. Then the live `git push` of `use2.yaml` is the trigger.
   If `use2.yaml` is already on the revision `hub-cells` tracks, applying `hub-cells` is what
-  starts the build (open decisions 2 and 3).
+  starts the build (open decisions 2 and 3). The trigger is pushed at 8:00, see "Oven move".
 - The bake revision note still applies: the revision the hub tracks for the bake must not list
   `postgres.yaml` in `gitops/hub/brownfield/kustomization.yaml` yet (open decision 2).
 
-Act 3, what the presenter types:
+Act 3, what the presenter types (the push line happens at 8:00; from 40:00 the commands below
+only read the state that push started):
 
 ```sh
 # hub context (encabulator-usw2)
 kubectl -n argocd get applications                       # hub-brownfield, hub-rgds, hub-cell-apps, hub-cells
-git push                                                 # the commit that adds gitops/hub/cells/use2.yaml
+git push                                                 # at 8:00: the commit that adds gitops/hub/cells/use2.yaml
 kubectl get encabulatorcells -n encabulator-cells -w     # CLUSTER: CREATING -> ACTIVE, STATE: IN_PROGRESS -> ACTIVE
 kubectl get clusters.eks.services.k8s.aws,capabilities.eks.services.k8s.aws -n encabulator-cells
 kubectl get secrets -n argocd -l encabulator.io/cell=true    # encabulator-use2
@@ -174,10 +184,10 @@ Still open:
 4. Presenter access to the cell: `cells/use2.yaml` leaves `spec.adminRoleName` empty and the cell
    is created without creator admin permissions, so `kubectl --context use2` is refused until the
    cell you show sets it or has an access entry for your role made by hand.
-5. Oven move timing. Committed at 25:00, the cell is registered by about 45:00 and the app is
-   Healthy near 59:00, after Act 3. To show the live cell's app in Act 3, the commit would have to
-   land by about 8:00 (start of Act 1); otherwise the oven move shows the live registration and
-   the pre-baked cell shows the result.
+5. Oven move timing: decided. The push is at 8:00 (start of Act 1). The cell is ACTIVE near 28:00,
+   the app Healthy near 42:00 and the first order near 43:00, so Act 3 shows the live result. The
+   baked cell stays as the fallback. Rehearse it once, because the cell build runs alongside the
+   live adoption and the live kro apply (see "Oven move").
 
 ## Verified on AWS
 
