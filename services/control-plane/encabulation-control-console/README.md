@@ -43,7 +43,7 @@ the build on a `Math.random` call or a hard-coded host in the SPA,
 | **Factory Floor** | `/` | Animated topology: particles per edge at a rate proportional to its measured requests per second, coloured by health (green under 100 ms p99 and 1% errors, amber under 500 ms, red beyond, grey for no data). Pod dots on each plate, hover for details. Headline gauges and the scenario narration tape. |
 | **Grammeters** | `/grammeters` | Traffic controls: rate, pattern (steady, sine, burst, ramp), period, customer count, journey mix. Live per-journey counts, errors, p50, p99, and status codes. |
 | **Malaise** | `/malaise` | Induce a fault by target and kind · latency, error, congestion, CPU burn, pod-kill, partition, scale · with countdowns to expiry, and node health beside it so cause and effect are visible together. |
-| **Scenarios** | `/scenarios` | The scenario library, run and cancel, step progress, and the orchestrator's narration as it arrives. |
+| **Scenarios** | `/scenarios` | The scenario library, run and cancel, step progress, and the orchestrator's narration as it arrives. Only a `running` (or `pending`) run is the current run: it locks the Run buttons and offers Cancel. A run that completed, failed or was cancelled is shown as the last run with its final status, step ("24 of 50"), the reason a failed run stopped and its narration, no Cancel, and the Run buttons free. A cancel that fails, or that finds the run already over, says so on the page. |
 | **Girdlespring** | `/girdlespring` | Every feature flag, what reads it, and what it actually changes. Edits reach services within five seconds. |
 | **Works** | `/works` | The storefront (quote, order, track) placing **real** orders through the real gateway with your own token, plus live order, incident and shipment feeds, and the parts cage with restock. |
 | **Administration** | `/administration` | Users and the audit log. Admin only. |
@@ -266,7 +266,7 @@ current spawn multiplier.
 ## Tests
 
 ```bash
-make test     # 273 tests, no containers, no cluster, no network
+make test     # 283 tests, no containers, no cluster, no network
 ```
 
 - **BFF role enforcement** · the whole proxy route table × every role.

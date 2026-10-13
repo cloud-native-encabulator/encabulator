@@ -729,7 +729,14 @@ container.
   refabrication rate, stock levels) and the scenario narration ticker.
 - *Grammeters*: traffic controls (rate, pattern, period, journey mix) and live journey stats.
 - *Malaise*: inject faults by target and kind, list active malaises with countdowns, clear.
-- *Scenarios*: list, run, cancel, follow narration and step progress.
+- *Scenarios*: list, run, cancel, follow narration and step progress. The live stream carries the
+  orchestrator's latest run whatever its status; only a `running` (or `pending`) run counts as
+  active, locks the Run buttons and can be cancelled. A completed, failed or cancelled run is shown
+  as the last run with its final status, step and narration, and does not block the next run. A
+  cancel that fails, or finds the run already over, is reported on the page. The orchestrator
+  reports steps as numbers (`currentStep`, `totalSteps`), shown as "24 of 50", and a failed run's
+  `error` is shown as the reason it stopped. A page opened after a run ended reads the narration
+  from the run itself, since the feed only carries lines narrated while the page was open.
 - *Girdlespring*: view and edit flags.
 - *Works*: storefront (quote, order, track) plus live order, shipment, and incident feeds, and the
   parts cage with restock.

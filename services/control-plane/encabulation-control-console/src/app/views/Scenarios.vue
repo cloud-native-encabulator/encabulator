@@ -12,6 +12,7 @@ import { useLiveStore } from '@/stores/live'
 import { useSessionStore } from '@/stores/session'
 import { EMPTY_STATES } from '@/lib/lexicon'
 import { clock } from '@/lib/format'
+import { isRunActive } from '@/lib/runs'
 import Notice from '@/components/panel/Notice.vue'
 import PanelPlate from '@/components/panel/PanelPlate.vue'
 
@@ -32,12 +33,21 @@ onBeforeUnmount(() => {
 
 const locked = computed(() => !session.canOperate)
 
-const activeRun = computed(() => live.scenario)
-const activeRunId = computed(() => activeRun.value?.runId ?? null)
-const narration = computed(() => live.narration)
+// The stream carries the orchestrator's latest run, whatever its status. Only a
+// run that is still going holds the orchestrator; one that has completed,
+// failed or been cancelled is shown as the last run and frees the Run buttons.
+const latestRun = computed(() => live.scenario)
+const runActive = computed(() => latestRun.value !== null && isRunActive(latestRun.value.status))
+const activeRunId = computed(() => (runActive.value ? (latestRun.value?.runId ?? null) : null))
+// Lines narrated while this page is open arrive on the feed. A page opened after
+// a run ended has seen none of them, so it reads them from the run itself.
+const narration = computed(() =>
+  live.narration.length > 0 ? live.narration : [...(latestRun.value?.items ?? [])].reverse(),
+)
+const runError = computed(() => latestRun.value?.error ?? null)
 
 const progressPercent = computed(() => {
-  const run = activeRun.value
+  const run = latestRun.value
   if (run === null || run.stepIndex === null || run.stepCount === null || run.stepCount === 0) {
     return null
   }
@@ -97,22 +107,30 @@ async function start(id: string): Promise<void> {
 
       <div class="flex flex-col gap-4">
         <PanelPlate
-          legend="Current run"
+          :legend="runActive ? 'Current run' : 'Last run'"
           sublegend="From the live stream"
-          :empty="activeRun === null"
+          :empty="latestRun === null"
           empty-note="No run is active. Start a scenario and its narration prints here as it happens."
         >
-          <div v-if="activeRun !== null" class="flex flex-col gap-2">
+          <div v-if="latestRun !== null" class="flex flex-col gap-2">
             <div class="flex flex-wrap items-baseline justify-between gap-2">
               <div>
-                <p class="engraved text-ink">{{ activeRun.scenarioId ?? 'scenario' }}</p>
-                <p class="typed text-[0.72rem] text-ink-faint">{{ activeRun.runId }}</p>
+                <p class="engraved text-ink">{{ latestRun.scenarioId ?? 'scenario' }}</p>
+                <p class="typed text-[0.72rem] text-ink-faint">{{ latestRun.runId }}</p>
               </div>
-              <span class="window px-2 py-0.5 text-[0.78rem]">{{ activeRun.status ?? 'running' }}</span>
+              <span class="window px-2 py-0.5 text-[0.78rem]">{{ latestRun.status ?? 'no data' }}</span>
             </div>
 
-            <p v-if="activeRun.currentStep !== null" class="typed text-[0.82rem]">
-              <span class="engraved text-ink-faint">step:</span> {{ activeRun.currentStep }}
+            <p v-if="!runActive" class="typed text-[0.78rem] text-ink-soft">
+              This run is over. Any scenario can be started again.
+            </p>
+            <p v-if="!runActive && runError !== null" class="typed text-[0.78rem] text-ink-soft">
+              <span class="engraved text-ink-faint">stopped because:</span> {{ runError }}
+            </p>
+
+            <p v-if="latestRun.currentStep !== null" class="typed text-[0.82rem]">
+              <span class="engraved text-ink-faint">{{ runActive ? 'step:' : 'last step:' }}</span>
+              {{ latestRun.currentStep }}
             </p>
 
             <div v-if="progressPercent !== null" class="flex items-center gap-2">
@@ -132,10 +150,11 @@ async function start(id: string): Promise<void> {
             </div>
 
             <button
+              v-if="runActive"
               type="button"
               class="knob knob-danger self-start"
-              :disabled="locked || scenarios.busy || activeRun.runId === null"
-              @click="activeRun.runId !== null && scenarios.cancel(activeRun.runId)"
+              :disabled="locked || scenarios.busy || latestRun.runId === null"
+              @click="latestRun.runId !== null && scenarios.cancel(latestRun.runId)"
             >
               Cancel run
             </button>

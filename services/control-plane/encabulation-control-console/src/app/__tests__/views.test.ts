@@ -356,3 +356,87 @@ describe('a viewer sees locked controls with a reason', () => {
     wrapper.unmount()
   })
 })
+
+describe('Scenarios separates a run that is over from one that is still going', () => {
+  async function scenariosWith(status: string | null) {
+    const live = useLiveStore()
+    live.scenario = {
+      runId: 'run_1',
+      scenarioId: 'grand-tour',
+      status,
+      currentStep: 'postgres-pod-kill',
+      stepIndex: 24,
+      stepCount: 50,
+      items: [],
+    }
+    const session = useSessionStore()
+    await session.load()
+    return render(Scenarios)
+  }
+  const runButton = (wrapper: Awaited<ReturnType<typeof scenariosWith>>) =>
+    wrapper.findAll('button').find((b) => b.text() === 'Run')
+  const cancelButton = (wrapper: Awaited<ReturnType<typeof scenariosWith>>) =>
+    wrapper.findAll('button').find((b) => b.text().includes('Cancel run'))
+
+  for (const status of ['failed', 'completed', 'cancelled']) {
+    it(`shows a ${status} run as the last run, with no Cancel and the Run buttons free`, async () => {
+      const wrapper = await scenariosWith(status)
+      expect(wrapper.text()).toContain('Last run')
+      expect(wrapper.text()).not.toContain('Current run')
+      expect(wrapper.text()).toContain(status)
+      expect(wrapper.text()).toContain('postgres-pod-kill')
+      expect(cancelButton(wrapper)).toBeUndefined()
+      expect(runButton(wrapper)?.attributes('disabled')).toBeUndefined()
+      wrapper.unmount()
+    })
+  }
+
+  it('keeps a running run current, cancellable, and the Run buttons locked', async () => {
+    const wrapper = await scenariosWith('running')
+    expect(wrapper.text()).toContain('Current run')
+    expect(cancelButton(wrapper)?.attributes('disabled')).toBeUndefined()
+    expect(runButton(wrapper)?.attributes('disabled')).toBeDefined()
+    wrapper.unmount()
+  })
+
+  it('does not treat a run with no reported status as active', async () => {
+    const wrapper = await scenariosWith(null)
+    expect(wrapper.text()).toContain('no data')
+    expect(cancelButton(wrapper)).toBeUndefined()
+    expect(runButton(wrapper)?.attributes('disabled')).toBeUndefined()
+    wrapper.unmount()
+  })
+
+  it('shows why a failed run stopped, and its narration to a page opened afterwards', async () => {
+    const live = useLiveStore()
+    live.scenario = {
+      runId: 'run_1',
+      scenarioId: 'grand-tour',
+      status: 'failed',
+      currentStep: '24 of 50',
+      stepIndex: 24,
+      stepCount: 50,
+      error: 'malaise-injection-engine responded 400 unknown_target',
+      items: [
+        {
+          id: 'narration:run_1:0',
+          at: new Date().toISOString(),
+          kind: 'narration',
+          headline: 'Act one. The works is cold. We open the gates.',
+          detail: null,
+          fields: {},
+        },
+      ],
+    }
+    const session = useSessionStore()
+    await session.load()
+    const wrapper = await render(Scenarios)
+    expect(wrapper.text()).toContain('stopped because')
+    expect(wrapper.text()).toContain('unknown_target')
+    expect(wrapper.text()).toContain('24 of 50')
+    expect(wrapper.text()).toContain('48%')
+    expect(wrapper.text()).toContain('Act one. The works is cold.')
+    expect(wrapper.text()).not.toContain('Nothing narrated yet')
+    wrapper.unmount()
+  })
+})

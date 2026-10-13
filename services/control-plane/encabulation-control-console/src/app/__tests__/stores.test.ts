@@ -12,7 +12,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { createPinia, setActivePinia } from 'pinia'
 import { FEED_LIMIT, useLiveStore } from '@/stores/live'
 import { GUEST_SESSION, useSessionStore } from '@/stores/session'
-import { useFlagStore, useMalaiseStore, useTrafficStore, useWorksStore } from '@/stores/controls'
+import { useFlagStore, useMalaiseStore, useScenarioStore, useTrafficStore, useWorksStore } from '@/stores/controls'
 import type { FeedBatch, HeadlineStats, TopologySnapshot } from '@shared/topology'
 
 function messageEvent(data: unknown): MessageEvent<string> {
@@ -286,6 +286,34 @@ describe('the control stores', () => {
     const result = await traffic.change({ rps: 50 })
     expect(result.ok).toBe(false)
     expect(traffic.notice).toContain('operator role')
+  })
+
+  it('says so when a cancel fails, rather than doing nothing visible', async () => {
+    stubFetch({
+      status: 502,
+      body: { error: { code: 'upstream_unavailable', message: 'The orchestrator did not answer.' } },
+    })
+    const scenarios = useScenarioStore()
+    const result = await scenarios.cancel('run_1')
+    expect(result.ok).toBe(false)
+    expect(scenarios.notice).toContain('not cancelled')
+    expect(scenarios.notice).toContain('did not answer')
+  })
+
+  it('says so when the run being cancelled had already ended', async () => {
+    stubFetch({ status: 200, body: { id: 'run_1', scenarioId: 'grand-tour', status: 'failed' } })
+    const scenarios = useScenarioStore()
+    const result = await scenarios.cancel('run_1')
+    expect(result.ok).toBe(true)
+    expect(scenarios.notice).toContain('already ended (failed)')
+  })
+
+  it('leaves no notice when a cancel works', async () => {
+    stubFetch({ status: 200, body: { id: 'run_1', scenarioId: 'grand-tour', status: 'cancelled' } })
+    const scenarios = useScenarioStore()
+    scenarios.notice = 'an earlier message'
+    await scenarios.cancel('run_1')
+    expect(scenarios.notice).toBeNull()
   })
 
   it('turns a 401 into a message telling the reader to sign in', async () => {
