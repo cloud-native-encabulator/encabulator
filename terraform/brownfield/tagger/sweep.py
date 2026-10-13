@@ -13,6 +13,8 @@ without a tag request, in the hub and in every cell:
     interfaces of the EKS control plane, the NAT gateway, RDS and ElastiCache
   ElastiCache serverless snapshots of the caches in CACHE_NAMES (the daily snapshot)
   IAM instance profiles of the roles in NODE_ROLES (EKS Auto Mode creates one per NodeClass role)
+  EKS access entries of the clusters in CLUSTER_NAMES that EKS created itself (Auto Mode adds one
+    for the AWSServiceRoleForAmazonEKS service-linked role, untagged)
 
 It only ever adds the three contract tags. It never removes a tag and never changes anything
 else, and the IAM role it runs with can do nothing but that (tagger.tf). Re-running is a no-op
@@ -22,6 +24,7 @@ Environment:
   REGIONS       space-separated regions, e.g. "us-west-2 us-east-2"
   CACHE_NAMES   space-separated serverless cache names, e.g. "encabulator-valkey"
   NODE_ROLES    space-separated IAM role names, e.g. "encabulator-usw2-node encabulator-use2-node"
+  CLUSTER_NAMES space-separated EKS cluster names, e.g. "encabulator-usw2 encabulator-use2"
   DRY_RUN       "1" to print what would be tagged without tagging
 
 Exit status: 0 when every call succeeded, 1 when any failed (the CronJob shows the failure;
@@ -44,7 +47,9 @@ def log(**fields):
 
 
 def tag_map(tags):
-    """Tags as a dict, from an EC2, IAM or ElastiCache [{Key, Value}] list."""
+    """Tags as a dict, from an EC2, IAM or ElastiCache [{Key, Value}] list or an EKS map."""
+    if isinstance(tags, dict):
+        return dict(tags)
     return {t["Key"]: t.get("Value", "") for t in tags or []}
 
 
@@ -64,11 +69,12 @@ def pages(client, operation, key, **params):
 
 
 class Sweep:
-    def __init__(self, session, regions, cache_names, node_roles, dry_run=False):
+    def __init__(self, session, regions, cache_names, node_roles, dry_run=False, cluster_names=()):
         self.session = session
         self.regions = regions
         self.cache_names = cache_names
         self.node_roles = node_roles
+        self.cluster_names = cluster_names
         self.dry_run = dry_run
         self.failures = 0
         self.tagged = []
@@ -161,6 +167,34 @@ class Sweep:
                 log(level="info", action="would tag" if self.dry_run else "tagged", region=region,
                     resource=arn, what="serverless cache snapshot")
 
+    # ---------------------------------------------------------------------------- EKS
+    def sweep_access_entries(self, region):
+        if not self.cluster_names:
+            return
+        eks = self.session.client("eks", region_name=region)
+        for name in self.cluster_names:
+            try:
+                principals = list(pages(eks, "list_access_entries", "accessEntries", clusterName=name))
+            except Exception as err:  # noqa: BLE001
+                # Each cluster lives in one region, and a cell's does not exist until it is built.
+                if getattr(err, "response", {}).get("Error", {}).get("Code") == "ResourceNotFoundException":
+                    continue
+                self.fail("list_access_entries", err, region=region, cluster=name)
+                continue
+            for principal in principals:
+                try:
+                    entry = eks.describe_access_entry(clusterName=name, principalArn=principal)["accessEntry"]
+                    if not missing(entry.get("tags")):
+                        continue
+                    if not self.dry_run:
+                        eks.tag_resource(resourceArn=entry["accessEntryArn"], tags=dict(TAGS))
+                except Exception as err:  # noqa: BLE001
+                    self.fail("tag_resource", err, region=region, cluster=name, principal=principal)
+                    continue
+                self.tagged.append(entry["accessEntryArn"])
+                log(level="info", action="would tag" if self.dry_run else "tagged", region=region,
+                    resource=entry["accessEntryArn"], what=f"EKS access entry of {name}")
+
     # ---------------------------------------------------------------------------- IAM
     def sweep_instance_profiles(self):
         if not self.node_roles:
@@ -194,6 +228,7 @@ class Sweep:
         for region in self.regions:
             self.sweep_ec2(region)
             self.sweep_cache_snapshots(region)
+            self.sweep_access_entries(region)
         self.sweep_instance_profiles()
         log(level="info", action="done", tagged=len(self.tagged), failures=self.failures, dry_run=self.dry_run)
         return 1 if self.failures else 0
@@ -211,7 +246,7 @@ def main():
     import boto3  # in the image; imported here so the tests run without it
 
     return Sweep(boto3.session.Session(), regions, words("CACHE_NAMES"), words("NODE_ROLES"),
-                 dry_run=os.environ.get("DRY_RUN") == "1").run()
+                 dry_run=os.environ.get("DRY_RUN") == "1", cluster_names=words("CLUSTER_NAMES")).run()
 
 
 if __name__ == "__main__":

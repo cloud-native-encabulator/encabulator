@@ -87,6 +87,20 @@ SNAPSHOT_TAGS = {
 PROFILES = {"encabulator-use2-node": [{"InstanceProfileName": "eks-us-east-2-encabulator-use2-abc123"}]}
 PROFILE_TAGS = {"eks-us-east-2-encabulator-use2-abc123": [{"Key": "eks:eks-cluster-name", "Value": "encabulator-use2"}]}
 
+# EKS access entries per (region, cluster). The cell's service-linked-role entry is the one EKS
+# Auto Mode creates itself, without tags; the capability entries ACK created carry them.
+CONTRACT_MAP = {"auto-delete": "no", "project": "encabulator", "talk": "opn315"}
+SLR = f"arn:aws:iam::{ACCOUNT}:role/aws-service-role/eks.amazonaws.com/AWSServiceRoleForAmazonEKS"
+KRO = f"arn:aws:iam::{ACCOUNT}:role/encabulator-use2-kro"
+ACCESS_ENTRIES = {
+    ("us-east-2", "encabulator-use2"): {
+        SLR: {"accessEntryArn": f"arn:aws:eks:us-east-2:{ACCOUNT}:access-entry/encabulator-use2/role/{ACCOUNT}/AWSServiceRoleForAmazonEKS/1",
+              "tags": {}},
+        KRO: {"accessEntryArn": f"arn:aws:eks:us-east-2:{ACCOUNT}:access-entry/encabulator-use2/role/{ACCOUNT}/encabulator-use2-kro/2",
+              "tags": dict(CONTRACT_MAP)},
+    },
+}
+
 
 class ClientError(Exception):
     def __init__(self, code):
@@ -186,6 +200,30 @@ class FakeIAM:
         self.tags[InstanceProfileName] = list(Tags)
 
 
+class FakeEKS:
+    def __init__(self, region, calls, entries):
+        self.region, self.calls, self.entries = region, calls, entries
+
+    def get_paginator(self, op):
+        assert op == "list_access_entries", op
+
+        def page(clusterName):
+            if (self.region, clusterName) not in self.entries:
+                raise ClientError("ResourceNotFoundException")
+            return {"accessEntries": list(self.entries[(self.region, clusterName)])}
+        return Paginator(page)
+
+    def describe_access_entry(self, clusterName, principalArn):
+        return {"accessEntry": copy.deepcopy(self.entries[(self.region, clusterName)][principalArn])}
+
+    def tag_resource(self, resourceArn, tags):
+        self.calls.append(("eks.tag_resource", resourceArn, tuple(tags.items())))
+        for entries in self.entries.values():
+            for entry in entries.values():
+                if entry["accessEntryArn"] == resourceArn:
+                    entry["tags"] = {**entry["tags"], **tags}
+
+
 class FakeSession:
     def __init__(self, worlds, deny_create=False):
         self.worlds = worlds
@@ -193,6 +231,7 @@ class FakeSession:
         self.deny_create = deny_create
         self.snapshot_tags = copy.deepcopy(SNAPSHOT_TAGS)
         self.profile_tags = copy.deepcopy(PROFILE_TAGS)
+        self.access_entries = copy.deepcopy(ACCESS_ENTRIES)
 
     def client(self, service, region_name=None):
         if service == "ec2":
@@ -201,6 +240,8 @@ class FakeSession:
             return FakeElastiCache(region_name, self.calls, SNAPSHOTS, self.snapshot_tags)
         if service == "iam":
             return FakeIAM(self.calls, PROFILES, self.profile_tags)
+        if service == "eks":
+            return FakeEKS(region_name, self.calls, self.access_entries)
         raise AssertionError(f"sweep.py must not use {service}")
 
 
@@ -211,7 +252,8 @@ def run(session, dry_run=False):
     out = io.StringIO()
     with contextlib.redirect_stdout(out):
         status = sweep.Sweep(session, ["us-west-2", "us-east-2"], ["encabulator-valkey"],
-                             ["encabulator-usw2-node", "encabulator-use2-node"], dry_run=dry_run).run()
+                             ["encabulator-usw2-node", "encabulator-use2-node"], dry_run=dry_run,
+                             cluster_names=["encabulator-usw2", "encabulator-use2"]).run()
     return status, [json.loads(line) for line in out.getvalue().splitlines()]
 
 
@@ -248,6 +290,13 @@ class SweepTest(unittest.TestCase):
         profiles = [c[1] for c in self.session.calls if c[0] == "iam.tag_instance_profile"]
         self.assertEqual(profiles, ["eks-us-east-2-encabulator-use2-abc123"])
 
+    def test_untagged_access_entry_eks_created(self):
+        # Only the entry EKS created untagged; the tagged one and the hub (absent from us-east-2,
+        # and with no entries in this fake's us-west-2) are left alone.
+        run(self.session)
+        entries = [c[1] for c in self.session.calls if c[0] == "eks.tag_resource"]
+        self.assertEqual(entries, [ACCESS_ENTRIES[("us-east-2", "encabulator-use2")][SLR]["accessEntryArn"]])
+
     def test_missing_cache_or_role_is_not_a_failure(self):
         # us-west-2 has no encabulator-valkey in this fake, encabulator-usw2-node has no profile.
         status, lines = run(self.session)
@@ -270,7 +319,8 @@ class SweepTest(unittest.TestCase):
     def test_only_reads_and_the_three_tag_writes(self):
         run(self.session)
         self.assertEqual({c[0] for c in self.session.calls},
-                         {"ec2.create_tags", "elasticache.add_tags_to_resource", "iam.tag_instance_profile"})
+                         {"ec2.create_tags", "elasticache.add_tags_to_resource", "iam.tag_instance_profile",
+                          "eks.tag_resource"})
 
     def test_hub_vpc_from_terraform_is_swept_too(self):
         # The hub: Terraform tags the default route table, SG and NACL and the cluster SG;

@@ -109,7 +109,7 @@ run "tags" {
   assert {
     condition = alltrue([
       for s in jsondecode(data.aws_iam_policy_document.tagger.json).Statement :
-      alltrue([for a in flatten([s.Action]) : can(regex("^(ec2:Describe|elasticache:Describe|elasticache:ListTagsForResource$|iam:List)", a)) || contains(["ec2:CreateTags", "elasticache:AddTagsToResource", "iam:TagInstanceProfile"], a)])
+      alltrue([for a in flatten([s.Action]) : can(regex("^(ec2:Describe|elasticache:Describe|elasticache:ListTagsForResource$|iam:List|eks:ListAccessEntries$|eks:DescribeAccessEntry$)", a)) || contains(["ec2:CreateTags", "elasticache:AddTagsToResource", "iam:TagInstanceProfile", "eks:TagResource"], a)])
     ])
     error_message = "the tagger can only read and add tags"
   }
@@ -121,7 +121,7 @@ run "tags" {
         s.Condition.StringEquals["aws:RequestTag/auto-delete"] == "no",
         s.Condition.StringEquals["aws:RequestTag/project"] == "encabulator",
         s.Condition.StringEquals["aws:RequestTag/talk"] == "opn315",
-      ]) if length(setintersection(toset(flatten([s.Action])), toset(["ec2:CreateTags", "elasticache:AddTagsToResource", "iam:TagInstanceProfile"]))) > 0
+      ]) if length(setintersection(toset(flatten([s.Action])), toset(["ec2:CreateTags", "elasticache:AddTagsToResource", "iam:TagInstanceProfile", "eks:TagResource"]))) > 0
     ])
     error_message = "every tag write the tagger may make is limited to exactly auto-delete=no, project=encabulator, talk=opn315"
   }
@@ -149,12 +149,13 @@ run "tags" {
     condition = (
       { for e in kubernetes_cron_job_v1.tagger.spec[0].job_template[0].spec[0].template[0].spec[0].container[0].env : e.name => e.value } ==
       {
-        REGIONS     = "us-west-2 us-east-2"
-        CACHE_NAMES = "encabulator-valkey"
-        NODE_ROLES  = "encabulator-usw2-node encabulator-use2-node"
-        HOME        = "/tmp"
+        REGIONS       = "us-west-2 us-east-2"
+        CACHE_NAMES   = "encabulator-valkey"
+        NODE_ROLES    = "encabulator-usw2-node encabulator-use2-node"
+        CLUSTER_NAMES = "encabulator-usw2 encabulator-use2"
+        HOME          = "/tmp"
       }
     )
-    error_message = "the tagger sweeps the hub and cell regions, the Valkey cache's snapshots and both NodeClass roles' instance profiles"
+    error_message = "the tagger sweeps the hub and cell regions, the Valkey cache's snapshots, both NodeClass roles' instance profiles and both clusters' access entries"
   }
 }
