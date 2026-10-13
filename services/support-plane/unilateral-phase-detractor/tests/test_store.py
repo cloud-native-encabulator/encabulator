@@ -153,10 +153,17 @@ def test_database_url_translation() -> None:
     assert url.drivername == "postgresql+asyncpg"
     assert url.database == "detractor"
     assert "sslmode" not in url.query
-    assert connect_args == {"ssl": False}
+    assert connect_args == {"ssl": "disable"}
 
+    # libpq semantics: require encrypts without verifying (RDS presents a private CA).
     url, connect_args = async_database_url("postgresql://u@h:5432/d?sslmode=require")
-    assert connect_args == {"ssl": True}
+    assert connect_args == {"ssl": "require"}
+
+    url, connect_args = async_database_url("postgresql://u@h:5432/d?sslmode=verify-full")
+    assert connect_args == {"ssl": "verify-full"}
+
+    with pytest.raises(ValueError):
+        async_database_url("postgresql://u@h:5432/d?sslmode=bogus")
 
     url, connect_args = async_database_url("sqlite:////tmp/x.db")
     assert url.drivername == "sqlite+aiosqlite"
