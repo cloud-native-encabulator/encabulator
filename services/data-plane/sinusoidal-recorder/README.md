@@ -94,6 +94,17 @@ Worth knowing, because InfluxDB 3 differs from 1.x and 2.x in ways that bite:
   the write buffer. The detector tolerates this; the integration tests poll.
 - **Types on the way back.** Tags arrive as `string`, `value` as `float64`, `time` as `time.Time`.
 
+## Tracing
+
+Inbound requests get server spans from the kit. Every InfluxDB call the API makes (the batch
+write, the per-serial read and the summary read) gets a `CLIENT` span named `write readings` or
+`SELECT readings`, with `db.system.name=influxdb`, `db.namespace` (the database),
+`db.collection.name=readings`, `db.operation.name`, `server.address` and `server.port`, and the
+error status when the call fails. Nothing instruments InfluxDB itself, so these spans are the
+only evidence of the recorder's traffic to it: the collector's `service_graph` connector turns a
+client span carrying `db.system.name` into a database edge named `influxdb`, which is the
+console's InfluxDB node. The readiness check against `/health` is not traced.
+
 ## Environment
 
 | Variable | Default | Notes |

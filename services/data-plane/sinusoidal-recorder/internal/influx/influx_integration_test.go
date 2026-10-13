@@ -8,6 +8,9 @@ import (
 	"time"
 
 	"github.com/testcontainers/testcontainers-go/wait"
+	sdktrace "go.opentelemetry.io/otel/sdk/trace"
+	"go.opentelemetry.io/otel/sdk/trace/tracetest"
+	"go.opentelemetry.io/otel/trace"
 
 	"github.com/jlbutler/cloud-native-encabulator/libs/go/kit/testsupport"
 
@@ -17,6 +20,12 @@ import (
 // newClient brings up a real influxdb:3-core with auth disabled and an
 // in-memory object store, then returns a client pointed at it.
 func newClient(t *testing.T) *influx.Client {
+	t.Helper()
+	return newClientWith(t, nil)
+}
+
+// newClientWith is newClient with the client spans going to tp (nil: the global provider).
+func newClientWith(t *testing.T, tp trace.TracerProvider) *influx.Client {
 	t.Helper()
 	port := testsupport.StartContainer(t, testsupport.ContainerSpec{
 		Image: "influxdb:3-core",
@@ -35,9 +44,10 @@ func newClient(t *testing.T) *influx.Client {
 	// The token is deliberately empty: --without-auth accepts no credentials, and
 	// the recorder must cope with INFLUXDB_TOKEN being unset.
 	c, err := influx.New(influx.Config{
-		URL:      fmt.Sprintf("http://127.0.0.1:%d", port),
-		Token:    "",
-		Database: "sinusoidal",
+		URL:            fmt.Sprintf("http://127.0.0.1:%d", port),
+		Token:          "",
+		Database:       "sinusoidal",
+		TracerProvider: tp,
 	})
 	if err != nil {
 		t.Fatalf("client: %v", err)
@@ -317,6 +327,57 @@ func TestWriteEmptyBatchIsANoOp(t *testing.T) {
 	c := newClient(t)
 	if err := c.Write(testsupport.Context(t), nil); err != nil {
 		t.Fatalf("empty write: %v", err)
+	}
+}
+
+// Against a real InfluxDB 3 Core: a write and both reads each leave one CLIENT
+// span with db.system.name=influxdb and no error, which is what draws the
+// recorder -> influxdb line on the console.
+func TestRealCallsLeaveInfluxDBClientSpans(t *testing.T) {
+	recorder := tracetest.NewSpanRecorder()
+	tp := sdktrace.NewTracerProvider(sdktrace.WithSpanProcessor(recorder))
+	t.Cleanup(func() { _ = tp.Shutdown(context.Background()) })
+	c := newClientWith(t, tp)
+	ctx := testsupport.Context(t)
+
+	before := len(recorder.Ended())
+	r := influx.Reading{Serial: "ENC-TRACE", OrderID: "ord_t", Model: "turbo", Stage: "base-plate",
+		Metric: "repleneration", Value: 2, Time: time.Now().UTC()}
+	if err := c.Write(ctx, []influx.Reading{r}); err != nil {
+		t.Fatalf("write: %v", err)
+	}
+	waitForReadings(t, c, "ENC-TRACE", 1)
+	if _, err := c.Summary(ctx, time.Hour); err != nil {
+		t.Fatalf("summary: %v", err)
+	}
+
+	var write, read int
+	for _, span := range recorder.Ended()[before:] {
+		system := ""
+		op := ""
+		for _, kv := range span.Attributes() {
+			switch kv.Key {
+			case "db.system.name":
+				system = kv.Value.AsString()
+			case "db.operation.name":
+				op = kv.Value.AsString()
+			}
+		}
+		if span.SpanKind() != trace.SpanKindClient || system != "influxdb" {
+			t.Errorf("span %q: kind=%v db.system.name=%q", span.Name(), span.SpanKind(), system)
+		}
+		if span.Status().Code.String() == "Error" {
+			t.Errorf("span %q failed against a real server: %v", span.Name(), span.Status())
+		}
+		switch op {
+		case "write":
+			write++
+		case "SELECT":
+			read++
+		}
+	}
+	if write != 1 || read < 2 {
+		t.Fatalf("want 1 write span and at least 2 query spans, got %d and %d", write, read)
 	}
 }
 

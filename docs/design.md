@@ -327,7 +327,8 @@ not log request bodies, tokens, or passwords. `LOG_LEVEL` sets the level (defaul
 - W3C trace context over HTTP and NATS headers.
 - Instrument inbound HTTP (server spans), outbound HTTP (client spans with `peer.service` or
   `server.address` set to the target service name), database and cache clients (`db.system`,
-  `db.name` / `db.namespace`), and NATS (producer and consumer spans).
+  `db.name` / `db.namespace`; the recorder's InfluxDB calls carry `db.system.name=influxdb`), and
+  NATS (producer and consumer spans).
 - Do not trace `/healthz`, `/readyz`, `/metrics`, or the malaise and flag polling loops.
 
 ### Malaise (fault injection) middleware
