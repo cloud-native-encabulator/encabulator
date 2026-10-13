@@ -9,6 +9,12 @@ metadata:
   namespace: argocd
 spec:
   description: OPN315 hub cluster (encabulator-usw2) applications
+  # The EKS Argo CD capability runs Argo CD outside the cluster with Applications in any
+  # namespace, so a project must name the namespace its Applications live in, or every
+  # Application reports "not permitted to use project". The capability's default project does
+  # the same.
+  sourceNamespaces:
+    - argocd
   sourceRepos:
     - https://github.com/jlbutler/cloud-native-encabulator
   destinations:
@@ -35,6 +41,8 @@ metadata:
   namespace: argocd
 spec:
   description: OPN315 cell clusters (one per region), deployed from the hub
+  sourceNamespaces:
+    - argocd
   sourceRepos:
     - https://github.com/jlbutler/cloud-native-encabulator
   destinations:
