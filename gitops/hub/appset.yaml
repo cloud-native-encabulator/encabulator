@@ -7,6 +7,8 @@
 #   encabulator.io/subnet-ids                 -> Encabulator.spec.subnetIDs, NodeClass subnets
 #   encabulator.io/security-group-id          -> Encabulator.spec.securityGroupID
 #   encabulator.io/cluster-security-group-id  -> NodeClass security group
+#   encabulator.io/registry (optional)        -> Encabulator.spec.registry, an image mirror;
+#                                                absent means the RGD default (ghcr.io)
 apiVersion: argoproj.io/v1alpha1
 kind: ApplicationSet
 metadata:
@@ -47,6 +49,11 @@ spec:
                 - op: add
                   path: /spec/securityGroupID
                   value: {{ index .metadata.annotations "encabulator.io/security-group-id" | quote }}
+                {{- with index .metadata.annotations "encabulator.io/registry" }}
+                - op: add
+                  path: /spec/registry
+                  value: {{ . | quote }}
+                {{- end }}
             # The cell's custom NodeClass (gitops/app/nodes/): nodes in the private subnets,
             # with the cluster security group, as on the hub.
             - target:

@@ -29,7 +29,11 @@ spec:
     apiVersion: v1alpha1
     kind: Encabulator
     spec:
-      imageTag: string | default="1.0.0"
+      imageTag: string | default="1.0.1"
+      # Images are <registry>/<service>:<imageTag>, like the chart's global.registry. The cell
+      # ApplicationSet sets it from the cluster Secret annotation encabulator.io/registry when
+      # one is present (a mirror), so no registry hostname has to live in Git.
+      registry: string | default="ghcr.io/jlbutler/cloud-native-encabulator"
       dbInstanceClass: string | default="db.t4g.medium"
       # Private subnets for the DB subnet group and the serverless cache.
       subnetIDs: "[]string"
@@ -848,4 +852,5 @@ spec:
           name: ${svc}
         spec:
           tag: ${schema.spec.imageTag}
+          registry: ${schema.spec.registry}
           storesConfig: ${stores.metadata.name}

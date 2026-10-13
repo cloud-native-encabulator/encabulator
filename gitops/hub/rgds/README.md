@@ -77,20 +77,27 @@ argocd cluster Secret ◄────────────┘  waits for both
   | `encabulator.io/subnet-ids` | private subnet ids, comma-separated | `Encabulator.spec.subnetIDs`, NodeClass subnets |
   | `encabulator.io/security-group-id` | `encabulator-db` group id | `Encabulator.spec.securityGroupID` |
   | `encabulator.io/cluster-security-group-id` | EKS cluster security group | NodeClass security group |
+  | `encabulator.io/registry` (optional, not written by the RGD) | an image mirror, for example `<account>.dkr.ecr.<region>.amazonaws.com/encabulator` | `Encabulator.spec.registry`; absent means the RGD default `ghcr.io/jlbutler/cloud-native-encabulator` |
   | `encabulator.io/ack-capability`, `kro-capability`, `argocd-access-entry` | ARNs | ordering: the Secret waits for them |
+
+  `encabulator.io/registry` is the one annotation the RGD does not write: add it by hand (or with
+  your own automation) when a cell pulls from a mirror. kro applies only the fields it owns, so
+  an annotation someone else added stays on the Secret.
 
 ### The ApplicationSet
 
 Cluster generator on `encabulator.io/cell=true`, `goTemplate: true` with
-`missingkey=error` (the Argo CD recommendation; a missing annotation fails the render instead of
-rendering an empty value). It renders Application `{{ .name }}` (= `encabulator-use2`) in
+`missingkey=error` (the Argo CD recommendation; a missing template parameter fails the render
+instead of rendering an empty value). It renders Application `{{ .name }}` (= `encabulator-use2`) in
 project `encabulator-cells`, source `gitops/app` at `carrlos`, destination the cluster ARN,
 namespace `encabulator`, automated prune + self-heal, `CreateNamespace=true`, and retries while a
 new cell's CRDs settle. Two kustomize patches (JSON 6902, `op: add`) carry the annotations into
 `gitops/app` (lead decision D7: `gitops/app/kustomization.yaml` is the root):
 
 - target `Encabulator/encabulator` in `encabulator`: `spec.subnetIDs` (the annotation split on
-  `,`) and `spec.securityGroupID`;
+  `,`) and `spec.securityGroupID`, plus `spec.registry` only when the Secret has
+  `encabulator.io/registry` (`missingkey=error` fails on a missing template parameter such as
+  `.name`; `index` on a missing annotation returns empty, which `{{ with }}` skips);
 - target any `NodeClass` (`eks.amazonaws.com`): `spec.subnetSelectorTerms` (one `id` per private
   subnet) and `spec.securityGroupSelectorTerms` (the cluster security group), matching the
   hub's NodeClass. If `gitops/app` has no NodeClass, this patch matches nothing and is a no-op.

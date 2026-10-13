@@ -27,7 +27,7 @@ gitops/app/
 | ElastiCache Serverless | engine `valkey`, major `8` (lead decision D2; 9.0 and 9.1 exist for Serverless) | `rgds/encabulator.yaml` |
 | secret-init image | `docker.io/library/python:3.13.16-slim-trixie@sha256:70729b46...c2f` (Python 3.13.16, OpenSSL 3.5.7) | `secretInit` Job |
 | db-init image | `docker.io/library/postgres:18.6-trixie@sha256:74935e72...4336` | `dbInit` Job |
-| Service images | `ghcr.io/jlbutler/cloud-native-encabulator/<service>:1.0.0` | `spec.imageTag` |
+| Service images | `<spec.registry>/<service>:<spec.imageTag>`, default `ghcr.io/jlbutler/cloud-native-encabulator/<service>:1.0.1` | `spec.registry`, `spec.imageTag` |
 | NATS, InfluxDB images | `nats:2.12`, `influxdb:3-core` (the chart's tags, unchanged) | StatefulSets |
 | Validation | kind cluster on `kindest/node` (shared `opn315-cell`, Kubernetes 1.35.8), helm 4.2.4, kubectl 1.35.0, Python 3.12 + PyYAML 6.0.3 | `hack/` |
 
@@ -38,7 +38,8 @@ apiVersion: kro.run/v1alpha1
 kind: Encabulator
 metadata: {name: encabulator, namespace: encabulator}
 spec:
-  imageTag: "1.0.0"               # default 1.0.0
+  imageTag: "1.0.1"               # default 1.0.1
+  registry: ghcr.io/jlbutler/cloud-native-encabulator  # the default; a mirror per cell, see below
   dbInstanceClass: db.t4g.medium  # default db.t4g.medium
   subnetIDs: [...]                # patched in per cell
   securityGroupID: sg-...         # patched in per cell, required
@@ -48,7 +49,8 @@ status:
   cacheHost: ...                  # from ServerlessCache status
 ```
 
-`EncabulatorService` is the smaller API the Encabulator creates once per name: `spec.tag` and
+`EncabulatorService` is the smaller API the Encabulator creates once per name: `spec.tag`,
+`spec.registry` and
 `spec.storesConfig` (the ConfigMap with the store endpoints). Everything that differs between
 services lives in lookup tables inside `rgds/encabulator-service.yaml`, keyed by the instance
 name, copied from the `services:` and `wiring:` blocks of `charts/encabulator/values.yaml`. A
@@ -138,7 +140,8 @@ cluster security group are placeholders that the cell ApplicationSet replaces wi
 
 - `Encabulator/encabulator` in `encabulator`: `/spec/subnetIDs` and `/spec/securityGroupID`
   from the cluster Secret annotations `encabulator.io/subnet-ids` and
-  `encabulator.io/security-group-id`.
+  `encabulator.io/security-group-id`, and `/spec/registry` from the optional
+  `encabulator.io/registry` (an image mirror; without it the images come from ghcr.io).
 - every `eks.amazonaws.com` NodeClass: `/spec/subnetSelectorTerms` and
   `/spec/securityGroupSelectorTerms`.
 
