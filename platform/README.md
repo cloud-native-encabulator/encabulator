@@ -81,15 +81,28 @@ Both are scraped by the chart's `ServiceMonitor`.
 ### Virtual nodes are how the stores appear at all
 
 Nothing instruments PostgreSQL, Valkey, NATS or InfluxDB. They only ever exist as the far end of a
-client span. The `service_graph` connector's `virtual_node_peer_attributes` turns such a span into
-a *virtual* server node, so the values list every attribute a service kit might set:
+client span. Two settings of the `service_graph` connector turn such a span into a server node:
 
 ```yaml
+database_name_attributes: [db.system.name, db.system]
 virtual_node_peer_attributes:
   [peer.service, db.system, db.system.name, server.address,
    messaging.destination.name, db.name, db.namespace]
 virtual_node_extra_label: true
 ```
+
+- A client span carrying `db.system.name` or `db.system` is a database call. The connector does not
+  wait for a server span: it emits the edge at once with `connection_type="database"`, uses the
+  client span's duration as the edge latency, and names the server after the attribute's value
+  (`postgresql`, `valkey`, `redis`), which the console maps to its `postgres` and `valkey` nodes.
+  The console has one node per database *system*, so the server must not be named after the
+  database: `db.namespace`/`db.name` would give `hydrocoptic`, `detractor`, `girdlespring` and the
+  Redis index `0`, none of which is a node. Do not simply delete the key either: collector 0.161.0
+  falls back to `[db.name]` when the list is empty.
+- Any other client span that finds no server span within the store TTL becomes a *virtual* server
+  node named after the first attribute in `virtual_node_peer_attributes` it carries, or `unknown`.
+- Producer and consumer spans are paired into `connection_type="messaging_system"` edges between the
+  publishing and the consuming service. An unpaired producer span never becomes a virtual node.
 
 If a store is missing from the topology, the span is missing one of these. Design section 7
 requires `peer.service` or `server.address` on outbound client spans and `db.system` plus
