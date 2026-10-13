@@ -700,12 +700,25 @@ container.
 - Nodes: the 15 services and 4 backing stores from a static registry (name, display name, plane,
   language, kind), merged with live pods from the Kubernetes API (name, phase, ready, restarts)
   and per-pod request rate, p50, p99, and error ratio from Prometheus
-  (`http_server_request_duration_seconds` by `pod`).
+  (`http_server_request_duration_seconds` by `pod`). A service node's figures roll up from its
+  pods: summed rate, rate-weighted p50, worst pod p99, summed errors over summed rate.
 - Edges: from the OTel service graph metrics in Prometheus
   (`traces_service_graph_request_total`, `traces_service_graph_request_failed_total`,
-  `traces_service_graph_request_server_seconds_bucket`) over a 1 minute window: rate, error ratio,
-  p50, p99. Messaging edges appear as `producer → consumer` pairs; database and cache edges come
-  from client spans with `db.system`.
+  `traces_service_graph_request_server_seconds_bucket`) by `client`, `server` and
+  `connection_type`, over a 1 minute window: rate, error ratio, p50, p99. Database and cache edges
+  come from client spans with `db.system.name` or `db.system` (`connection_type="database"`; the
+  latency is the client span's). A messaging edge is a `producer → consumer` pair
+  (`connection_type="messaging_system"`) and is drawn through the NATS node as two legs:
+  `producer → nats` with the producer's latency (`traces_service_graph_request_client_seconds_bucket`)
+  and `nats → consumer` with the consumer's. Pairs that land on the same leg add their rates and
+  failures and keep the worse latency; the connector does not say which side of a failed pair
+  failed, so it counts against both legs. The connector pairs each message with one consumer, so a
+  message several services consume can under-count the delivery legs; nothing is added to make
+  up for it.
+- Store figures: a backing store is not instrumented and serves no HTTP metrics, so its node's rate,
+  p50, p99 and error ratio are those of the edges into it (for NATS, the publish legs): summed
+  rate, rate-weighted p50, worst p99, summed failures over summed rate, and the health colour from
+  those. A store plate therefore reads "no data" only when no edge into it carries a value.
 - An edge with no traffic is drawn idle. A missing metric is shown as "no data", never invented.
 
 **UI**:
@@ -716,7 +729,14 @@ container.
   refabrication rate, stock levels) and the scenario narration ticker.
 - *Grammeters*: traffic controls (rate, pattern, period, journey mix) and live journey stats.
 - *Malaise*: inject faults by target and kind, list active malaises with countdowns, clear.
-- *Scenarios*: list, run, cancel, follow narration and step progress.
+- *Scenarios*: list, run, cancel, follow narration and step progress. The live stream carries the
+  orchestrator's latest run whatever its status; only a `running` (or `pending`) run counts as
+  active, locks the Run buttons and can be cancelled. A completed, failed or cancelled run is shown
+  as the last run with its final status, step and narration, and does not block the next run. A
+  cancel that fails, or finds the run already over, is reported on the page. The orchestrator
+  reports steps as numbers (`currentStep`, `totalSteps`), shown as "24 of 50", and a failed run's
+  `error` is shown as the reason it stopped. A page opened after a run ended reads the narration
+  from the run itself, since the feed only carries lines narrated while the page was open.
 - *Girdlespring*: view and edit flags.
 - *Works*: storefront (quote, order, track) plus live order, shipment, and incident feeds, and the
   parts cage with restock.

@@ -195,6 +195,26 @@ describe('the live feeds', () => {
     expect(run.items).toEqual([])
     expect(run.currentStep).toBeNull()
   })
+
+  it('reads the orchestrator run as it really is: numeric steps, a message log, an error', () => {
+    // The shape demo-scenario-orchestrator's Run.to_json() returns.
+    const run = readRunNarration({
+      id: 'run_01M4V8Q61WM0PGHRR4NY2ZF9MK',
+      scenarioId: 'grand-tour',
+      status: 'failed',
+      currentStep: 24,
+      totalSteps: 50,
+      error: 'UpstreamError: malaise-injection-engine responded 400 unknown_target',
+      log: [
+        { time: '2026-10-13T18:34:40.573Z', step: 0, kind: 'run', level: 'info', message: 'The floor is yours.' },
+      ],
+    })
+    expect(run.stepIndex).toBe(24)
+    expect(run.stepCount).toBe(50)
+    expect(run.currentStep).toBe('24 of 50')
+    expect(run.error).toContain('unknown_target')
+    expect(run.items[0]?.headline).toBe('The floor is yours.')
+  })
 })
 
 describe('the upstream gateway', () => {

@@ -22,7 +22,8 @@ it should exist.
 | Nodes | A static registry of the 15 services and 4 backing stores, merged with live pods from the Kubernetes API |
 | Pod dots | `app.kubernetes.io/part-of=encabulator` pods: name, phase, readiness, restarts |
 | Per-pod rate, p50, p99, errors | `http_server_request_duration_seconds` by `pod`, in Prometheus |
-| Edges | Only the OTel service graph: `traces_service_graph_request_total`, `…_failed_total`, `…_server_seconds_bucket`, over one minute |
+| Edges | Only the OTel service graph: `traces_service_graph_request_total`, `…_failed_total`, `…_server_seconds_bucket` (and `…_client_seconds_bucket` for the publish leg of a message), by `client`, `server` and `connection_type`, over one minute. A `messaging_system` pair is drawn through the NATS plate: producer → NATS and NATS → consumer |
+| Store plate rate, p50, p99, errors | The edges into the store: summed rate, rate-weighted p50, worst p99, summed failures over summed rate. Stores serve no HTTP metrics of their own |
 | Headline gauges | The ledger's `/v1/stats`, the detector's `/v1/stats`, the depot's `/v1/parts`, the recorder's `/v1/summary` |
 | Feeds and narration | The ledger, the detector, dispatch, and the orchestrator's run log |
 
@@ -42,7 +43,7 @@ the build on a `Math.random` call or a hard-coded host in the SPA,
 | **Factory Floor** | `/` | Animated topology: particles per edge at a rate proportional to its measured requests per second, coloured by health (green under 100 ms p99 and 1% errors, amber under 500 ms, red beyond, grey for no data). Pod dots on each plate, hover for details. Headline gauges and the scenario narration tape. |
 | **Grammeters** | `/grammeters` | Traffic controls: rate, pattern (steady, sine, burst, ramp), period, customer count, journey mix. Live per-journey counts, errors, p50, p99, and status codes. |
 | **Malaise** | `/malaise` | Induce a fault by target and kind · latency, error, congestion, CPU burn, pod-kill, partition, scale · with countdowns to expiry, and node health beside it so cause and effect are visible together. |
-| **Scenarios** | `/scenarios` | The scenario library, run and cancel, step progress, and the orchestrator's narration as it arrives. |
+| **Scenarios** | `/scenarios` | The scenario library, run and cancel, step progress, and the orchestrator's narration as it arrives. Only a `running` (or `pending`) run is the current run: it locks the Run buttons and offers Cancel. A run that completed, failed or was cancelled is shown as the last run with its final status, step ("24 of 50"), the reason a failed run stopped and its narration, no Cancel, and the Run buttons free. A cancel that fails, or that finds the run already over, says so on the page. |
 | **Girdlespring** | `/girdlespring` | Every feature flag, what reads it, and what it actually changes. Edits reach services within five seconds. |
 | **Works** | `/works` | The storefront (quote, order, track) placing **real** orders through the real gateway with your own token, plus live order, incident and shipment feeds, and the parts cage with restock. |
 | **Administration** | `/administration` | Users and the audit log. Admin only. |
@@ -265,13 +266,13 @@ current spawn multiplier.
 ## Tests
 
 ```bash
-make test     # 263 tests, no containers, no cluster, no network
+make test     # 283 tests, no containers, no cluster, no network
 ```
 
 - **BFF role enforcement** · the whole proxy route table × every role.
 - **Topology assembly** · recorded Prometheus and Kubernetes responses in, snapshot out;
-  including NaN, missing series, unreachable sources, alias collapsing, and peers outside the
-  registry.
+  including NaN, missing series, unreachable sources, alias collapsing, peers outside the
+  registry, messaging pairs routed through NATS, and store plates measured by their inbound edges.
 - **SSE** · framing, fan-out, cached replay, heartbeat, and that polling starts on the first
   client and stops on the last.
 - **Sessions** · cookie flags, expiry, a tampered signature, and that no token ever reaches a
