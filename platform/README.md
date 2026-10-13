@@ -34,6 +34,40 @@ The order is not arbitrary:
 4. **KEDA**, in its own namespace, bringing the `ScaledObject` CRD that
    `charts/encabulator --set keda.enabled=true` needs.
 
+## On a cell
+
+`scripts/platform.sh` installs the hub. A cell gets the same charts from Git instead: the
+`encabulator-platform` ApplicationSet in [`gitops/hub/appset.yaml`](../gitops/hub/appset.yaml)
+has Argo CD on the hub install them on every cell, with the same versions, release names and
+namespace. KEDA is not part of a cell yet. What a cell adds:
+
+| File | What it changes on a cell |
+|---|---|
+| [`cell/kube-prometheus-stack.values.yaml`](cell/kube-prometheus-stack.values.yaml) | requests and limits from the hub's measured use; the chart's five control-plane Services left out (they find no pod on EKS Auto Mode) |
+| [`cell/jaeger.values.yaml`](cell/jaeger.values.yaml) | requests and limits for the capped in-memory store |
+| [`cell/opentelemetry-collector.values.yaml`](cell/opentelemetry-collector.values.yaml) | requests and limits from the hub's measured use |
+| [`kustomization.yaml`](kustomization.yaml) | the three dashboards (the same ConfigMaps `scripts/platform.sh dashboards` creates) and [`cell/servicemonitor-encabulator-services.yaml`](cell/servicemonitor-encabulator-services.yaml), which scrapes the fifteen services |
+
+Each overlay is layered after the common file (`-f <chart>.values.yaml -f cell/<chart>.values.yaml`),
+so the hub's values stay as they are and a change to a common file reaches the hub and every
+cell. The overlays size requests to what the pods use rather than to round numbers, so EKS Auto
+Mode provisions nodes for the real footprint.
+
+On the hub, `charts/encabulator` renders one ServiceMonitor per service. On a cell the app comes
+from kro definitions, and kro accepts a definition only when every kind in it already exists, so
+the scrape config ships with the platform as one ServiceMonitor with the same endpoint, interval
+and relabelings. The app never waits for the platform, and a cell without the platform has
+neither.
+
+To see what a cell gets, and to check that its pins match `versions.env`:
+
+```bash
+./scripts/platform.sh template-cell > /dev/null
+```
+
+CI runs it next to `template`. A cell opts out of the platform with `observability: false` in
+its cell file ([`gitops/hub/rgds/README.md`](../gitops/hub/rgds/README.md#the-platform-applicationset)).
+
 ## How Prometheus finds the Encabulator
 
 One decision shapes these files: Prometheus selects `ServiceMonitor` and `PodMonitor` objects

@@ -192,6 +192,11 @@ make talk                # serve the OPN315 slides on http://localhost:8000
 Set `TERRAFORM` to use a wrapper such as `mise exec terraform@1.14.9 -- terraform`. These targets
 create billable resources; see the README for what and for the clean-up note.
 
+`make platform` is for the hub only. A cell that the hub builds from `gitops/hub/cells` gets the
+app and the observability platform from Argo CD on the hub, with no `make` step on the cell. To
+see what a cell's platform renders to, run `./scripts/platform.sh template-cell`; the layout is
+in [`platform/README.md`](../platform/README.md#on-a-cell).
+
 ## Debugging
 
 - **A pod is not ready.** `kubectl logs` names the failing dependency. Readiness reflects a
@@ -222,7 +227,7 @@ create billable resources; see the README for what and for the clean-up note.
 
 ```
 charts/encabulator/          Helm chart: the application and its backing stores
-platform/                    Pinned values and dashboards for upstream platform charts
+platform/                    Pinned values and dashboards for upstream platform charts; platform/cell/ is what a cell adds
 terraform/brownfield/        The AWS starting point: VPC, EKS Auto Mode, RDS, ElastiCache, capabilities
 gitops/                      What Argo CD syncs: the hub (adoption, cells) and the application as kro APIs
 docs/opn315/                 The OPN315 talk: slides and run of show
