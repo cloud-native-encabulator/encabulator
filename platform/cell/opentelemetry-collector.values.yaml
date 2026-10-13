@@ -1,0 +1,12 @@
+# Cell overlay for the OpenTelemetry collector. Layered AFTER ../opentelemetry-collector.values.yaml.
+# Argo CD installs it on every cell (gitops/hub/appset.yaml).
+#
+# The hub's collector peaks at a 97 MiB working set at steady traffic, so the request follows
+# that. The 1Gi limit stays as in the common file: memory_limiter works from it.
+resources:
+  requests:
+    cpu: 200m
+    memory: 256Mi
+  limits:
+    cpu: 2000m
+    memory: 1Gi

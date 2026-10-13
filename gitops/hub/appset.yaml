@@ -82,3 +82,149 @@ spec:
             duration: 30s
             factor: 2
             maxDuration: 5m
+---
+# Every cell also gets the platform charts. One Application per entry below and per cell whose
+# cluster Secret has label encabulator.io/platform-<component>=true. The EncabulatorCell RGD
+# writes that label from the cell file (spec.observability, default true), so a cell opts out
+# with one field and a new cell gets the same set as every other.
+#
+# The matrix pairs each entry with each matching cell. The cluster generator's selector is
+# rendered with the entry's parameters, so one selector covers every component.
+#
+# Versions are the pins in platform/versions.env (`scripts/platform.sh template-cell` fails when
+# they differ). Values are the hub's common files plus the cell overlay in platform/cell/.
+#
+# These Applications have no dependency on the app's Application and the app has none on them:
+# they sync side by side. Prometheus Operator CRDs come with kube-prometheus-stack; the other
+# entries' ServiceMonitors skip the dry run and retry until those CRDs exist.
+#
+# A cell that already runs these charts under Helm (the same release names and namespace) is
+# adopted in place. Annotate its cluster Secret with encabulator.io/platform-sync=manual first,
+# and the Applications are created without automated sync, so the diff can be read before the
+# first sync. Remove the annotation to turn automated sync on.
+#
+# To add a component, add its entries, a label in the RGD's register Secret, a spec field for
+# its switch, and its namespace in the encabulator-cells AppProject.
+apiVersion: argoproj.io/v1alpha1
+kind: ApplicationSet
+metadata:
+  name: encabulator-platform
+  namespace: argocd
+spec:
+  goTemplate: true
+  goTemplateOptions: ["missingkey=error"]
+  generators:
+    - matrix:
+        generators:
+          - list:
+              elements:
+                # release is the Helm release name and the Application name suffix.
+                - component: observability
+                  release: prometheus-stack
+                  namespace: encabulator-observability
+                  repoURL: https://prometheus-community.github.io/helm-charts
+                  chart: kube-prometheus-stack
+                  version: 91.8.2
+                - component: observability
+                  release: jaeger
+                  namespace: encabulator-observability
+                  repoURL: https://jaegertracing.github.io/helm-charts
+                  chart: jaeger
+                  version: 4.14.0
+                - component: observability
+                  release: opentelemetry-collector
+                  namespace: encabulator-observability
+                  repoURL: https://open-telemetry.github.io/opentelemetry-helm-charts
+                  chart: opentelemetry-collector
+                  version: 0.174.0
+                # Not a chart: the dashboards and the services' ServiceMonitor (platform/kustomization.yaml).
+                - component: observability
+                  release: observability-config
+                  namespace: encabulator-observability
+                  repoURL: https://github.com/jlbutler/cloud-native-encabulator
+                  chart: ""
+                  version: carrlos
+          - clusters:
+              selector:
+                matchLabels:
+                  encabulator.io/cell: "true"
+                matchExpressions:
+                  - key: 'encabulator.io/platform-{{ .component }}'
+                    operator: In
+                    values: ["true"]
+  # Switching a component off, or deleting this ApplicationSet, stops managing the charts and
+  # leaves them running on the cell.
+  syncPolicy:
+    preserveResourcesOnDeletion: true
+  template:
+    metadata:
+      name: '{{ .name }}-{{ .release }}'
+      labels:
+        encabulator.io/region: '{{ index .metadata.annotations "encabulator.io/region" }}'
+        encabulator.io/platform: '{{ .component }}'
+      annotations:
+        # Diff with a server-side dry-run apply: defaulted fields and fields other managers
+        # own (the admission webhook caBundle, for example) do not show as drift.
+        argocd.argoproj.io/compare-options: ServerSideDiff=true
+    spec:
+      project: encabulator-cells
+      destination:
+        server: '{{ .server }}'
+        namespace: '{{ .namespace }}'
+      # Grafana's chart generates the admin password when the Secret is first created and puts a
+      # checksum of it on the pod template. Keep the generated value instead of a new one on
+      # every render, which would also restart Grafana on every sync.
+      ignoreDifferences:
+        - kind: Secret
+          name: prometheus-stack-grafana
+          namespace: encabulator-observability
+          jsonPointers:
+            - /data/admin-password
+        - group: apps
+          kind: Deployment
+          name: prometheus-stack-grafana
+          namespace: encabulator-observability
+          jsonPointers:
+            - /spec/template/metadata/annotations/checksum~1secret
+      syncPolicy:
+        syncOptions:
+          - CreateNamespace=true
+          # The Prometheus Operator CRDs are too large for client-side apply's annotation.
+          - ServerSideApply=true
+          - SkipDryRunOnMissingResource=true
+          - RespectIgnoreDifferences=true
+        retry:
+          limit: 10
+          backoff:
+            duration: 30s
+            factor: 2
+            maxDuration: 5m
+  # The source differs between a chart and a Git folder, and automated sync is on unless the
+  # cell is being adopted. No automated prune: a chart bump that drops an object (a CRD, say)
+  # must not delete it, or everything that uses it, on its own.
+  templatePatch: |
+    spec:
+      sources:
+      {{- if .chart }}
+        - repoURL: {{ .repoURL }}
+          chart: {{ .chart }}
+          targetRevision: {{ .version | quote }}
+          helm:
+            releaseName: {{ .release }}
+            valueFiles:
+              - $values/platform/{{ .chart }}.values.yaml
+              - $values/platform/cell/{{ .chart }}.values.yaml
+        - repoURL: https://github.com/jlbutler/cloud-native-encabulator
+          targetRevision: carrlos
+          ref: values
+      {{- else }}
+        - repoURL: {{ .repoURL }}
+          targetRevision: {{ .version }}
+          path: platform
+      {{- end }}
+    {{- if ne (index .metadata.annotations "encabulator.io/platform-sync") "manual" }}
+      syncPolicy:
+        automated:
+          selfHeal: true
+          prune: false
+    {{- end }}

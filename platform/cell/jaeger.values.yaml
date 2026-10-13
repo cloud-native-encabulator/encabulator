@@ -1,0 +1,14 @@
+# Cell overlay for Jaeger. Layered AFTER ../jaeger.values.yaml, which caps the in-memory store
+# at 15,000 traces. Argo CD installs it on every cell (gitops/hub/appset.yaml).
+#
+# With that cap the hub's Jaeger reached a 769 MiB working set within 17 minutes of a restart and
+# was still growing, so a cell requests what it uses and keeps room under the limit. If Jaeger
+# ever outgrows the limit, Jaeger alone restarts and its node is unaffected.
+jaeger:
+  resources:
+    requests:
+      cpu: 200m
+      memory: 1Gi
+    limits:
+      cpu: 2000m
+      memory: 1536Mi

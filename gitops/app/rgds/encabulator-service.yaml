@@ -11,9 +11,12 @@
 #   ServiceAccount, Deployment, Service, plus an HPA, a PodDisruptionBudget and a
 #   Role + RoleBinding for the services the chart gives them.
 #
-# Chart objects deliberately not rendered here: ServiceMonitor and PrometheusRule
-# (the cells do not run the Prometheus Operator) and the KEDA ScaledObject (KEDA
-# is off by default in the chart too).
+# Chart objects deliberately not rendered here: ServiceMonitor and PrometheusRule,
+# and the KEDA ScaledObject (KEDA is off by default in the chart too). kro accepts
+# an RGD only when every kind it names exists, and the ServiceMonitor kind comes
+# with the observability platform, which a cell can leave out. The cell's scrape
+# config for these services ships with that platform instead
+# (platform/cell/servicemonitor-encabulator-services.yaml).
 apiVersion: kro.run/v1alpha1
 kind: ResourceGraphDefinition
 metadata:
