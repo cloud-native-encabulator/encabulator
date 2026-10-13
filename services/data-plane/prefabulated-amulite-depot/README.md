@@ -9,7 +9,7 @@ supplied. When the factory runs dry, this is the service that says so: a `409
 insufficient_parts` here is the reason an order gets rejected before it ever reaches the
 ledger.
 
-- Plane: `data` · Language: TypeScript (Node 24, Fastify 5) · Owns Valkey keys `depot:*`
+- Plane: `data` · Language: TypeScript (Node 24, Fastify 5) · Owns Valkey keys `{depot}:*`
 - Design: [section 8.7](../../../docs/design.md#87-prefabulated-amulite-depot)
 
 ## What it does
@@ -105,11 +105,11 @@ restart.
 
 | Key | Type | Purpose |
 |---|---|---|
-| `depot:stock:<sku>` | string (integer) | Units on the shelf |
-| `depot:reserved:<sku>` | string (integer) | Units reserved, not yet consumed |
-| `depot:reservation:<id>` | string (JSON) | The reservation record, 24 h TTL |
-| `depot:order:<orderId>` | string | Idempotency index, dropped on release |
-| `depot:pending` | sorted set | Pending reservation ids scored by expiry, read by the sweeper |
+| `{depot}:stock:<sku>` | string (integer) | Units on the shelf |
+| `{depot}:reserved:<sku>` | string (integer) | Units reserved, not yet consumed |
+| `{depot}:reservation:<id>` | string (JSON) | The reservation record, 24 h TTL |
+| `{depot}:order:<orderId>` | string | Idempotency index, dropped on release |
+| `{depot}:pending` | sorted set | Pending reservation ids scored by expiry, read by the sweeper |
 
 `reserve` declares every key it touches in `KEYS`. `commit` and `release` do the same, and
 use `cjson` only to read the current status before applying the transition, so a concurrent

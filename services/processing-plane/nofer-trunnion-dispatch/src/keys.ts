@@ -1,8 +1,12 @@
 /**
- * The dispatch office's Valkey keyspace. Dispatch owns `shipment:*` (design section 2).
+ * The dispatch office's Valkey keyspace. Dispatch owns `{shipment}:*` (design section 2).
+ *
+ * `{shipment}` is a hash tag: every key hashes to the same slot, so the multi-key Lua scripts
+ * and MGET also work on a cluster-mode server such as ElastiCache Serverless, which refuses a
+ * command whose keys span slots (CROSSSLOT).
  */
 
-export const PREFIX = 'shipment:';
+export const PREFIX = '{shipment}:';
 
 /** The immutable shipment record. */
 export const shipmentKey = (orderId: string) => `${PREFIX}order:${orderId}`;
