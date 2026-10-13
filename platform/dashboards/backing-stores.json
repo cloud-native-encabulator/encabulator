@@ -222,7 +222,7 @@
       "id": 20,
       "type": "timeseries",
       "title": "Database and cache edge latency p99",
-      "description": "From the service_graph connector's virtual server nodes: a client span carrying db.system or peer.service becomes an edge to a store nobody instruments.",
+      "description": "From the service_graph connector's database edges: a client span carrying db.system.name or db.system becomes an edge to a store nobody instruments, named after the database system (postgresql, valkey, redis).",
       "datasource": "${datasource}",
       "gridPos": { "h": 9, "w": 12, "x": 0, "y": 19 },
       "fieldConfig": {
