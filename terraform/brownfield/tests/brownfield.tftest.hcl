@@ -37,6 +37,14 @@ override_data {
   target = data.aws_caller_identity.current
   values = {
     account_id = "111122223333"
+    arn        = "arn:aws:sts::111122223333:assumed-role/Admin/presenter"
+  }
+}
+
+override_data {
+  target = data.aws_iam_session_context.current
+  values = {
+    issuer_arn = "arn:aws:iam::111122223333:role/Admin"
   }
 }
 

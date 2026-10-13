@@ -5,7 +5,7 @@ What a team built with Terraform before the OPN315 talk, in `us-west-2`:
 | Piece | Name | File |
 |---|---|---|
 | VPC, 3 AZs, private + public subnets, one NAT gateway | `encabulator-usw2` | `network.tf` |
-| Hub EKS Auto Mode cluster, creator as cluster admin | `encabulator-usw2` | `eks.tf` |
+| Hub EKS Auto Mode cluster, the applying principal as cluster admin (explicit access entry) | `encabulator-usw2` | `eks.tf` |
 | Tagged Auto Mode NodeClass + NodePool (built-in pools off) | `encabulator` | `nodes.tf`, `charts/auto-mode-nodes/` |
 | RDS for PostgreSQL 18, DB subnet group | `encabulator-pg`, `encabulator` | `stores.tf` |
 | ElastiCache serverless Valkey 8 | `encabulator-valkey` | `stores.tf` |
@@ -13,12 +13,18 @@ What a team built with Terraform before the OPN315 talk, in `us-west-2`:
 | EKS capabilities Argo CD, ACK, kro + capability roles | `argocd`, `ack`, `kro`; roles `encabulator-usw2-argocd/-ack/-kro` | `capabilities.tf` |
 | Namespace, ConfigMap, Secrets the Helm chart reads | `encabulator`, `encabulator-aws`, `encabulator-db`, `encabulator-valkey` | `kubernetes.tf` |
 | Job that creates the 3 logical databases + roles | `encabulator-db-init` | `kubernetes.tf`, `sql/init-databases.sql` |
+| Tagger CronJob: tags what AWS creates implicitly, hub and cells | `encabulator-tagger`, role `encabulator-usw2-tagger` | `tagger.tf`, `tagger/sweep.py` |
 | The Act 1 hand-off, shipped disabled | `removed {}` blocks | `handoff.tf.example` |
 
-Every AWS resource carries `auto-delete=no`, `project=encabulator`, `talk=opn315`: provider
-`default_tags` for what Terraform creates, an `aws_ec2_tag` for the EKS-created cluster security
-group, the NodeClass `tags` for Auto Mode instances, root volumes and ENIs, and the StorageClass
-`tagSpecification_N` in `charts/encabulator/values-brownfield.yaml` for PVC volumes.
+Every AWS resource carries `auto-delete=no`, `project=encabulator`, `talk=opn315` (lead decision
+D10): provider `default_tags` for what Terraform creates (including the VPC's main route table,
+default security group and default network ACL, which the VPC module adopts, and every EKS access
+entry, which Terraform creates instead of EKS), an `aws_ec2_tag` for the EKS-created cluster
+security group, the NodeClass `tags` for Auto Mode instances, root volumes and ENIs, the
+StorageClass `tagSpecification_N` in `charts/encabulator/values-brownfield.yaml` for PVC volumes,
+`copy_tags_to_snapshot` for RDS backups, and the tagger CronJob for what AWS creates without a tag
+request (requester-managed network interfaces, ElastiCache snapshots, Auto Mode instance profiles,
+and the same defaults in every cell). `docs/TAGGING.md` has the full list.
 
 ## Prerequisites
 
@@ -145,10 +151,13 @@ spec:
     cpu: "64"
 ```
 
-**Capabilities.** Each capability role trusts `capabilities.eks.amazonaws.com`. EKS creates the
-Argo CD and ACK access entries itself. The kro access entry is created by Terraform before the
-capability so it carries the Kubernetes group `encabulator:kro`, which `gitops/hub/rbac` and
-`gitops/app/rbac` bind (RBAC never names a role ARN). Extra hub permissions:
+**Capabilities.** Each capability role trusts `capabilities.eks.amazonaws.com`. Terraform creates
+all three capability access entries before the capabilities, so they carry the contract tags (an
+entry EKS creates carries none); EKS adds each capability's default access policies to its entry.
+The kro entry also carries the Kubernetes group `encabulator:kro`, which `gitops/hub/rbac` and
+`gitops/app/rbac` bind (RBAC never names a role ARN). The principal running `terraform apply` gets
+its own explicit cluster-admin entry (`bootstrap_cluster_creator_admin_permissions = false`; the
+EKS-created creator entry would be untagged). Extra hub permissions:
 
 | Capability | Kubernetes permissions added here | AWS permissions |
 |---|---|---|
@@ -162,6 +171,17 @@ for VPCs, subnets, security groups, route tables, internet and NAT gateways and 
 IAM role management and `iam:PassRole` (to EKS, EKS capabilities, EC2) on `encabulator-use2-*` only;
 service-linked roles for EKS, RDS and ElastiCache. The hub cluster and the hub's own roles
 (`encabulator-usw2-*`) are outside it, so ACK cannot change the hub or widen its own permissions.
+
+**The tagger.** A CronJob in namespace `encabulator-tagger`, every 10 minutes, running
+`tagger/sweep.py` (Python + boto3 in the AWS Lambda Python base image, pinned by digest) as IAM role
+`encabulator-usw2-tagger` through EKS Pod Identity. In every VPC tagged `project=encabulator` and
+`talk=opn315` in `var.ack_regions` (the hub's and every cell's) it adds the three contract tags to
+route tables, network ACLs, security groups and network interfaces that lack one, then to the
+`encabulator-valkey` snapshots and to the instance profiles of the hub's and the cells' node roles.
+The role can read those and write tags only when the request is exactly the three contract tags.
+A CronJob rather than a one-time pass because requester-managed interfaces (RDS, ElastiCache, NAT
+gateways, the EKS control plane) appear whenever those services create or replace them, and cells
+come later. `kubectl -n encabulator-tagger logs job/<latest>` shows what it tagged.
 
 ## Demo-only choices
 
@@ -185,6 +205,7 @@ service-linked roles for EKS, RDS and ElastiCache. The hub cluster and the hub's
 | RDS for PostgreSQL | major 18 (`postgres_engine_version`; 19 is beta only) |
 | ElastiCache Valkey | major 8 (`valkey_major_engine_version`, contract D2) |
 | Job image | `postgres:18.6-alpine3.24@sha256:77f585114c32fbca283dc835b0596f4e52b51b4c6662d7810b2f4084f60a1873` |
+| Tagger image | `public.ecr.aws/lambda/python:3.13@sha256:40dcef2531da40c0fae6d11ee28e12313af9723fc1f0f31c1728c22e5112ec3c` (Python 3.13.16, boto3 1.42.97) |
 
 Provider hashes are in `.terraform.lock.hcl` (committed).
 
@@ -194,7 +215,9 @@ Provider hashes are in `.terraform.lock.hcl` (committed).
 terraform fmt -check -recursive
 terraform init -backend=false && terraform validate
 terraform test     # plan with fake AWS credentials and mocked Kubernetes/Helm; asserts names,
-                   # tags, store values, hand-off keys and the ACK policy scope
+                   # tags, store values, hand-off keys and the ACK policy scope (brownfield.tftest.hcl)
+                   # and auto-delete=no, the access entries and the tagger's limits (tags.tftest.hcl)
+python3 tagger/test_sweep.py   # the tagger against a fake boto3
 ```
 
 ## Teardown

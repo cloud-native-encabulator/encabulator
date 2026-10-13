@@ -172,9 +172,11 @@ resource "aws_eks_cluster" "hub" {
 
   access_config {
     authentication_mode = "API"
-    # The principal running `terraform apply` gets an access entry with
-    # AmazonEKSClusterAdminPolicy. The Kubernetes and Helm providers rely on it.
-    bootstrap_cluster_creator_admin_permissions = true
+    # No EKS-created creator entry: it would carry no tags. The principal running
+    # `terraform apply` gets an explicit, tagged access entry with
+    # AmazonEKSClusterAdminPolicy instead (aws_eks_access_entry.admin below), which the
+    # Kubernetes and Helm providers rely on.
+    bootstrap_cluster_creator_admin_permissions = false
   }
 
   # Auto Mode on, built-in node pools off: the built-in pools use the managed "default"
@@ -211,6 +213,31 @@ resource "aws_eks_cluster" "hub" {
     aws_iam_role_policy_attachment.cluster,
     aws_iam_role_policy.cluster_custom_tags,
   ]
+}
+
+# ------------------------------------------------------------------- cluster admin
+# The principal running `terraform apply` (the IAM role behind an assumed-role session).
+# Created here rather than by bootstrap_cluster_creator_admin_permissions so that it carries
+# the contract tags; the same pattern terraform-aws-modules/eks uses.
+
+data "aws_iam_session_context" "current" {
+  arn = data.aws_caller_identity.current.arn
+}
+
+resource "aws_eks_access_entry" "admin" {
+  cluster_name  = aws_eks_cluster.hub.name
+  principal_arn = data.aws_iam_session_context.current.issuer_arn
+  type          = "STANDARD"
+}
+
+resource "aws_eks_access_policy_association" "admin" {
+  cluster_name  = aws_eks_cluster.hub.name
+  principal_arn = aws_eks_access_entry.admin.principal_arn
+  policy_arn    = "arn:${data.aws_partition.current.partition}:eks::aws:cluster-access-policy/AmazonEKSClusterAdminPolicy"
+
+  access_scope {
+    type = "cluster"
+  }
 }
 
 # A custom NodeClass needs an EC2 access entry for its node role (EKS only creates one for

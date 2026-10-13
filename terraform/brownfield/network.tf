@@ -19,6 +19,15 @@ module "vpc" {
   enable_dns_hostnames = true
   enable_dns_support   = true
 
+  # EC2 creates a main route table, a default security group and a default network ACL with
+  # every VPC, without a tag request. These three settings (the module's defaults, written out
+  # so a module upgrade cannot drop them) adopt them as aws_default_* resources, so
+  # default_tags puts auto-delete=no on them too. The default security group keeps no rules;
+  # nothing in the stack uses it.
+  manage_default_route_table    = true
+  manage_default_security_group = true
+  manage_default_network_acl    = true
+
   # Load balancer subnet discovery for EKS Auto Mode.
   public_subnet_tags = {
     "kubernetes.io/role/elb" = "1"
