@@ -271,67 +271,79 @@ aside.notes{display:none}
   </g>
  </svg>
  <aside class="notes">
-  <p>⏱ 8:00-10:00. From the oven: Terraform applied yesterday. It built the VPC, the EKS cluster, an RDS PostgreSQL instance (three logical databases) and an ElastiCache serverless Valkey cache. It also wrote the endpoints and passwords into the cluster as a ConfigMap and Secret. The app is the Helm chart pointed at those external stores.</p>
+  <p>⏱ 8:00-10:00. From the oven: Terraform applied yesterday (<code>terraform/brownfield</code>, about 25 minutes, RDS is the long pole). It built the VPC, the EKS Auto Mode cluster, an RDS for PostgreSQL 18 instance, an ElastiCache Serverless Valkey 8 cache, the <code>encabulator-db</code> security group and the three EKS capabilities. A one-time Job created the three logical databases and their roles. Terraform also wrote the endpoints and passwords into the cluster as the ConfigMap <code>encabulator-aws</code> and the Secret <code>encabulator-db</code>. The app is the Helm chart pointed at those external stores (<code>deploy-app.sh</code>).</p>
   <p>NATS and InfluxDB stay in-cluster for this talk.</p>
  </aside>
 </section>
 
 <section class="slide" data-act="1 · Adopt" data-mode="baked" data-title="Terraform hands off through a ConfigMap">
  <h2>Terraform hands off through a ConfigMap</h2>
- <div class="cols c64">
-  <pre class="code xs" data-lang="hcl" data-file="terraform/brownfield/main.tf" data-steps="2:8-17" data-hl="14-15">
-resource "aws_db_instance" "encabulator" {
-  identifier     = "encabulator-pg"
+ <div class="cols" style="grid-template-columns:minmax(0,1.4fr) minmax(0,.6fr)">
+  <div style="display:flex;flex-direction:column;gap:20px">
+   <pre class="code xs" data-lang="hcl" data-file="terraform/brownfield/stores.tf">
+resource "aws_db_instance" "pg" {
+  identifier     = local.db_identifier
   engine         = "postgres"
-  instance_class = var.db_instance_class
-  # subnet group, security group, storage ...
+  # ...
 }
-
-resource "kubernetes_config_map_v1" "stores" {
-  metadata {
-    name      = "encabulator-aws"
-    namespace = "encabulator"
-  }
+   </pre>
+   <pre class="code xs" data-lang="hcl" data-file="terraform/brownfield/kubernetes.tf" data-step="2" data-hl="1,4,10-13">
+data "aws_db_instance" "pg" {
+  db_instance_identifier = local.postgres_lookup_identifier
+}
+data "aws_elasticache_serverless_cache" "valkey" {
+  name = local.valkey_lookup_name
+}
+resource "kubernetes_config_map_v1" "aws" {
+  # ...
   data = {
-    POSTGRES_HOST = aws_db_instance.encabulator.address
-    VALKEY_HOST   = aws_elasticache_serverless_cache.cache.endpoint[0].address
+    POSTGRES_HOST = data.aws_db_instance.pg.address
+    POSTGRES_PORT = tostring(data.aws_db_instance.pg.port)
+    VALKEY_HOST   = data.aws_elasticache_serverless_cache.valkey.endpoint.address
+    VALKEY_PORT   = tostring(data.aws_elasticache_serverless_cache.valkey.endpoint.port)
   }
 }
-  </pre>
+   </pre>
+  </div>
   <div style="display:flex;flex-direction:column;gap:30px;padding-top:20px">
-   <div class="card" data-step="1"><div style="font-size:24px;color:var(--muted)">AWS side</div><div style="font-size:34px;font-weight:700;margin-top:6px">RDS · ElastiCache · VPC · EKS</div></div>
-   <div class="card" data-step="2" style="border-color:var(--tf)"><div style="font-size:24px;color:var(--muted)">Kubernetes side</div><div style="font-size:34px;font-weight:700;margin-top:6px">ConfigMap + Secret</div></div>
-   <div class="tip" data-step="3">The app only reads the ConfigMap and the Secret. It never calls Terraform.</div>
+   <div class="card" data-step="1"><div style="font-size:24px;color:var(--muted)">AWS side · <span class="mono">stores.tf</span></div><div style="font-size:34px;font-weight:700;margin-top:6px">RDS · ElastiCache</div></div>
+   <div class="card" data-step="2" style="border-color:var(--tf)"><div style="font-size:24px;color:var(--muted)">Kubernetes side · <span class="mono">kubernetes.tf</span></div><div style="font-size:34px;font-weight:700;margin-top:6px">ConfigMap + Secret</div></div>
+   <div class="tip" data-step="3">Looked up by name: the ConfigMap stays the same when Terraform lets go of the stores.</div>
   </div>
  </div>
  <aside class="notes">
-  <p>⏱ 10:00-11:00. Point at the two highlighted lines: they are the coupling. When Terraform is the only owner, every endpoint change is a Terraform run followed by a Helm run.</p>
+  <p>⏱ 10:00-11:00. Build 1: the stores are ordinary Terraform resources in <code>stores.tf</code>. Build 2: the ConfigMap <code>encabulator-aws</code> is not built from those resources. It is built from data sources that look the stores up by name. Point at the highlighted lines: that is the coupling, and the reason the hand-off later in this act changes nothing for the app. Build 3: when ACK takes the stores over, Terraform keeps writing the same four keys. The Secret <code>encabulator-db</code> holds the master and per-database passwords the chart reads.</p>
  </aside>
 </section>
 
 <section class="slide" data-act="1 · Adopt" data-mode="baked" data-title="EKS Capabilities">
  <h2>EKS Capabilities: <span class="accent">Argo CD · ACK · kro</span></h2>
- <svg class="dia" viewBox="0 0 1700 560" style="width:1560px;margin:0 auto">
-  <rect fill="none" stroke="#8a96b3" stroke-width="2" stroke-dasharray="12 10" x="60" y="10" width="1580" height="230" rx="24"/>
+ <svg class="dia" viewBox="0 0 1700 560" style="width:1300px;margin:0 auto">
+  <rect fill="none" stroke="#8a96b3" stroke-width="2" stroke-dasharray="12 10" x="60" y="10" width="1580" height="240" rx="24"/>
   <text class="sm" x="90" y="46">Managed by AWS · runs outside your worker nodes</text>
   <rect class="box k8s" x="60" y="330" width="1580" height="220" rx="24"/>
-  <text class="lbl-s" x="90" y="370">Your EKS cluster</text>
+  <text class="lbl-s" x="90" y="370">Your EKS cluster · encabulator-usw2</text>
   <rect class="box k8s" x="700" y="345" width="300" height="70" rx="14"/><text class="lbl-s" x="850" y="389" text-anchor="middle">Kubernetes API</text>
   <rect class="box" x="200" y="440" width="380" height="90" rx="14"/><rect class="box" x="660" y="440" width="380" height="90" rx="14"/><rect class="box" x="1120" y="440" width="380" height="90" rx="14"/>
   <text class="sm" x="850" y="494" text-anchor="middle">nodes · your workloads only</text>
-  <g data-step="1"><rect class="box argo" x="120" y="70" width="420" height="140" rx="18"/><text class="lbl" x="330" y="132" text-anchor="middle">Argo CD</text><text class="sm" x="330" y="172" text-anchor="middle">GitOps · many clusters</text><path class="ar argo flow" d="M330 210 C 330 280, 640 300, 720 342"/></g>
-  <g data-step="2"><rect class="box aws" x="640" y="70" width="420" height="140" rx="18"/><text class="lbl" x="850" y="132" text-anchor="middle">ACK</text><text class="sm" x="850" y="172" text-anchor="middle">AWS resources as CRDs</text><path class="ar aws flow" d="M850 210 V340"/></g>
-  <g data-step="3"><rect class="box kro" x="1160" y="70" width="420" height="140" rx="18"/><text class="lbl" x="1370" y="132" text-anchor="middle">kro</text><text class="sm" x="1370" y="172" text-anchor="middle">compose your own APIs</text><path class="ar kro flow" d="M1370 210 C 1370 280, 1060 300, 980 342"/></g>
+  <g data-step="1"><rect class="box argo" x="120" y="62" width="420" height="170" rx="18"/><text class="lbl" x="330" y="116" text-anchor="middle">Argo CD</text><text class="sm" x="330" y="152" text-anchor="middle">GitOps · many clusters</text><text class="tmono" x="330" y="200" text-anchor="middle" style="font-size:20px;fill:#ffd389">encabulator-usw2-argocd</text><path class="ar argo flow" d="M330 232 C 330 290, 640 300, 720 342"/></g>
+  <g data-step="2"><rect class="box aws" x="640" y="62" width="420" height="170" rx="18"/><text class="lbl" x="850" y="116" text-anchor="middle">ACK</text><text class="sm" x="850" y="152" text-anchor="middle">AWS resources as CRDs</text><text class="tmono" x="850" y="200" text-anchor="middle" style="font-size:20px;fill:#ffd389">encabulator-usw2-ack</text><path class="ar aws flow" d="M850 232 V340"/></g>
+  <g data-step="3"><rect class="box kro" x="1160" y="62" width="420" height="170" rx="18"/><text class="lbl" x="1370" y="116" text-anchor="middle">kro</text><text class="sm" x="1370" y="152" text-anchor="middle">compose your own APIs</text><text class="tmono" x="1370" y="200" text-anchor="middle" style="font-size:20px;fill:#ffd389">encabulator-usw2-kro</text><path class="ar kro flow" d="M1370 232 C 1370 290, 1060 300, 980 342"/></g>
  </svg>
- <pre class="code sm" data-lang="sh" data-step="4" style="margin-top:26px">
-aws eks create-capability --cluster-name encabulator-usw2 \
-  --capability-name kro --type KRO \
-  --role-arn arn:aws:iam::111122223333:role/KROCapabilityRole \
-  --delete-propagation-policy RETAIN
+ <pre class="code xs" data-lang="hcl" data-file="terraform/brownfield/capabilities.tf" data-step="4" data-hl="4-5" style="margin-top:22px">
+resource "aws_eks_capability" "kro" {
+  cluster_name              = aws_eks_cluster.hub.name
+  capability_name           = "kro"
+  type                      = "KRO"
+  role_arn                  = aws_iam_role.capability["kro"].arn
+  delete_propagation_policy = "RETAIN"
+  depends_on = [aws_eks_access_entry.kro]
+}
  </pre>
  <aside class="notes">
-  <p>⏱ 11:00-13:00. Each capability is an AWS-managed controller: it does not run on our nodes and we do not upgrade it. Each one uses an IAM capability role. ACK's role holds the AWS permissions (RDS, ElastiCache, EKS). Argo CD's role reaches Git and remote clusters. kro makes no AWS calls; it needs Kubernetes RBAC for whatever its RGDs create.</p>
-  <p>Live: <code>aws eks describe-capability --cluster-name encabulator-usw2 --capability-name kro --query capability.status</code> shows ACTIVE. We created all three yesterday.</p>
+  <p>⏱ 11:00-13:00. Each capability is an AWS-managed controller: it does not run on our nodes and we do not upgrade it. Each one assumes its own IAM capability role, named after the cluster: <code>encabulator-usw2-argocd</code>, <code>-ack</code> and <code>-kro</code>, all trusting <code>capabilities.eks.amazonaws.com</code>. ACK's role holds the AWS permissions: RDS and ElastiCache, plus the VPC, IAM and EKS calls it needs to build a new region in Act 3, limited to us-west-2 and us-east-2 and to the cell's own cluster and roles. Argo CD reads a public Git repo, so its role needs no AWS permissions. kro makes no AWS calls; it needs Kubernetes RBAC for whatever its RGDs create.</p>
+  <p>Build 4: Terraform creates all three in <code>capabilities.tf</code> (<code>aws_eks_capability</code>, AWS provider 6.68). kro's access entry is created first so it carries the Kubernetes group <code>encabulator:kro</code>, which our RBAC binds instead of a role ARN. EKS creates the Argo CD and ACK access entries itself.</p>
+  <p>Live: <code>aws eks describe-capability --cluster-name encabulator-usw2 --capability-name kro --query capability.status</code> shows ACTIVE.</p>
  </aside>
 </section>
 
@@ -340,8 +352,10 @@ aws eks create-capability --cluster-name encabulator-usw2 \
  <svg class="dia" viewBox="0 0 1700 700">
   <g data-step="3">
    <rect class="box" x="640" y="20" width="420" height="100" rx="18"/><text class="lbl-s" x="850" y="64" text-anchor="middle">Git</text><text class="tmono" x="850" y="98" text-anchor="middle" style="font-size:19px;fill:#8a96b3">gitops/hub/brownfield/</text>
-   <rect class="box argo" x="1320" y="20" width="340" height="100" rx="18"/><text class="lbl-s" x="1490" y="80" text-anchor="middle">Argo CD</text>
+   <rect class="box argo" x="1320" y="20" width="340" height="100" rx="18"/><text class="lbl-s" x="1490" y="64" text-anchor="middle">Argo CD</text><text class="sm" x="1490" y="98" text-anchor="middle">ApplicationSet</text>
    <path class="ar argo flow" d="M1060 70 H1314"/><path class="ar argo flow" d="M1490 120 V292"/>
+   <rect class="box argo dash" x="1080" y="160" width="320" height="90" rx="14"/><text class="lbl-s" x="1240" y="198" text-anchor="middle">cluster Secret</text><text class="sm" x="1240" y="230" text-anchor="middle">subnet + SG ids · not in Git</text>
+   <path class="ar argo" d="M1300 160 C 1300 140, 1330 130, 1356 126"/>
   </g>
   <rect class="box tf" x="40" y="300" width="320" height="150" rx="20"/><text class="lbl" x="200" y="368" text-anchor="middle">Terraform</text><text class="sm" x="200" y="406" text-anchor="middle">built it</text>
   <path stroke="#a77bff" stroke-width="6" fill="none" d="M360 375 H676" data-cls="2:faded"/>
@@ -354,18 +368,19 @@ aws eks create-capability --cluster-name encabulator-usw2 \
   <g data-step="1"><path class="ar ok" stroke-width="6" d="M1320 375 H1030"/><text class="lbl-s" x="1172" y="350" text-anchor="middle" style="fill:#3ddc97">adopt</text></g>
  </svg>
  <aside class="notes">
-  <p>⏱ 13:00-15:00. The database does not move and is not recreated. Build 1: ACK starts managing the existing instance through a DBInstance custom resource. Build 2: Terraform stops tracking it, with a <code>removed</code> block that drops it from state and does not destroy it. Build 3: the custom resource lives in Git, so Argo CD owns it from now on.</p>
+  <p>⏱ 13:00-15:00. The database does not move and is not recreated. Build 1: ACK starts managing the existing instance through a DBInstance custom resource. Build 2: Terraform stops tracking it, with a <code>removed</code> block that drops it from state and does not destroy it. Build 3: the custom resource lives in Git, so Argo CD owns it from now on. The Application <code>hub-brownfield</code> comes from a one-cluster ApplicationSet. The subnet and security group ids the adopted resources need travel on annotations of the hub's Argo CD cluster Secret (<code>encabulator.io/subnet-ids</code>, <code>encabulator.io/security-group-id</code>), and the ApplicationSet patches them in at sync time. Git only holds placeholders.</p>
  </aside>
 </section>
 
 <section class="slide" data-act="1 · Adopt" data-mode="live" data-title="Adopt: the manifest">
  <h2>Point ACK at what already exists</h2>
- <div class="cols c64">
-  <pre class="code" data-file="gitops/explore/postgres.yaml" data-hl="6-8">
+ <div class="cols">
+  <pre class="code" data-file="gitops/explore/postgres.yaml" data-hl="7-9">
 apiVersion: rds.services.k8s.aws/v1alpha1
 kind: DBInstance
 metadata:
   name: encabulator-pg
+  namespace: encabulator
   annotations:
     services.k8s.aws/adoption-policy: adopt
     services.k8s.aws/adoption-fields: |
@@ -375,12 +390,12 @@ metadata:
   </pre>
   <div style="display:flex;flex-direction:column;gap:28px">
    <pre class="code term sm" data-lang="sh" data-step="1" data-out="3-4">
-kubectl apply -f explore/postgres.yaml
+kubectl apply -f gitops/explore/postgres.yaml
 kubectl get dbinstance encabulator-pg
-NAME             READY
-encabulator-pg   True
+NAME             STATUS
+encabulator-pg   available
    </pre>
-   <pre class="code sm" data-step="2" data-file="status → spec, filled in by ACK">
+   <pre class="code sm" data-step="2" data-file="spec, read back from AWS by ACK">
 spec:
   engine: postgres
   dbInstanceClass: db.t4g.medium
@@ -392,8 +407,8 @@ spec:
   </div>
  </div>
  <aside class="notes">
-  <p>⏱ 15:00-19:00. LIVE. Type or paste the manifest. The two highlighted annotations do the work: the adoption policy, and the field ACK uses to find the instance. No spec at all; with <code>adopt</code>, ACK fills it in from the real instance.</p>
-  <p>Build 1: apply and watch READY go True. Build 2: <code>kubectl get dbinstance encabulator-pg -o yaml | yq .spec</code>. That spec is now the source we commit to Git. Build 3: always add the retain annotation before you touch anything that holds data.</p>
+  <p>⏱ 15:00-19:00. LIVE. Type or paste the manifest. The highlighted annotations do the work: the adoption policy, and the field ACK uses to find the instance (<code>dbInstanceIdentifier</code> for RDS). No spec at all; with <code>adopt</code>, ACK fills it in from the real instance.</p>
+  <p>Build 1: apply and watch STATUS read <code>available</code> (the ACK.ResourceSynced condition goes True). Build 2: <code>kubectl get dbinstance encabulator-pg -o yaml | yq .spec</code>. The read-back also contains <code>kmsKeyID</code>, an ARN with the account id, and <code>availabilityZone</code>: scroll past them, never paste them into Git. The file we commit next keeps only the fields Git owns. Build 3: always add the retain annotation before you touch anything that holds data.</p>
  </aside>
 </section>
 
@@ -423,38 +438,44 @@ spec:
  <h2>One owner per resource</h2>
  <div class="cols">
   <div>
-   <pre class="code" data-lang="hcl" data-file="terraform/brownfield/handoff.tf" data-step="1">
-# Terraform 1.7+: forget it, don't destroy it
+   <pre class="code" data-lang="hcl" data-file="terraform/brownfield/handoff.tf.example" data-step="1" data-hl="5">
 removed {
-  from = aws_db_instance.encabulator
+  from = aws_db_instance.pg
+
   lifecycle {
     destroy = false
   }
 }
+# ... the same for the cache and the subnet group
    </pre>
-   <pre class="code term xs" data-lang="sh" data-step="1" data-out="2" style="margin-top:24px">
-terraform apply
-aws_db_instance.encabulator will no longer be managed by Terraform
+   <pre class="code term xs" data-lang="sh" data-step="1" data-out="4" style="margin-top:24px">
+git -C terraform/brownfield rm stores.tf
+git -C terraform/brownfield mv handoff.tf.example handoff.tf
+terraform -chdir=terraform/brownfield apply
+  # aws_db_instance.pg will no longer be managed by Terraform
    </pre>
   </div>
   <div>
-   <pre class="code sm" data-file="gitops/hub/brownfield/postgres.yaml" data-step="2" data-hl="5,9">
+   <pre class="code sm" data-file="gitops/hub/brownfield/postgres.yaml" data-step="2" data-hl="6,11">
 kind: DBInstance
 metadata:
   name: encabulator-pg
+  namespace: encabulator
   annotations:
     services.k8s.aws/adoption-policy: adopt-or-create
     services.k8s.aws/deletion-policy: retain
 spec:
   dbInstanceIdentifier: encabulator-pg
-  backupRetentionPeriod: 14   # was 7
-  # ... the rest of the spec ACK read back
+  # ...
+  backupRetentionPeriod: 7
+  # ...
    </pre>
-   <div class="tip" data-step="3" style="margin-top:24px">Change it in Git. Argo CD syncs the CR, ACK changes the database.</div>
+   <div class="tip" data-step="3" style="margin-top:24px">Set <b>backupRetentionPeriod: 14</b> in Git. Argo CD syncs the CR, ACK changes the database.</div>
   </div>
  </div>
  <aside class="notes">
-  <p>⏱ 20:00-24:00. LIVE. Build 1: the removed block is reviewable in a pull request, unlike <code>terraform state rm</code>. Apply shows the database leaving state with no destroy. Build 2: the adopted spec, committed under gitops/hub/brownfield, which a hub Argo CD Application already syncs. Build 3: bump backup retention in Git, push, show the RDS console moving to Modifying. That proves the new owner.</p>
+  <p>⏱ 20:00-24:00. LIVE. Build 1: the removed blocks ship disabled in <code>handoff.tf.example</code>, one per store. Deleting <code>stores.tf</code> and renaming the example is a change you review in a pull request, unlike <code>terraform state rm</code>. Apply shows the three stores leaving state with no destroy: the cache and the DB subnet group were adopted from the oven (next slide). A second <code>terraform plan</code> reports No changes, because the ConfigMap reads data sources and the VPC and security group are still Terraform's. Run the apply only after ACK reports the stores synced.</p>
+  <p>Build 2: the adopted spec, committed under <code>gitops/hub/brownfield</code>, which the <code>hub-brownfield</code> Application already syncs. It sets the same values Terraform used, so ACK finds nothing to change. Build 3: change backup retention from 7 to 14 in Git, push, refresh the Application, and show the RDS console moving to Modifying. That proves the new owner.</p>
  </aside>
 </section>
 
@@ -463,28 +484,39 @@ spec:
  <div class="cols c46">
   <div class="card" style="font-family:var(--mono);font-size:24px;line-height:1.75">
    <div style="color:var(--muted)">terraform/brownfield/</div>
-   <div>&nbsp;&nbsp;main.tf</div>
-   <div style="color:var(--brass)">&nbsp;&nbsp;handoff.tf ←</div>
+   <div>&nbsp;&nbsp;stores.tf <span style="color:var(--bad)">✕</span></div>
+   <div style="color:var(--brass)">&nbsp;&nbsp;handoff.tf.example ←</div>
    <div style="color:var(--muted);margin-top:14px">gitops/explore/ <span style="font-size:18px">(not synced)</span></div>
    <div style="color:var(--brass)">&nbsp;&nbsp;postgres.yaml ←</div>
    <div style="color:var(--muted);margin-top:14px">gitops/hub/brownfield/ <span style="font-size:18px">(Argo CD)</span></div>
+   <div style="color:var(--brass)">&nbsp;&nbsp;kustomization.yaml ←</div>
    <div style="color:var(--brass)">&nbsp;&nbsp;postgres.yaml ←</div>
-   <div>&nbsp;&nbsp;valkey.yaml</div>
    <div>&nbsp;&nbsp;subnet-group.yaml</div>
-   <div>&nbsp;&nbsp;security-group.yaml</div>
+   <div>&nbsp;&nbsp;valkey.yaml</div>
   </div>
-  <pre class="code term sm" data-lang="sh">
+  <div style="display:flex;flex-direction:column;gap:24px">
+   <pre class="code term sm" data-lang="sh">
 kubectl apply -f gitops/explore/postgres.yaml
 kubectl get dbinstance -w
 kubectl get dbinstance encabulator-pg -o yaml | yq .spec
 kubectl delete -f gitops/explore/postgres.yaml
-git add gitops/hub/brownfield/postgres.yaml
-git commit -m "Adopt encabulator-pg"; git push
+git add gitops/hub/brownfield/
+git -C terraform/brownfield rm stores.tf
+git -C terraform/brownfield mv handoff.tf.example handoff.tf
+git commit -s -m "Adopt encabulator-pg"; git push
 terraform -chdir=terraform/brownfield apply
-  </pre>
+   </pre>
+   <pre class="code sm" data-file="gitops/hub/brownfield/kustomization.yaml" data-hl="3">
+resources:
+  - subnet-group.yaml
+  - postgres.yaml
+  - valkey.yaml
+   </pre>
+  </div>
  </div>
  <aside class="notes">
-  <p>Show the full files. The explore manifest is deleted after reading the spec: retain keeps the database, and the committed postgres.yaml (synced by Argo CD) takes over the same instance. Open the RDS console beside the terminal so the audience sees the instance never changes state.</p>
+  <p>Show the full files. The explore manifest is deleted after reading the spec: retain keeps the database. Delete it before the committed copy syncs, because both are DBInstance <code>encabulator-pg</code> in namespace <code>encabulator</code>, the same Kubernetes object. The committed <code>postgres.yaml</code> then takes over the same instance with adopt-or-create.</p>
+  <p>The highlighted kustomization line is new in this commit: the revision Argo CD tracked for the bake lists only the subnet group and the cache, so ACK cannot adopt the database before we do it live. After the push, refresh <code>hub-brownfield</code> in the Argo CD UI (Git is polled every 3 minutes) and wait for the DBInstance to report synced before the Terraform apply. Open the RDS console beside the terminal so the audience sees the instance never changes state.</p>
  </aside>
 </section>
 
@@ -494,13 +526,13 @@ terraform -chdir=terraform/brownfield apply
   <div class="card" data-step="1" style="border-color:var(--bad)"><div class="pill">rds · DBInstance</div><div class="mono" style="font-size:30px;margin:18px 0 10px">encabulator-pg</div><div style="font-size:24px;color:#ff9aa4">● adopted live</div></div>
   <div class="card" data-step="2"><div class="pill">elasticache · ServerlessCache</div><div class="mono" style="font-size:30px;margin:18px 0 10px">encabulator-valkey</div><div style="font-size:24px;color:var(--ok)">✓ adopted</div></div>
   <div class="card" data-step="2"><div class="pill">rds · DBSubnetGroup</div><div class="mono" style="font-size:30px;margin:18px 0 10px">encabulator</div><div style="font-size:24px;color:var(--ok)">✓ adopted</div></div>
-  <div class="card" data-step="2"><div class="pill">ec2 · SecurityGroup</div><div class="mono" style="font-size:30px;margin:18px 0 10px">encabulator-db</div><div style="font-size:24px;color:var(--ok)">✓ adopted</div></div>
-  <div class="card" data-step="2"><div class="pill">elasticache · CacheSubnetGroup</div><div class="mono" style="font-size:30px;margin:18px 0 10px">encabulator</div><div style="font-size:24px;color:var(--ok)">✓ adopted</div></div>
+  <div class="card" data-step="3" style="border-color:var(--tf)"><div class="pill">ec2 · SecurityGroup</div><div class="mono" style="font-size:30px;margin:18px 0 10px">encabulator-db</div><div style="font-size:24px;color:#c9a8ff">stays with Terraform</div></div>
+  <div class="card" data-step="3" style="border-color:var(--tf)"><div class="pill">ec2 · VPC</div><div class="mono" style="font-size:30px;margin:18px 0 10px">encabulator-usw2</div><div style="font-size:24px;color:#c9a8ff">stays with Terraform</div></div>
   <div class="card" data-step="3" style="opacity:.8"><div class="pill">StatefulSet</div><div class="mono" style="font-size:30px;margin:18px 0 10px">nats · influxdb</div><div style="font-size:24px;color:var(--muted)">unchanged, in-cluster</div></div>
  </div>
- <div class="tip" data-step="4" style="margin-top:36px">AWS resources unchanged. Owner changed: Terraform → Git.</div>
+ <div class="tip" data-step="4" style="margin-top:36px">AWS resources unchanged. The stores moved from Terraform to Git.</div>
  <aside class="notes">
-  <p>⏱ 24:00-26:00. We ran the same three steps for every other Terraform-managed resource the app depends on: adopt, read back, commit, removed block. Terraform still owns the VPC and the hub cluster itself; that is fine. The point is one owner per resource.</p>
+  <p>⏱ 24:00-26:00. The serverless cache and the DB subnet group went through the same recipe before the talk: Argo CD synced <code>valkey.yaml</code> and <code>subnet-group.yaml</code> with adopt-or-create, and the Terraform apply we just ran dropped all three stores from state. The VPC and the <code>encabulator-db</code> security group stay with Terraform, and so does the hub cluster: the stores keep referring to the group by id. That is fine. The point is one owner per resource.</p>
   <p>Optional oven move here: commit <code>gitops/hub/cells/use2.yaml</code> now so the new region builds during Act 2.</p>
  </aside>
 </section>
@@ -526,16 +558,15 @@ terraform -chdir=terraform/brownfield apply
    <text class="sm" x="985" y="56">AWS · through ACK</text>
    <rect class="box aws" x="985" y="80" width="320" height="96" rx="14"/><text class="lbl-s" x="1145" y="138" text-anchor="middle">DBSubnetGroup</text>
    <rect class="box aws" x="1335" y="80" width="320" height="96" rx="14"/><text class="lbl-s" x="1495" y="138" text-anchor="middle">DBInstance</text>
-   <rect class="box aws" x="985" y="200" width="320" height="96" rx="14"/><text class="lbl-s" x="1145" y="258" text-anchor="middle">ServerlessCache</text>
-   <rect class="box aws" x="1335" y="200" width="320" height="96" rx="14"/><text class="lbl-s" x="1495" y="258" text-anchor="middle">… IAM, alarms</text>
+   <rect class="box aws" x="985" y="200" width="670" height="96" rx="14"/><text class="lbl-s" x="1320" y="258" text-anchor="middle">ServerlessCache</text>
   </g>
   <g data-step="4">
    <path class="ar k8s" d="M870 440 C 910 470, 920 520, 955 530"/>
    <rect fill="none" stroke="#5b8cff" stroke-width="2" stroke-dasharray="10 8" x="960" y="360" width="720" height="340" rx="22"/>
    <text class="sm" x="985" y="396">Kubernetes</text>
-   <rect class="box k8s" x="985" y="420" width="320" height="96" rx="14"/><text class="lbl-s" x="1145" y="478" text-anchor="middle">ConfigMap stores</text>
+   <rect class="box k8s" x="985" y="420" width="320" height="96" rx="14"/><text class="lbl-s" x="1145" y="462" text-anchor="middle">ConfigMap</text><text class="tmono" x="1145" y="494" text-anchor="middle" style="font-size:19px;fill:#8a96b3">encabulator-aws</text>
    <rect class="box k8s" x="1335" y="420" width="320" height="96" rx="14"/><text class="lbl-s" x="1495" y="478" text-anchor="middle">NATS · InfluxDB</text>
-   <rect class="box k8s" x="985" y="540" width="670" height="130" rx="14"/><text class="lbl-s" x="1320" y="598" text-anchor="middle">15 × EncabulatorService</text><text class="sm" x="1320" y="636" text-anchor="middle">ServiceAccount · Deployment · Service · HPA · PDB</text>
+   <rect class="box k8s" x="985" y="540" width="670" height="130" rx="14"/><text class="lbl-s" x="1320" y="598" text-anchor="middle">15 × EncabulatorService</text><text class="sm" x="1320" y="636" text-anchor="middle">ServiceAccount · Deployment · Service (+ HPA · PDB · Role)</text>
   </g>
   <g data-step="5">
    <rect x="80" y="590" width="330" height="80" rx="12" fill="#2e2410" stroke="#ffb547" stroke-width="3"/>
@@ -543,18 +574,19 @@ terraform -chdir=terraform/brownfield apply
   </g>
  </svg>
  <aside class="notes">
-  <p>⏱ 26:00-28:00. The idea of the act. A platform team publishes one API, Encabulator. A developer (or Argo CD) creates one object. kro expands it into everything: the AWS resources through ACK, and the Kubernetes objects. The service itself is a second, smaller API (EncabulatorService); RGDs chain.</p>
+  <p>⏱ 26:00-28:00. The idea of the act. A platform team publishes one API, Encabulator. A developer (or Argo CD) creates one object. kro expands it into everything: the three AWS resources through ACK (DBSubnetGroup, DBInstance, ServerlessCache), and the Kubernetes objects: the <code>encabulator-aws</code> ConfigMap, NATS and InfluxDB StatefulSets and fifteen services. It also creates a StorageClass and two one-time Jobs: one generates the passwords and keys, one creates the three databases on RDS. The service itself is a second, smaller API (EncabulatorService); RGDs chain. Each service gets a ServiceAccount, a Deployment and a Service, plus an HPA, a PodDisruptionBudget or a Role where the chart gave it one.</p>
  </aside>
 </section>
 
 <section class="slide" data-act="2 · Package" data-mode="live" data-title="The schema is the API">
  <h2>The schema is the API</h2>
  <div class="cols c64">
-  <pre class="code sm" data-file="gitops/app/rgds/encabulator.yaml" data-hl="8,10-14" data-steps="2:16-18">
+  <pre class="code sm" data-file="gitops/app/rgds/encabulator.yaml" data-hl="9,11-15" data-steps="2:16-18">
 apiVersion: kro.run/v1alpha1
 kind: ResourceGraphDefinition
 metadata:
   name: encabulator
+  # ...
 spec:
   schema:
     apiVersion: v1alpha1
@@ -571,7 +603,7 @@ spec:
   </pre>
   <div style="display:flex;flex-direction:column;gap:28px">
    <pre class="code term xs" data-lang="sh" data-step="1" data-out="3-8">
-kubectl apply -f rgds/encabulator.yaml
+kubectl apply -f gitops/app/rgds/
 kubectl explain encabulator.spec
 FIELDS:
   dbInstanceClass   &lt;string&gt;
@@ -585,30 +617,38 @@ FIELDS:
   </div>
  </div>
  <aside class="notes">
-  <p>⏱ 28:00-31:00. LIVE in the terminal. SimpleSchema: a type, then markers like default and required. Apply the RGD and kro generates the encabulators CRD; kubectl explain proves it is a real API. Build 2: the status block uses CEL references into resources we have not written yet; kro checks them against the real ACK schemas when you apply.</p>
+  <p>⏱ 28:00-31:00. LIVE in the terminal. SimpleSchema: a type, then markers like default and required. Apply both RGDs (the Encabulator RGD stamps out EncabulatorService objects, so kro needs that API too) and kro generates the encabulators CRD; kubectl explain proves it is a real API. Build 2: the status block uses CEL references into resources we have not written yet; kro checks them against the real ACK schemas when you apply.</p>
  </aside>
 </section>
 
 <section class="slide" data-act="2 · Package" data-mode="live" data-title="AWS dependencies are just resources">
  <h2>AWS dependencies are just resources</h2>
  <div class="cols c64">
-  <pre class="code sm" data-file="gitops/app/rgds/encabulator.yaml" data-hl="8-9,14-16">
+  <pre class="code xs" data-file="gitops/app/rgds/encabulator.yaml" data-hl="7-9,17,21-23">
+- id: dbSubnets
+  template:
+    apiVersion: rds.services.k8s.aws/v1alpha1
+    kind: DBSubnetGroup
+    metadata:
+      name: ${schema.metadata.name}
+      annotations: &amp;ackAnnotations
+        services.k8s.aws/adoption-policy: adopt-or-create
+        services.k8s.aws/deletion-policy: retain
+    # ...
 - id: db
   template:
     apiVersion: rds.services.k8s.aws/v1alpha1
     kind: DBInstance
     metadata:
       name: ${schema.metadata.name}-pg
-      annotations:
-        services.k8s.aws/adoption-policy: adopt-or-create
-        services.k8s.aws/deletion-policy: retain
+      annotations: *ackAnnotations
     spec:
       dbInstanceIdentifier: ${schema.metadata.name}-pg
-      engine: postgres
-      dbInstanceClass: ${schema.spec.dbInstanceClass}
+      # ...
       dbSubnetGroupName: ${dbSubnets.spec.name}
       vpcSecurityGroupIDs:
         - ${schema.spec.securityGroupID}
+      # ...
   </pre>
   <div>
    <svg class="dia" viewBox="0 0 620 600">
@@ -616,28 +656,32 @@ FIELDS:
     <g data-step="2"><path class="ar kro" d="M310 90 V136"/><rect class="box aws" x="150" y="140" width="320" height="80" rx="14"/><text class="lbl-s" x="310" y="190" text-anchor="middle">DBSubnetGroup</text></g>
     <g data-step="3"><path class="ar aws" d="M310 220 V266"/><text class="tmono" x="330" y="252" style="font-size:17px;fill:#ffd389">${dbSubnets.spec.name}</text><rect class="box aws" x="150" y="270" width="320" height="80" rx="14"/><text class="lbl-s" x="310" y="320" text-anchor="middle">DBInstance</text></g>
     <g data-step="4"><path class="ar k8s" d="M310 350 V396"/><text class="tmono" x="330" y="382" style="font-size:17px;fill:#ffd389">${db.status.endpoint…}</text><rect class="box k8s" x="150" y="400" width="320" height="80" rx="14"/><text class="lbl-s" x="310" y="450" text-anchor="middle">ConfigMap stores</text></g>
-    <g data-step="5"><text x="310" y="550" text-anchor="middle" style="font-size:26px;fill:#ffe2a8">A reference is a dependency.</text><text x="310" y="586" text-anchor="middle" style="font-size:22px;fill:#8a96b3">kro waits for READY before reading status.</text></g>
+    <g data-step="5"><text x="310" y="550" text-anchor="middle" style="font-size:26px;fill:#ffe2a8">A reference is a dependency.</text><text x="310" y="586" text-anchor="middle" style="font-size:22px;fill:#8a96b3">kro creates it after what it reads.</text></g>
    </svg>
   </div>
  </div>
  <aside class="notes">
-  <p>⏱ 31:00-34:00. The same adopt-or-create and retain annotations from Act 1, now inside the template. In a region where encabulator-pg already exists, ACK adopts it; in a new region it creates it. Each <code>${...}</code> that points at another resource is an edge in the graph: the DBInstance waits for the subnet group, and the ConfigMap waits until the database reports an endpoint.</p>
-  <p>The ConfigMap that Terraform used to write is now produced by kro from the ACK status, under the same name, so the services do not change.</p>
+  <p>⏱ 31:00-34:00. The same adopt-or-create and retain annotations from Act 1, now inside the template. They are written once on the subnet group as the YAML anchor <code>&amp;ackAnnotations</code>; the database and the cache reuse them with <code>*ackAnnotations</code>. In a region where encabulator-pg already exists, ACK adopts it; in a new region it creates it. Each <code>${...}</code> that points at another resource is an edge in the graph: the DBInstance waits for the subnet group, and the ConfigMap waits until the database reports an endpoint.</p>
+  <p>The elided lines hold the same storage, engine and backup values as Act 1, the master password (read from a Secret a one-time Job generates, so the database also waits for it) and <code>readyWhen: dbInstanceStatus == available</code>. The ConfigMap that Terraform used to write is now produced by kro from the ACK status, under the same name, so the services do not change.</p>
  </aside>
 </section>
 
 <section class="slide" data-act="2 · Package" data-mode="live" data-title="15 services, one definition">
  <h2>15 services, one definition</h2>
  <div class="cols c64">
-  <pre class="code sm" data-file="gitops/app/rgds/encabulator.yaml" data-hl="10-11,19" data-steps="1:1-8;2:9-19">
+  <pre class="code xs" data-file="gitops/app/rgds/encabulator.yaml" data-hl="14-15,23" data-steps="1:1-12;2:13-23">
 - id: stores
   template:
     apiVersion: v1
     kind: ConfigMap
-    metadata: {name: encabulator-aws}
+    metadata:
+      name: encabulator-aws
+      # ...
     data:
       POSTGRES_HOST: ${db.status.endpoint.address}
+      POSTGRES_PORT: ${string(db.status.endpoint.port)}
       VALKEY_HOST: ${cache.status.endpoint.address}
+      VALKEY_PORT: ${string(cache.status.endpoint.port)}
 - id: services
   forEach:
     - svc: ${schema.spec.services}
@@ -660,35 +704,47 @@ FIELDS:
    </div>
    <div class="card" style="margin-top:26px;border-color:var(--kro)">
     <div class="mono" style="color:var(--kro);font-size:24px">EncabulatorService</div>
-    <div style="font-size:24px;margin-top:10px;line-height:1.5">ServiceAccount · Deployment<br>Service · HPA · PDB</div>
+    <div style="font-size:24px;margin-top:10px;line-height:1.5">ServiceAccount · Deployment · Service</div>
+    <div style="font-size:21px;margin-top:4px;color:var(--muted)">+ HPA · PDB · Role where the service needs one</div>
    </div>
    <div class="tip" style="margin-top:26px">Add a name to the list → a new service. No chart.</div>
   </div>
  </div>
  <aside class="notes">
-  <p>⏱ 34:00-37:00. Build 1: the stores ConfigMap, built from ACK status. Build 2: forEach turns one template into fifteen EncabulatorService instances, one per name. Each one depends on the ConfigMap, so no service starts before the database endpoint exists. Build 3: what one EncabulatorService expands to. Per-service settings (replicas, which stores) live in that second RGD; the full version is in the IDE.</p>
+  <p>⏱ 34:00-37:00. Build 1: the stores ConfigMap, built from ACK status: the same <code>encabulator-aws</code> name and four keys Terraform writes on the hub. It also waits for the one-time Job that creates the three databases, so it is published only once they exist. Build 2: forEach turns one template into fifteen EncabulatorService instances, one per name in <code>spec.services</code>. Each one reads the ConfigMap, so no service starts before the endpoints are real. Build 3: what one EncabulatorService expands to: a ServiceAccount, a Deployment and a Service for every service; an HPA for the processor and the quoter, a PodDisruptionBudget for the eleven that run more than one replica, and a Role for the console and the malaise engine. Per-service settings (plane, replicas, resources, which stores, which services it calls) are lookup tables in <code>encabulator-service.yaml</code>, keyed by name and copied from the chart's values. A name with no entry gets the chart's defaults.</p>
  </aside>
 </section>
 
 <section class="slide" data-act="2 · Package" data-mode="none" data-title="kro orders the graph">
  <h2>kro orders the graph</h2>
  <svg class="dia" viewBox="0 0 1700 700">
-  <g class="sm" style="font-size:22px"><text x="230" y="44" text-anchor="middle">first · in parallel</text><text x="640" y="44" text-anchor="middle">waits on subnets</text><text x="1050" y="44" text-anchor="middle">waits on endpoints</text><text x="1460" y="44" text-anchor="middle">waits on ConfigMap</text></g>
-  <g class="dim" data-cls="1:lit"><rect class="box aws" x="60" y="80" width="340" height="86" rx="14"/><text class="lbl-s" x="230" y="132" text-anchor="middle">DBSubnetGroup</text></g>
-  <g class="dim" data-cls="1:lit"><rect class="box aws" x="60" y="230" width="340" height="86" rx="14"/><text class="lbl-s" x="230" y="282" text-anchor="middle">ServerlessCache</text></g>
-  <g class="dim" data-cls="1:lit"><rect class="box k8s" x="60" y="380" width="340" height="86" rx="14"/><text class="lbl-s" x="230" y="432" text-anchor="middle">NATS</text></g>
-  <g class="dim" data-cls="1:lit"><rect class="box k8s" x="60" y="530" width="340" height="86" rx="14"/><text class="lbl-s" x="230" y="582" text-anchor="middle">InfluxDB</text></g>
-  <g class="dim" data-cls="2:lit"><path class="ar aws" d="M400 123 H464"/><rect class="box aws" x="470" y="80" width="340" height="86" rx="14"/><text class="lbl-s" x="640" y="132" text-anchor="middle">DBInstance</text></g>
-  <g class="dim" data-cls="3:lit"><path class="ar k8s" d="M810 123 C 845 123, 850 273, 874 273"/><path class="ar k8s" d="M400 273 H874"/><rect class="box k8s" x="880" y="230" width="340" height="86" rx="14"/><text class="lbl-s" x="1050" y="282" text-anchor="middle">ConfigMap stores</text></g>
-  <g class="dim" data-cls="4:lit">
-   <path class="ar kro" d="M1220 273 C 1255 273, 1260 423, 1284 423"/><path class="ar kro" d="M400 423 H1284"/><path class="ar kro" d="M400 573 C 900 573, 1200 450, 1284 440"/>
-   <rect class="box kro" x="1310" y="350" width="340" height="86" rx="14"/><rect class="box kro" x="1300" y="365" width="340" height="86" rx="14"/><rect class="box kro" x="1290" y="380" width="340" height="86" rx="14"/>
-   <text class="lbl-s" x="1460" y="432" text-anchor="middle">15 × EncabulatorService</text>
+  <g class="sm" style="font-size:22px"><text x="165" y="44" text-anchor="middle">first · in parallel</text><text x="505" y="44" text-anchor="middle">waits on its inputs</text><text x="845" y="44" text-anchor="middle">waits for available</text><text x="1185" y="44" text-anchor="middle">waits on endpoints</text><text x="1525" y="44" text-anchor="middle">waits on ConfigMap</text></g>
+  <g class="dim" data-cls="1:lit"><rect class="box aws" x="20" y="80" width="290" height="86" rx="14"/><text class="lbl-s" x="165" y="132" text-anchor="middle">DBSubnetGroup</text></g>
+  <g class="dim" data-cls="1:lit"><rect class="box k8s" x="20" y="220" width="290" height="86" rx="14"/><text class="lbl-s" x="165" y="272" text-anchor="middle">secret-init Job</text></g>
+  <g class="dim" data-cls="1:lit"><rect class="box aws" x="20" y="360" width="290" height="86" rx="14"/><text class="lbl-s" x="165" y="412" text-anchor="middle">ServerlessCache</text></g>
+  <g class="dim" data-cls="1:lit"><rect class="box k8s" x="20" y="500" width="290" height="86" rx="14"/><text class="lbl-s" x="165" y="552" text-anchor="middle">StorageClass</text></g>
+  <g class="dim" data-cls="2:lit">
+   <path class="ar aws" d="M310 115 H354"/><path class="ar k8s" d="M310 255 C 336 255, 330 145, 354 145"/>
+   <rect class="box aws" x="360" y="80" width="290" height="86" rx="14"/><text class="lbl-s" x="505" y="132" text-anchor="middle">DBInstance</text>
   </g>
-  <text data-step="5" x="850" y="680" text-anchor="middle" style="font-size:30px;fill:#ffe2a8">No sync waves. No hooks. The order comes from the references.</text>
+  <g class="dim" data-cls="2:lit">
+   <path class="ar k8s" d="M310 543 H354"/><path class="ar k8s" d="M310 275 C 336 275, 330 525, 354 525"/>
+   <rect class="box k8s" x="360" y="500" width="290" height="86" rx="14"/><text class="lbl-s" x="505" y="552" text-anchor="middle">NATS · InfluxDB</text>
+  </g>
+  <g class="dim" data-cls="3:lit"><path class="ar k8s" d="M650 123 H694"/><rect class="box k8s" x="700" y="80" width="290" height="86" rx="14"/><text class="lbl-s" x="845" y="132" text-anchor="middle">db-init Job</text></g>
+  <g class="dim" data-cls="4:lit">
+   <path class="ar k8s" d="M990 123 H1034"/><path class="ar aws" d="M310 403 H1160 C 1185 403, 1185 390, 1185 172"/>
+   <rect class="box k8s" x="1040" y="80" width="290" height="86" rx="14"/><text class="lbl-s" x="1185" y="132" text-anchor="middle">ConfigMap stores</text>
+  </g>
+  <g class="dim" data-cls="5:lit">
+   <path class="ar kro" d="M1330 123 H1374"/>
+   <rect class="box kro" x="1400" y="64" width="280" height="120" rx="14"/><rect class="box kro" x="1390" y="72" width="280" height="120" rx="14"/><rect class="box kro" x="1380" y="80" width="280" height="120" rx="14"/>
+   <text class="lbl-s" x="1520" y="132" text-anchor="middle">15 ×</text><text class="lbl-s" x="1520" y="166" text-anchor="middle">EncabulatorService</text>
+  </g>
+  <text data-step="6" x="850" y="680" text-anchor="middle" style="font-size:30px;fill:#ffe2a8">Inside the graph: no sync waves, no hooks. The order comes from the references.</text>
  </svg>
  <aside class="notes">
-  <p>⏱ 37:00-38:00. Each build lights the next wave. kro derived this from the CEL references alone. Where "exists" is not enough, a resource can add readyWhen (for example, wait until the DBInstance status says available) before its dependents are created.</p>
+  <p>⏱ 37:00-38:00. Each build lights what kro can create next. kro derived this order from the CEL references alone. Build 1: what needs nothing (the secret-init Job after its own small RBAC). Build 2: the DBInstance needs the subnet group and the password Secret; NATS and InfluxDB need the StorageClass, and InfluxDB its token Secret. Build 3: <code>readyWhen</code> says when a resource counts as ready: the db-init Job starts once the DBInstance status is available. Build 4: the ConfigMap needs the database endpoint, the cache endpoint and the finished db-init. Build 5: then the fifteen services. Build 6: Argo CD sync waves only order the files in <code>gitops/app</code> (RBAC, then RGDs, then the instance); inside the graph, kro needs none.</p>
  </aside>
 </section>
 
@@ -697,6 +753,8 @@ FIELDS:
  <div class="cols c46">
   <div class="card" style="font-family:var(--mono);font-size:24px;line-height:1.75">
    <div style="color:var(--muted)">gitops/app/</div>
+   <div>&nbsp;&nbsp;kustomization.yaml</div>
+   <div>&nbsp;&nbsp;rbac/ · nodes/</div>
    <div style="color:var(--brass)">&nbsp;&nbsp;rgds/encabulator.yaml ←</div>
    <div style="color:var(--brass)">&nbsp;&nbsp;rgds/encabulator-service.yaml ←</div>
    <div>&nbsp;&nbsp;instance/encabulator.yaml</div>
@@ -705,12 +763,13 @@ FIELDS:
 kubectl apply -f gitops/app/rgds/
 kubectl get rgd
 kubectl explain encabulator.spec
-kubectl get encabulatorservices
-kubectl get encabulator encabulator -o yaml | yq .status
+kubectl get encabulatorservices -n encabulator
+kubectl get encabulator encabulator -n encabulator -o yaml | yq .status
   </pre>
  </div>
  <aside class="notes">
-  <p>⏱ 38:00-40:00. Walk the full encabulator.yaml top to bottom: schema, then the AWS resources, the in-cluster stores, the ConfigMap, the forEach. Then encabulator-service.yaml. Apply the RGDs on the hub so the CRDs exist; the instance itself is what Argo CD will sync to the new region in Act 3.</p>
+  <p>⏱ 38:00-40:00. Walk the full encabulator.yaml top to bottom: schema, the AWS resources, the generated Secrets and the db-init Job, the in-cluster stores, the ConfigMap, the forEach. Then encabulator-service.yaml: the lookup tables keyed by service name, the two Deployment variants (the autoscaled ones leave replicas to the HPA), the HPA, PDB and Role. <code>kustomization.yaml</code> is what Argo CD syncs to each cell: <code>rbac/</code> (kro's RBAC, bound to the group <code>encabulator:kro</code>) and <code>nodes/</code> (a tagged Auto Mode NodeClass and NodePool) first, then the RGDs, then the instance.</p>
+  <p>Apply the RGDs on the hub so the CRDs exist; the instance itself is what Argo CD will sync to the new region in Act 3. The hub has no Encabulator instance, so run the last two commands against the baked cell (add <code>--context use2</code>).</p>
  </aside>
 </section>
 
@@ -732,7 +791,7 @@ kubectl get encabulator encabulator -o yaml | yq .status
    <rect class="box k8s" x="930" y="200" width="720" height="290" rx="20"/><text class="lbl-s" x="954" y="236">encabulator-use2</text>
    <rect class="box aws" x="960" y="260" width="200" height="60" rx="12"/><text class="lbl-s" x="1060" y="299" text-anchor="middle">ACK</text>
    <rect class="box kro" x="1180" y="260" width="200" height="60" rx="12"/><text class="lbl-s" x="1280" y="299" text-anchor="middle">kro</text>
-   <path class="ar aws dash" d="M740 535 C 830 535, 850 300, 924 300"/><text class="sm" x="850" y="740" text-anchor="middle">ACK on the hub creates the cluster + capabilities</text>
+   <path class="ar aws dash" d="M740 535 C 830 535, 850 300, 924 300"/><text class="sm" x="850" y="740" text-anchor="middle">ACK on the hub builds the VPC, the cluster and its capabilities</text>
   </g>
   <g data-step="3">
    <rect class="box kro" x="960" y="360" width="660" height="90" rx="14"/><text class="lbl-s" x="1290" y="414" text-anchor="middle">Encabulator</text>
@@ -745,15 +804,16 @@ kubectl get encabulator encabulator -o yaml | yq .status
   </g>
  </svg>
  <aside class="notes">
-  <p>⏱ 40:00-42:00. The hub runs all three capabilities. Build 1: one more kro API on the hub, EncabulatorCell: one object per region. Build 2: ACK on the hub creates the new EKS cluster and its ACK and kro capabilities in us-east-2 (the EKS controller has Cluster, Capability and AccessEntry kinds). Build 3: kro also writes the Argo CD cluster Secret, so an ApplicationSet picks up the new cluster and syncs the Encabulator instance to it. Build 4: ACK on the cell creates RDS and ElastiCache in its own region. Green field, no Helm, no Terraform.</p>
+  <p>⏱ 40:00-42:00. The hub runs all three capabilities. Build 1: one more kro API on the hub, EncabulatorCell: one object per region, in namespace <code>encabulator-cells</code>. Build 2: ACK on the hub builds the new region in us-east-2: a VPC with public and private subnets and one NAT gateway, the IAM roles, the EKS Auto Mode cluster, its access entries and its ACK and kro capabilities (the EKS controller has Cluster, Capability and AccessEntry kinds), and the <code>encabulator-db</code> security group. Build 3: kro also writes the Argo CD cluster Secret, so the ApplicationSet picks up the new cluster and syncs <code>gitops/app</code> to it. Build 4: ACK on the cell creates RDS and ElastiCache in its own region. Green field, no Helm, no Terraform.</p>
  </aside>
 </section>
 
 <section class="slide" data-act="3 · Replicate" data-mode="live" data-title="A cell is one object">
  <h2>A new region is one object</h2>
  <div class="cols">
-  <pre class="code xs" data-file="gitops/hub/rgds/encabulator-cell.yaml" data-hl="8,17-18" data-steps="2:12-19">
+  <pre class="code xs" data-file="gitops/hub/rgds/encabulator-cell.yaml" data-hl="9,14,18,23" data-steps="2:16-25">
 - id: cluster
+  # ...
   template:
     apiVersion: eks.services.k8s.aws/v1alpha1
     kind: Cluster
@@ -762,18 +822,24 @@ kubectl get encabulator encabulator -o yaml | yq .status
       annotations:
         services.k8s.aws/region: ${schema.spec.region}
     spec:
-      name: ${schema.metadata.name}
-      # role, VPC config, Auto Mode ...
+      # ...
+      computeConfig:
+        enabled: true
+        nodePools: []
+      # ...
 - id: kroCapability
-  template:
-    apiVersion: eks.services.k8s.aws/v1alpha1
+  # ...
     kind: Capability
+    # ...
     spec:
+      name: ${schema.metadata.name}-kro
       clusterName: ${cluster.spec.name}
       type: KRO
+      roleARN: ${kroRole.status.ackResourceMetadata.arn}
       deletePropagationPolicy: RETAIN
   </pre>
-  <pre class="code xs" data-file="gitops/hub/rgds/encabulator-cell.yaml" data-step="3" data-hl="8-9,13">
+  <div style="display:flex;flex-direction:column;gap:26px">
+   <pre class="code xs" data-file="gitops/hub/rgds/encabulator-cell.yaml" data-step="3" data-hl="10,17">
 - id: register
   template:
     apiVersion: v1
@@ -784,52 +850,75 @@ kubectl get encabulator encabulator -o yaml | yq .status
       labels:
         argocd.argoproj.io/secret-type: cluster
         encabulator.io/cell: "true"
+      annotations:
+        encabulator.io/region: ${schema.spec.region}
+        # ... subnet, security group and capability ids
+    type: Opaque
     stringData:
       name: ${schema.metadata.name}
       server: ${cluster.status.ackResourceMetadata.arn}
-      project: default
-  </pre>
+      project: encabulator-cells
+   </pre>
+   <div class="tip" data-step="4">Argo CD addresses EKS clusters by ARN. kro reads the ARN from the ACK status.</div>
+  </div>
  </div>
- <div class="tip" data-step="4" style="margin-top:26px">Argo CD addresses EKS clusters by ARN. kro reads the ARN from the ACK status.</div>
  <aside class="notes">
-  <p>⏱ 42:00-45:00. Build 1: the EKS Cluster, created by the hub's ACK in the region named on the instance. Build 2: an ACK Capability for kro on the new cluster (the ACK capability is the same block with type ACK). An AccessEntry for the Argo CD capability role is the remaining piece, also an ACK kind. Build 3: the Argo CD cluster Secret. The EKS Argo CD capability takes the cluster ARN as server, and kro fills it in from the ACK status. Build 4: so registering a cluster is just another resource in the graph.</p>
+  <p>⏱ 42:00-45:00. Build 1: the EKS Cluster, created by the hub's ACK in the region named on the instance: every resource in this RGD carries the <code>services.k8s.aws/region</code> annotation. Auto Mode is on with no built-in node pools; the app ships a tagged NodeClass and NodePool instead. Build 2: an ACK Capability for kro on the new cluster (the ACK capability is the same block with type ACK). Access entries for the cell's ACK and kro roles and for the hub's Argo CD role are ACK AccessEntry resources, created before the capabilities so kro's entry carries the group <code>encabulator:kro</code>. The same RGD also builds the VPC, subnets, NAT gateway, route tables, IAM roles and the <code>encabulator-db</code> security group.</p>
+  <p>Build 3: the Argo CD cluster Secret. The EKS Argo CD capability takes the cluster ARN as server, and kro fills it in from the ACK status, so no account id is in Git. The annotations carry the region's private subnet ids, the <code>encabulator-db</code> group id and the cluster security group to the ApplicationSet. The Secret also references both capabilities and the Argo CD access entry, so it is written only once the cell can take a sync. Build 4: so registering a cluster is just another resource in the graph.</p>
  </aside>
 </section>
 
 <section class="slide" data-act="3 · Replicate" data-mode="live" data-title="ApplicationSet">
  <h2>Every cell gets the app</h2>
- <div class="cols c64">
-  <pre class="code sm" data-file="gitops/hub/appset.yaml" data-hl="3-7,16">
-kind: ApplicationSet
+ <div class="cols">
+  <pre class="code xs" data-file="gitops/hub/appset.yaml" data-hl="2,8,12,17">
 spec:
+  goTemplate: true
+  goTemplateOptions: ["missingkey=error"]
   generators:
     - clusters:
         selector:
           matchLabels:
             encabulator.io/cell: "true"
+  # ...
   template:
     metadata:
-      name: 'encabulator-{{name}}'
+      name: '{{ .name }}'
+      # ...
     spec:
-      source:
-        repoURL: https://github.com/jlbutler/cloud-native-encabulator
-        path: gitops/app
+      # ...
       destination:
-        server: '{{server}}'
+        server: '{{ .server }}'
         namespace: encabulator
-      syncPolicy:
-        automated: { prune: true, selfHeal: true }
   </pre>
-  <div style="display:flex;flex-direction:column;gap:22px;align-items:stretch">
-   <div class="card" data-step="1" style="border-color:var(--argo);text-align:center;font-size:28px">cluster Secret<br><span class="mono" style="font-size:20px;color:var(--muted)">encabulator.io/cell=true</span></div>
-   <div data-step="1" style="text-align:center;font-size:40px;color:var(--argo)">↓</div>
-   <div class="card" data-step="2" style="border-color:var(--argo);text-align:center;font-size:28px">ApplicationSet</div>
-   <div data-step="2" style="text-align:center;font-size:40px;color:var(--argo)">↓</div>
-   <div class="card" data-step="3" style="border-color:var(--argo);text-align:center;font-size:28px">Application<br><span class="mono" style="font-size:20px;color:var(--muted)">encabulator-use2</span></div>
-  </div>
+  <pre class="code xs" data-file="gitops/hub/appset.yaml" data-step="3" data-hl="5,10,13">
+path: gitops/app
+kustomize:
+  patches:
+    - target:
+        kind: Encabulator
+        name: encabulator
+        namespace: encabulator
+      patch: |-
+        - op: add
+          path: /spec/subnetIDs
+          # ...
+        - op: add
+          path: /spec/securityGroupID
+          # ...
+    # ... and the NodeClass subnets and security group
+  </pre>
+ </div>
+ <div style="display:grid;grid-template-columns:minmax(0,1fr) auto minmax(0,1fr) auto minmax(0,1fr);gap:18px;align-items:center;margin-top:24px">
+  <div class="card" data-step="1" style="border-color:var(--argo);text-align:center;padding:16px 20px"><div style="font-size:28px">cluster Secret</div><div class="mono" style="font-size:18px;color:var(--muted);margin-top:6px">encabulator.io/cell=true</div><div class="mono" style="font-size:18px;color:var(--muted)">subnet-ids · security-group-id</div></div>
+  <div data-step="2" style="font-size:40px;color:var(--argo)">→</div>
+  <div class="card" data-step="2" style="border-color:var(--argo);text-align:center;padding:16px 20px"><div style="font-size:28px">ApplicationSet</div><div class="mono" style="font-size:18px;color:var(--muted);margin-top:6px">encabulator</div><div class="mono" style="font-size:18px;color:var(--muted)">one Application per cell</div></div>
+  <div data-step="3" style="font-size:40px;color:var(--argo)">→</div>
+  <div class="card" data-step="3" style="border-color:var(--argo);text-align:center;padding:16px 20px"><div style="font-size:28px">Application</div><div class="mono" style="font-size:18px;color:var(--muted);margin-top:6px">encabulator-use2</div><div class="mono" style="font-size:18px;color:var(--muted)">subnetIDs · securityGroupID</div></div>
  </div>
  <aside class="notes">
-  <p>⏱ 45:00-47:00. The cluster generator watches cluster Secrets. Label the Secret (kro already did) and an Application appears for that cluster, pointing at gitops/app: the two RGDs and the Encabulator instance. Region-specific values (subnets, security group) come from the cluster Secret's annotations through the ApplicationSet template. Self-heal and prune are on: Git is the source.</p>
+  <p>⏱ 45:00-47:00. The cluster generator watches Argo CD cluster Secrets. Label the Secret (kro already did) and an Application appears for that cluster. With <code>goTemplate</code>, <code>{{ .name }}</code> is the Secret's name, so the Application is called <code>encabulator-use2</code>, and <code>{{ .server }}</code> is the cluster ARN. It points at <code>gitops/app</code>: RBAC, the tagged NodeClass, the two RGDs and the Encabulator instance.</p>
+  <p>Build 3: region-specific values never enter Git. Two kustomize patches copy the Secret's annotations into the instance (<code>spec.subnetIDs</code>, <code>spec.securityGroupID</code>) and into the NodeClass. <code>missingkey=error</code> fails the render if an annotation is missing instead of rendering an empty value. Automated sync with prune and self-heal: Git is the source. <code>preserveResourcesOnDeletion</code> keeps a running region if the ApplicationSet is deleted.</p>
  </aside>
 </section>
 
@@ -849,33 +938,50 @@ spec:
   <g data-step="8"><rect x="430" y="490" width="840" height="84" rx="16" fill="#2e2410" stroke="#ffb547" stroke-width="2"/><text x="850" y="545" text-anchor="middle" style="font-size:30px;fill:#ffd389;font-weight:700">The waits are real: here's one we baked earlier</text></g>
  </svg>
  <aside class="notes">
-  <p>⏱ 47:00-51:00. LIVE trigger: commit and push cells/use2.yaml (or show it was committed at 25:00, the oven move). Walk the builds while the Argo CD UI shows the new Application. Creating a cluster and a database each take minutes, so at build 8 switch to the pre-baked cell: Argo CD tree green, <code>kubectl --context use2 get encabulator</code> showing status hosts, the console in us-east-2 with traffic.</p>
+  <p>⏱ 47:00-51:00. LIVE trigger: commit and push cells/use2.yaml (or show it was committed at 25:00, the oven move). Refresh <code>hub-cells</code> in the Argo CD UI so it does not wait for the 3-minute Git poll. Walk the builds while the Argo CD UI shows the new Application. The EKS docs put Auto Mode cluster creation at about 15 minutes, and the database takes more, so at build 8 switch to the pre-baked cell: Argo CD tree green, <code>kubectl --context use2 get encabulator -n encabulator</code> showing the status hosts, the console in us-east-2 with traffic.</p>
  </aside>
 </section>
 
 <section class="slide" data-act="3 · Replicate" data-mode="ide" data-title="IDE: replicate">
  <h2>In the IDE: replicate</h2>
- <div class="cols c46">
+ <div class="cols c64">
+  <pre class="code xs" data-file="gitops/hub/cells/use2.yaml" data-hl="10">
+# One object = one region. Commit this file and the hub builds us-east-2.
+apiVersion: kro.run/v1alpha1
+kind: EncabulatorCell
+metadata:
+  name: encabulator-use2
+  namespace: encabulator-cells
+  annotations:
+    argocd.argoproj.io/sync-options: SkipDryRunOnMissingResource=true
+spec:
+  region: us-east-2
+  vpcCIDR: 10.41.0.0/16
+  availabilityZones: [us-east-2a, us-east-2b, us-east-2c]
+  argoCDRoleName: encabulator-usw2-argocd
+  </pre>
   <div class="card" style="font-family:var(--mono);font-size:24px;line-height:1.75">
    <div style="color:var(--muted)">gitops/hub/</div>
    <div style="color:var(--brass)">&nbsp;&nbsp;rgds/encabulator-cell.yaml ←</div>
    <div style="color:var(--brass)">&nbsp;&nbsp;cells/use2.yaml ←</div>
    <div style="color:var(--brass)">&nbsp;&nbsp;appset.yaml ←</div>
-   <div>&nbsp;&nbsp;bootstrap/</div>
+   <div>&nbsp;&nbsp;rbac/ · bootstrap/</div>
    <div style="color:var(--muted);margin-top:14px">gitops/app/</div>
    <div>&nbsp;&nbsp;rgds/ · instance/</div>
   </div>
-  <pre class="code term sm" data-lang="sh">
+ </div>
+ <pre class="code term xs" data-lang="sh" style="margin-top:24px">
 git add gitops/hub/cells/use2.yaml
-git commit -m "Add the us-east-2 cell"; git push
-kubectl get encabulatorcells -w
+git commit -s -m "Add the us-east-2 cell"; git push
+kubectl get encabulatorcells -n encabulator-cells -w
 kubectl get secrets -n argocd -l encabulator.io/cell=true
 kubectl get applications -n argocd
-kubectl --context use2 get encabulator,dbinstances,serverlesscaches
-  </pre>
- </div>
+aws eks update-kubeconfig --region us-east-2 --name encabulator-use2 --alias use2
+kubectl --context use2 get encabulator,dbinstances,serverlesscaches -n encabulator
+ </pre>
  <aside class="notes">
-  <p>Show cells/use2.yaml: it is about ten lines (name, region, VPC inputs). That file is the whole difference between one region and two.</p>
+  <p>Show cells/use2.yaml: 13 lines (name, region, VPC range, zones, the hub's Argo CD role). That file is the whole difference between one region and two. Then the full encabulator-cell.yaml and appset.yaml.</p>
+  <p>Presenter prep: <code>--context use2</code> needs an access entry for your own role on the cell. Set <code>spec.adminRoleName</code> to your presenter role on the cell you will show, then run the <code>update-kubeconfig</code> line. While it builds: <code>kubectl -n encabulator-cells get clusters.eks.services.k8s.aws,capabilities,accessentries</code> and <code>kubectl -n encabulator-cells get encabulatorcell encabulator-use2 -o jsonpath='{.status}'</code>.</p>
  </aside>
 </section>
 
@@ -894,7 +1000,8 @@ kubectl --context use2 get encabulator,dbinstances,serverlesscaches
   <g data-step="3"><rect class="box ok" x="470" y="520" width="1200" height="90" rx="14"/><text class="lbl-s" x="1070" y="575" text-anchor="middle">dbInstanceClass changed in Git → ACK modifies RDS</text></g>
  </svg>
  <aside class="notes">
-  <p>⏱ 53:00-56:00. LIVE. Build 2: delete a Deployment in the cell; kro (and Argo CD above it) puts it back. Build 3: change dbInstanceClass in the instance, push, and the RDS instance moves to Modifying.</p>
+  <p>⏱ 53:00-56:00. LIVE. Build 2: delete a Deployment in the cell (<code>kubectl --context use2 -n encabulator delete deployment ...</code>); kro owns it through its EncabulatorService and puts it back within seconds, and Argo CD above it keeps the instance itself in line with Git. Build 3: change <code>dbInstanceClass</code> in <code>gitops/app/instance/encabulator.yaml</code>, push, and the RDS instance moves to Modifying. That file is shared by every cell, so the change rolls out to all of them.</p>
+  <p>Presenter tip: because kro puts back every field it sets, the console's Malaise <code>scale</code> fault (for example scaling a service to zero) is reverted on a cell at kro's next reconcile, for every Deployment with a fixed replica count. On a cell, use the <code>pod-kill</code> or <code>partition</code> faults instead. <code>scale</code> still behaves as before on the hub, where the app is the Helm chart.</p>
   <p>Changes made directly in AWS are corrected on ACK's resync period, which the EKS docs put at up to 10 hours, so do not try that one live.</p>
  </aside>
 </section>
@@ -910,7 +1017,7 @@ kubectl --context use2 get encabulator,dbinstances,serverlesscaches
   <div class="card" data-step="6"><div style="font-size:60px;font-weight:800;color:var(--brass)">6</div><div style="font-size:32px;font-weight:700;margin:8px 0 12px">APIs, not charts</div><div style="font-size:24px;color:var(--muted)">Chain RGDs: cell → app → service.</div></div>
  </div>
  <aside class="notes">
-  <p>⏱ 56:00-57:30. The six things to take home. Capability roles: the ACK role only needs the AWS services your RGDs use; kro needs RBAC for the kinds its RGDs create (AmazonEKSClusterAdminPolicy is for getting started only).</p>
+  <p>⏱ 56:00-57:30. The six things to take home. Capability roles: the ACK role only needs the AWS services your RGDs use; here it is limited to two regions and to the cell's own cluster and IAM roles, so it cannot change the hub or widen its own permissions. kro needs RBAC for the kinds its RGDs create, bound to a Kubernetes group on its access entry (<code>encabulator:kro</code>) so no role ARN or account id ends up in Git. Argo CD runs as cluster admin on the hub and the cells in this demo; scope it with namespaced access policies or RBAC for production (AmazonEKSClusterAdminPolicy is for getting started only).</p>
  </aside>
 </section>
 
