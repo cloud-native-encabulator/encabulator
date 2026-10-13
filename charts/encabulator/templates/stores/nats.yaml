@@ -199,7 +199,7 @@ spec:
     - metadata:
         name: data
         labels:
-          {{- include "encabulator.storeLabels" (dict "root" $ "name" "nats") | nindent 10 }}
+          {{- include "encabulator.storeVolumeLabels" (dict "root" $ "name" "nats") | nindent 10 }}
       spec:
         {{- include "encabulator.pvc" (dict "persistence" $nats.persistence "root" $) | nindent 8 }}
   {{- end }}

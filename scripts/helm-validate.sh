@@ -94,6 +94,28 @@ for entry in "${cases[@]}"; do
   rm -f "$rendered"
 done
 
+# volumeClaimTemplates are immutable: a release that renders them differently cannot upgrade an
+# existing StatefulSet. Render two image tags and require byte-identical templates.
+vct() {
+  # shellcheck disable=SC2086
+  $HELM template encabulator "$chart" --namespace encabulator "$@" \
+    | awk '/^kind: StatefulSet/{s=1} /^---/{s=0; v=0} s && /^  volumeClaimTemplates:/{v=1} v'
+}
+if a="$(vct --set global.imageTag=0.0.1)" && b="$(vct --set global.imageTag=9.9.9)"; then
+  if [ -z "$a" ]; then
+    fail "volumeClaimTemplates: none rendered"
+  elif [ "$a" != "$b" ]; then
+    fail "volumeClaimTemplates change with the image tag (StatefulSet upgrades would fail)"
+    diff <(printf '%s\n' "$a") <(printf '%s\n' "$b") >&2 || true
+  elif grep -q 'helm.sh/chart\|app.kubernetes.io/version' <<<"$a"; then
+    fail "volumeClaimTemplates carry a release label (helm.sh/chart or app.kubernetes.io/version)"
+  else
+    log "ok  [volumeClaimTemplates stable across releases]"
+  fi
+else
+  fail "template [volumeClaimTemplates]"
+fi
+
 if [ "$failures" -ne 0 ]; then
   printf '\033[31m==> %d check(s) failed\033[0m\n' "$failures" >&2
   exit 1

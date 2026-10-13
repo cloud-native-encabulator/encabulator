@@ -235,7 +235,7 @@ spec:
     - metadata:
         name: data
         labels:
-          {{- include "encabulator.storeLabels" (dict "root" $ "name" "postgres") | nindent 10 }}
+          {{- include "encabulator.storeVolumeLabels" (dict "root" $ "name" "postgres") | nindent 10 }}
       spec:
         {{- include "encabulator.pvc" (dict "persistence" $pg.persistence "root" $) | nindent 8 }}
   {{- end }}
