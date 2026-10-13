@@ -15,7 +15,7 @@ import logging
 from collections import OrderedDict
 from typing import Any
 
-from encabulator_kit import EncabulatorError, new_id
+from encabulator_kit import EncabulatorError, UpstreamError, new_id
 from prometheus_client import Counter, Gauge
 
 from .clients import COMPARISONS, Upstreams
@@ -130,10 +130,25 @@ class Orchestrator:
         ACTIVE.set(1)
         run.say(0, "run", f"{scenario.title}: the floor is yours.")
         try:
+            await self._record_traffic(run)
+            # The reference of a malaise act being skipped, until its clearMalaise.
+            skipping: str | None = None
             for step in scenario.steps:
                 run.current_step = step.index
+                if skipping is not None:
+                    if step.kind is StepKind.CLEAR_MALAISE and str(step.payload) in {
+                        skipping,
+                        "all",
+                    }:
+                        if str(step.payload) == "all":
+                            # Still lift every other malaise this run created.
+                            await self._run_step(run, step)
+                        skipping = None
+                    continue
                 await self._run_step(run, step)
                 STEPS.labels(str(step.kind)).inc()
+                if step.kind is StepKind.MALAISE and _reference(step) in run.skipped_malaises:
+                    skipping = _reference(step)
             run.status = RunStatus.COMPLETED
             run.say(run.current_step, "run", "Scenario complete. The encabulator is encabulating.")
             RUNS.labels(scenario.id, "completed").inc()
@@ -180,16 +195,46 @@ class Orchestrator:
 
     async def _traffic(self, run: Run, step: Step) -> None:
         body = dict(step.payload)
+        run.traffic_changed = True
         await self.upstreams.set_traffic(body)
         detail = step.summary.removeprefix("set traffic ")
         run.say(step.index, "traffic", f"Grammeters set: {detail}.")
+
+    async def _record_traffic(self, run: Run) -> None:
+        """Remember the grammeter settings, so the run can leave the traffic as it found it."""
+        try:
+            run.traffic_restore = await self.upstreams.get_traffic()
+        except Exception as exc:
+            log.warning("could not read the grammeter settings", extra={"run_id": run.id})
+            run.say(
+                0,
+                "traffic",
+                f"Could not read the grammeters, so they will not be put back: {exc}",
+                level="warn",
+            )
 
     async def _malaise(self, run: Run, step: Step) -> None:
         body = {
             key: value for key, value in step.payload.items() if key not in {"ref", "narration"}
         }
-        created = await self.upstreams.inject_malaise(body)
-        reference = str(step.payload.get("ref") or f"step-{step.index}")
+        reference = _reference(step)
+        try:
+            created = await self.upstreams.inject_malaise(body)
+        except UpstreamError as exc:
+            store = MANAGED_STORES.get(str(body.get("target", "")))
+            if store is None or exc.status_code != 400 or exc.code != "unknown_target":
+                raise
+            # On a cluster whose PostgreSQL or Valkey is a managed AWS service there is no store
+            # pod for the malaise engine to delete. Say so plainly, skip the act, carry on.
+            run.skipped_malaises.add(reference)
+            run.say(
+                step.index,
+                "malaise",
+                f"{store} runs here as a managed AWS service, so there is no pod to delete. "
+                "We skip this act and carry on with the tour.",
+                level="warn",
+            )
+            return
         if created and created.get("id"):
             run.malaise_ids[reference] = str(created["id"])
         run.say(
@@ -200,6 +245,9 @@ class Orchestrator:
 
     async def _clear_malaise(self, run: Run, step: Step) -> None:
         target = str(step.payload)
+        if target in run.skipped_malaises:
+            # The act was skipped; there is nothing to lift.
+            return
         if target == "all":
             for malaise_id in list(run.malaise_ids.values()):
                 await self.upstreams.clear_malaise(malaise_id)
@@ -283,7 +331,8 @@ class Orchestrator:
         )
 
     async def _restore(self, run: Run) -> None:
-        """Put the works back: flags to their previous values, our malaises cleared."""
+        """Put the works back: flags to their previous values, our malaises cleared, traffic
+        to the settings the run started with."""
         for key, value in list(run.flag_restores.items()):
             try:
                 await self.upstreams.set_flag(key, value)
@@ -309,6 +358,34 @@ class Orchestrator:
                     level="error",
                 )
         run.malaise_ids.clear()
+
+        if run.traffic_changed and run.traffic_restore:
+            restore = dict(run.traffic_restore)
+            try:
+                await self.upstreams.set_traffic(restore)
+                shown = ", ".join(
+                    f"{key}={restore[key]}"
+                    for key in ("rps", "pattern", "running")
+                    if key in restore
+                )
+                run.say(run.current_step, "traffic", f"Grammeters restored: {shown}.")
+            except Exception as exc:
+                run.say(
+                    run.current_step,
+                    "traffic",
+                    f"Could not restore the grammeters: {exc}",
+                    level="error",
+                )
+        run.traffic_changed = False
+
+
+def _reference(step: Step) -> str:
+    """The name a malaise step is cleared by: its ref, or its position."""
+    return str(step.payload.get("ref") or f"step-{step.index}")
+
+
+#: Store targets that may be a managed AWS service (RDS, ElastiCache) with no pod to delete.
+MANAGED_STORES = {"postgres": "PostgreSQL", "valkey": "Valkey"}
 
 
 def _now() -> Any:

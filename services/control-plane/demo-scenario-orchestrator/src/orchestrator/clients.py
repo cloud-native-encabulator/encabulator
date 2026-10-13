@@ -28,6 +28,9 @@ COMPARISONS = {
     "!=": operator.ne,
 }
 
+#: The grammeter settings a run records at its start and puts back afterwards.
+TRAFFIC_SETTINGS = ("running", "rps", "pattern", "periodSeconds", "customers", "mix")
+
 
 @dataclass(slots=True)
 class Upstreams:
@@ -64,6 +67,15 @@ class Upstreams:
                 await client.aclose()
 
     # ---- cardinal-grammeter ------------------------------------------------------------
+
+    async def get_traffic(self) -> dict[str, Any] | None:
+        """The grammeter's current settings, limited to what PUT /v1/traffic accepts."""
+        if self.grammeter is None:
+            return None
+        body = await self.grammeter.json("GET", "/v1/traffic", identity=IDENTITY)
+        if not isinstance(body, dict):
+            return None
+        return {key: body[key] for key in TRAFFIC_SETTINGS if key in body}
 
     async def set_traffic(self, body: dict[str, Any]) -> dict[str, Any] | None:
         if self.grammeter is None:
