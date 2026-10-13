@@ -342,7 +342,7 @@ resource "aws_eks_capability" "kro" {
  </pre>
  <aside class="notes">
   <p>⏱ 11:00-13:00. Each capability is an AWS-managed controller: it does not run on our nodes and we do not upgrade it. Each one assumes its own IAM capability role, named after the cluster: <code>encabulator-usw2-argocd</code>, <code>-ack</code> and <code>-kro</code>, all trusting <code>capabilities.eks.amazonaws.com</code>. ACK's role holds the AWS permissions: RDS and ElastiCache, plus the VPC, IAM and EKS calls it needs to build a new region in Act 3, limited to us-west-2 and us-east-2 and to the cell's own cluster and roles. Argo CD reads a public Git repo, so its role needs no AWS permissions. kro makes no AWS calls; it needs Kubernetes RBAC for whatever its RGDs create.</p>
-  <p>Build 4: Terraform creates all three in <code>capabilities.tf</code> (<code>aws_eks_capability</code>, AWS provider 6.68). kro's access entry is created first so it carries the Kubernetes group <code>encabulator:kro</code>, which our RBAC binds instead of a role ARN. EKS creates the Argo CD and ACK access entries itself.</p>
+  <p>Build 4: Terraform creates all three in <code>capabilities.tf</code> (<code>aws_eks_capability</code>, AWS provider 6.68). It also creates each capability's access entry first, so the entries carry our tags and kro's carries the Kubernetes group <code>encabulator:kro</code>, which our RBAC binds instead of a role ARN. EKS then adds each capability's default access policies to the existing entry.</p>
   <p>Live: <code>aws eks describe-capability --cluster-name encabulator-usw2 --capability-name kro --query capability.status</code> shows ACTIVE.</p>
  </aside>
 </section>

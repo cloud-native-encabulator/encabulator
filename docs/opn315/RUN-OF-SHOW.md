@@ -92,7 +92,9 @@ Decided (OPN315 build contract, lead decisions D1-D10):
    settings, exactly three tags): listed in `gitops/hub/brownfield/README.md`.
 5. kro RBAC binds the Kubernetes group `encabulator:kro` on its access entry, never a role ARN.
 6. Argo CD is cluster admin on the hub and the cells: a demo setting, called out as such.
-7. Every AWS resource carries `auto-delete=no`, `project=encabulator`, `talk=opn315`.
+7. Every AWS resource carries `auto-delete=no`, `project=encabulator`, `talk=opn315`: tagged at
+   create time where the API allows, and by the hub's tagger CronJob for what AWS creates
+   untagged (`docs/TAGGING.md`).
 
 Still open:
 
@@ -112,8 +114,8 @@ Still open:
 
 Checked offline (controller source, CRDs, kind clusters) but not yet against AWS:
 
-- Creating a capability when its access entry already exists: kro on the hub (Terraform), ACK and
-  kro on the cell (`EncabulatorCell`).
+- Creating a capability when its access entry already exists: all three on the hub (Terraform),
+  ACK and kro on the cell (`EncabulatorCell`).
 - Auto Mode with no built-in node pools: nodes come up from the custom NodeClass + NodePool and
   the EC2 access entry, on the hub and on a cell.
 - A clean `terraform plan` after the hand-off (`stores.tf` deleted, `handoff.tf` in place).
@@ -124,9 +126,10 @@ Checked offline (controller source, CRDs, kind clusters) but not yet against AWS
 - DBInstance port drift: the adopted `encabulator-pg` and the cell's kro-created instance settle
   with no port change (Terraform sets `port = 5432`; the ACK specs leave the port out).
 - The arm64 build of the quoter image (rustls with the ring provider); only amd64 has been built.
-- Every AWS resource tagged `auto-delete=no`, including the ones AWS creates implicitly (EKS
-  cluster security group, VPC main route table, default security group and network ACL), checked
-  by `scripts/tag-check`.
+- Every AWS resource tagged `auto-delete=no`, including the ones AWS creates without a tag
+  request (main route tables, default security groups and network ACLs, EKS cluster security
+  groups, requester-managed network interfaces), which the hub's tagger CronJob tags every 10
+  minutes (`docs/TAGGING.md`). `scripts/tag-check.py` checks the live account.
 - Adoption on the capability's controller versions: `adoption-fields` key `dbInstanceIdentifier`,
   `adopt` versus `adopt-or-create` (resource adoption is a Beta feature in ACK).
 - The status fields kro waits for (`dbInstanceStatus`, ServerlessCache `status` and `endpoint`).
@@ -147,9 +150,12 @@ Checked offline (controller source, CRDs, kind clusters) but not yet against AWS
 - Bake one cell end to end with `spec.adminRoleName` set, then
   `aws eks update-kubeconfig --region us-east-2 --name encabulator-use2 --alias use2`. Leave it
   running as the fallback.
-- Run `scripts/tag-check`: it fails on any resource in the stack without `auto-delete=no`.
 - Log in to the Argo CD UI (IAM Identity Center); open the RDS console.
 - Pre-pull images; pin the image tag (`1.0.0`); phone hotspot; a recording of each live segment.
+- Last: at least 10 minutes after the last change (one tagger pass), run `scripts/tag-check.py`
+  against the account. It checks the hub (`us-west-2:encabulator-usw2`) and the cell
+  (`us-east-2:encabulator-use2`) with read-only calls and exits 1 naming every resource without
+  `auto-delete=no`. Fix any it names before the talk.
 
 ## Teardown
 
