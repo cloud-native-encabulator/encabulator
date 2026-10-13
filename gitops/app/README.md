@@ -160,9 +160,12 @@ kubectl get encabulator encabulator -n encabulator -o yaml | yq .status
 ## Differences from the chart, on purpose
 
 - `app.kubernetes.io/managed-by: kro` instead of `Helm`, and no `helm.sh/chart` label.
-- Not rendered: ServiceMonitor and PrometheusRule (cells run no Prometheus Operator), the KEDA
-  ScaledObject (off in the chart by default), the in-cluster postgres and valkey StatefulSets
-  (RDS and ElastiCache replace them, as with the chart's `external` blocks).
+- Not rendered: ServiceMonitor and PrometheusRule, the KEDA ScaledObject (off in the chart by
+  default), the in-cluster postgres and valkey StatefulSets (RDS and ElastiCache replace them, as
+  with the chart's `external` blocks). kro accepts an RGD only when every kind it names already
+  exists, and the ServiceMonitor kind arrives with the observability platform, so the cell's
+  ServiceMonitor for the fifteen services ships with that platform
+  ([`platform/cell/`](../../platform/cell/)) and the app never waits for it.
 - `DATABASE_URL` uses `sslmode=require`; `VALKEY_URL` is `rediss://:@<host>:6379/0`, the shape the
   chart renders with `values-brownfield.yaml` (`valkey.user: ""`), so no client sends `AUTH`.
 - Autoscaled services (processor, quoter) leave `spec.replicas` to the HPA. kro 0.9 can only

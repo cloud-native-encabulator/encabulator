@@ -1,0 +1,44 @@
+# The cell's scrape config for the fifteen Encabulator services: one ServiceMonitor that selects
+# every service Service in namespace encabulator. Same endpoint, interval, timeout and
+# relabelings as the per-service ServiceMonitors charts/encabulator renders on the hub
+# (templates/servicemonitors.yaml, observability.serviceMonitor defaults), so the console's
+# per-service rates and p99 read the same series on both.
+#
+# It lives here, with the observability platform, rather than in the kro definitions under
+# gitops/app/rgds: kro accepts a ResourceGraphDefinition only when every kind it names already
+# exists, and the ServiceMonitor kind arrives with kube-prometheus-stack. Shipping it with the
+# platform means the app never waits for the platform, and a cell that turns observability off
+# gets neither.
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: encabulator-services
+  namespace: encabulator-observability
+  labels:
+    encabulator.io/scrape: "true"
+    app.kubernetes.io/part-of: encabulator
+spec:
+  namespaceSelector:
+    matchNames:
+      - encabulator
+  selector:
+    matchLabels:
+      app.kubernetes.io/part-of: encabulator
+      app.kubernetes.io/component: service
+  endpoints:
+    - port: http
+      path: /metrics
+      scheme: http
+      interval: 15s
+      scrapeTimeout: 10s
+      honorLabels: false
+      relabelings:
+        - sourceLabels: [__meta_kubernetes_pod_name]
+          targetLabel: pod
+          action: replace
+        - sourceLabels: [__meta_kubernetes_pod_label_encabulator_io_plane]
+          targetLabel: plane
+          action: replace
+        - sourceLabels: [__meta_kubernetes_service_label_app_kubernetes_io_name]
+          targetLabel: service
+          action: replace

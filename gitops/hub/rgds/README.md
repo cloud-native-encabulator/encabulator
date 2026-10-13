@@ -4,13 +4,16 @@
 region: kro turns it into ACK resources, ACK on the hub creates them in the region named on
 the instance, and the last resource in the graph registers the new cluster with the hub's
 Argo CD. The `encabulator` ApplicationSet then syncs `gitops/app` to it, and ACK on the cell
-creates the app's RDS instance and ElastiCache cache. No Helm and no Terraform for the cell.
+creates the app's RDS instance and ElastiCache cache. Next to the app, the
+`encabulator-platform` ApplicationSet installs the observability platform (Prometheus, Grafana,
+Jaeger, the OpenTelemetry collector and the dashboards) from the same pinned charts as the hub.
+No Terraform for the cell, and nothing installed on it by hand.
 
 | File | What it is |
 |---|---|
 | `gitops/hub/rgds/encabulator-cell.yaml` | RGD `encabulator-cell`, kind `EncabulatorCell` |
 | `gitops/hub/cells/use2.yaml` | the us-east-2 cell (`encabulator-use2`), the whole difference between one region and two |
-| `gitops/hub/appset.yaml` | ApplicationSet `encabulator`: one Application per registered cell |
+| `gitops/hub/appset.yaml` | ApplicationSet `encabulator`: one Application per registered cell; ApplicationSet `encabulator-platform`: one Application per platform chart per cell that has it switched on |
 | `gitops/hub/rbac/kro-cell.yaml` | namespace `encabulator-cells` and the RBAC kro on the hub needs for this RGD |
 
 ## Design
@@ -80,6 +83,10 @@ argocd cluster Secret ◄────────────┘  waits for both
   | `encabulator.io/registry` (optional, not written by the RGD) | an image mirror, for example `<account>.dkr.ecr.<region>.amazonaws.com/encabulator` | `Encabulator.spec.registry`; absent means the RGD default `ghcr.io/jlbutler/cloud-native-encabulator` |
   | `encabulator.io/ack-capability`, `kro-capability`, `argocd-access-entry` | ARNs | ordering: the Secret waits for them |
 
+  and labels `argocd.argoproj.io/secret-type: cluster`, `encabulator.io/cell: "true"` and
+  `encabulator.io/platform-observability`, which is `spec.observability` as `"true"` or
+  `"false"`. The `encabulator-platform` ApplicationSet selects on it.
+
   `encabulator.io/registry` is the one annotation the RGD does not write: add it by hand (or with
   your own automation) when a cell pulls from a mirror. kro applies only the fields it owns, so
   an annotation someone else added stays on the Secret.
@@ -103,6 +110,52 @@ new cell's CRDs settle. Two kustomize patches (JSON 6902, `op: add`) carry the a
   hub's NodeClass. If `gitops/app` has no NodeClass, this patch matches nothing and is a no-op.
 
 `preserveResourcesOnDeletion: true`: deleting the ApplicationSet does not delete a running region.
+
+### The platform ApplicationSet
+
+`encabulator-platform`, in the same file, gives every cell the observability platform. A matrix
+generator pairs a list of platform entries with the cluster Secrets: each entry names its
+component, Helm release, namespace, chart repository, chart and version, and the cluster
+generator's selector is rendered from the entry, so it matches only cells whose
+`encabulator.io/platform-<component>` label is `"true"`. With `spec.observability` left at its
+default, a cell gets four Applications, named after the cell:
+
+| Application | Source | Into `encabulator-observability` |
+|---|---|---|
+| `<cell>-prometheus-stack` | kube-prometheus-stack 91.8.2 | Prometheus Operator and its CRDs, Prometheus, Alertmanager, Grafana, the exporters |
+| `<cell>-jaeger` | jaeger 4.14.0 | Jaeger, traces in memory |
+| `<cell>-opentelemetry-collector` | opentelemetry-collector 0.174.0 | the collector the services send OTLP to |
+| `<cell>-observability-config` | `platform/` in this repository (kustomize) | the three Grafana dashboards and the ServiceMonitor for the fifteen services |
+
+The charts take `platform/<chart>.values.yaml`, the hub's values, then `platform/cell/<chart>.values.yaml`
+(through a second source with `ref: values`). Versions match `platform/versions.env`, which
+`scripts/platform.sh template-cell` checks in CI. Release names and namespace are the hub's, so
+Prometheus, Grafana and Jaeger have the same Service names on both and the console needs no
+per-cell setting.
+
+These Applications have no dependency on the app's and the app has none on them, so a new cell's
+first order is not held back by the platform. Ordering inside the platform comes from Argo CD:
+kube-prometheus-stack carries the Prometheus Operator CRDs in its own sync, and the other
+Applications' ServiceMonitors skip the dry run (`SkipDryRunOnMissingResource=true`) and retry
+until those CRDs exist. All four use server-side apply (the CRDs are too large for client-side
+apply), automated sync with self-heal, and no automated prune, so a chart bump that drops a CRD
+never deletes it or what uses it.
+
+The switch is one field in the cell file, `true` by default, so `cells/use2.yaml` does not
+need it:
+
+```yaml
+spec:
+  observability: false   # build this cell without the observability platform
+```
+
+A cell with `observability: false` gets none of the four. Switching it off on a running cell
+stops managing the platform and leaves it running (`preserveResourcesOnDeletion: true`).
+
+To add a component, KEDA for example: add its entry to the list (component `keda`, its release,
+namespace, chart and pin), a `keda` field with its default in this RGD's schema, the
+`encabulator.io/platform-keda` label on the register Secret, a `platform/cell/keda.values.yaml`,
+and its namespace in the `encabulator-cells` AppProject.
 
 ### RBAC on the hub (`gitops/hub/rbac/kro-cell.yaml`)
 
@@ -137,7 +190,9 @@ role selectors (EKS ACK permissions guide).
 
 - Hub kro capability access entry with group `encabulator:kro` (`terraform/`).
 - Hub Argo CD capability role named `encabulator-usw2-argocd` (`spec.argoCDRoleName`).
-- AppProject `encabulator-cells` in `argocd` (`gitops/hub/bootstrap/`).
+- AppProject `encabulator-cells` in `argocd` (`gitops/hub/bootstrap/`), which also allows the
+  platform charts' repositories, namespace `encabulator-observability` and the cluster-scoped
+  kinds kube-prometheus-stack ships (CRDs, admission webhooks).
 - Hub ACK capability role (`encabulator-usw2-ack`) IAM permissions, in us-east-2 as well as
   us-west-2 (lead decision D5):
   - EC2: VPC, Subnet, InternetGateway, ElasticIPAddress, NATGateway, RouteTable and

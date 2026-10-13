@@ -269,6 +269,10 @@ jobs:
         # Catches a values key that the upstream charts have renamed or a schema they reject,
         # which is how a pinned-version bump usually breaks.
         run: ./scripts/platform.sh template > /dev/null
+      - name: render what a cell gets and check its pins
+        # The cell ApplicationSet (gitops/hub/appset.yaml) must pin what platform/versions.env
+        # pins, and platform/kustomization.yaml must build the dashboards the hub gets.
+        run: ./scripts/platform.sh template-cell > /dev/null
 
   # --------------------------------------------------------------------------- shell
   shell:

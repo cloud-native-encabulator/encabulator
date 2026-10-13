@@ -43,11 +43,18 @@ spec:
   description: OPN315 cell clusters (one per region), deployed from the hub
   sourceNamespaces:
     - argocd
+  # This repository, plus the chart repositories of the platform charts that
+  # gitops/hub/appset.yaml (ApplicationSet encabulator-platform) installs on every cell.
   sourceRepos:
     - https://github.com/jlbutler/cloud-native-encabulator
+    - https://prometheus-community.github.io/helm-charts
+    - https://jaegertracing.github.io/helm-charts
+    - https://open-telemetry.github.io/opentelemetry-helm-charts
   destinations:
     - name: encabulator-*
       namespace: encabulator
+    - name: encabulator-*
+      namespace: encabulator-observability
     # never the hub itself
     - name: "!encabulator-usw2"
       namespace: "*"
@@ -64,3 +71,10 @@ spec:
       kind: NodeClass
     - group: karpenter.sh
       kind: NodePool
+    # kube-prometheus-stack: the Prometheus Operator CRDs and its admission webhooks
+    - group: apiextensions.k8s.io
+      kind: CustomResourceDefinition
+    - group: admissionregistration.k8s.io
+      kind: MutatingWebhookConfiguration
+    - group: admissionregistration.k8s.io
+      kind: ValidatingWebhookConfiguration

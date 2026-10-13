@@ -10,7 +10,8 @@
 #   EKS       Auto Mode cluster with no built-in node pools, access entries, ACK and kro
 #             capabilities, access for the hub's Argo CD capability role
 #   stores    the encabulator-db security group (5432 + 6379 from the cluster security group)
-#   Argo CD   the cluster Secret in argocd that the encabulator ApplicationSet selects
+#   Argo CD   the cluster Secret in argocd that the encabulator and encabulator-platform
+#             ApplicationSets select (spec.observability becomes one of its labels)
 #
 # No account id lives in Git: ARNs come from ACK status, and the one ARN built here (the hub's
 # Argo CD role) takes the account from status.ackResourceMetadata.ownerAccountID.
@@ -31,6 +32,7 @@ spec:
       argoCDRoleName: string | required=true description="Name of the hub's Argo CD capability role; it gets an access entry on the cell"
       kubernetesVersion: string | default="1.37" description="EKS Kubernetes minor version"
       adminRoleName: string | default="" description="Optional IAM role name that gets cluster admin on the cell (for kubectl)"
+      observability: boolean | default=true description="Install the observability platform on the cell (Prometheus, Grafana, Jaeger, the OpenTelemetry collector and the dashboards)"
     status:
       clusterARN: ${cluster.status.ackResourceMetadata.arn}
       clusterStatus: ${cluster.status.status}
@@ -666,7 +668,9 @@ spec:
     # Registering the cell is one more resource in the graph. The EKS Argo CD capability
     # addresses clusters by ARN. The annotations carry the region's ids to the ApplicationSet,
     # and the references to the capabilities and access entry hold registration back until
-    # the cell can take a sync.
+    # the cell can take a sync. The encabulator.io/platform-<component> labels are the cell's
+    # switches for the platform charts: the encabulator-platform ApplicationSet installs a
+    # component only on cells whose label reads "true".
     - id: register
       template:
         apiVersion: v1
@@ -677,6 +681,7 @@ spec:
           labels:
             argocd.argoproj.io/secret-type: cluster
             encabulator.io/cell: "true"
+            encabulator.io/platform-observability: ${string(schema.spec.observability)}
           annotations:
             encabulator.io/region: ${schema.spec.region}
             encabulator.io/subnet-ids: ${privateSubnets.map(s, s.status.subnetID).join(",")}

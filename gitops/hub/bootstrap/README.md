@@ -10,14 +10,15 @@ registers the hub with its own Argo CD.
 | `hub-brownfield.yaml` | ApplicationSet `hub-brownfield`, renders Application `hub-brownfield` | `gitops/hub/brownfield` | hub, ns `encabulator` |
 | `hub-rgds.yaml` | Application `hub-rgds` | `gitops/hub/rgds` + `gitops/hub/rbac` | hub |
 | `hub-cells.yaml` | Application `hub-cells` | `gitops/hub/cells` | hub, ns `encabulator-cells` |
-| `hub-cell-apps.yaml` | Application `hub-cell-apps` | `gitops/hub/appset.yaml` only, the cell ApplicationSet `encabulator` | hub, ns `argocd` |
+| `hub-cell-apps.yaml` | Application `hub-cell-apps` | `gitops/hub/appset.yaml` only: the cell ApplicationSets `encabulator` (the app) and `encabulator-platform` (the observability platform) | hub, ns `argocd` |
 | `register-hub.sh` | Secret `encabulator-usw2` in `argocd` (not committed) | - | - |
 
 All four sync from `https://github.com/jlbutler/cloud-native-encabulator` at `carrlos`, with
 automated sync, prune, selfHeal and retry. Destinations use the Argo CD cluster name
-`encabulator-usw2`, so no cluster ARN or account id is in Git. The cell ApplicationSet
-(`gitops/hub/appset.yaml`) uses project `encabulator-cells`, which can deploy to any
-`encabulator-*` cluster except the hub.
+`encabulator-usw2`, so no cluster ARN or account id is in Git. The cell ApplicationSets
+(`gitops/hub/appset.yaml`) use project `encabulator-cells`, which can deploy to any
+`encabulator-*` cluster except the hub, from this repository and from the chart repositories of
+the platform charts.
 
 ## Bring up the hub (the day before)
 
@@ -39,6 +40,45 @@ kubectl get applications -n argocd
 `register-hub.sh` refuses to run if kubectl points at a different cluster, or if the cache's
 subnets and security group differ from the DB subnet group's (the ApplicationSet writes the same
 values into both CRs).
+
+`projects.yaml` is not synced by any Application: after changing it, apply it again with
+`kubectl apply -f gitops/hub/bootstrap/projects.yaml`. Until it is applied, a cell's platform
+Applications report that their chart repositories are not permitted in the project, and the
+app's Application is unaffected.
+
+## What every cell gets
+
+The `encabulator` ApplicationSet syncs `gitops/app` to each cell. The `encabulator-platform`
+ApplicationSet adds the observability platform next to it, from the same pinned charts as the
+hub (`platform/versions.env`) with a cell overlay (`platform/cell/`), into
+`encabulator-observability`:
+
+```bash
+kubectl get applications -n argocd -l encabulator.io/platform=observability
+# <cell>-prometheus-stack, <cell>-jaeger, <cell>-opentelemetry-collector, <cell>-observability-config
+```
+
+The platform Applications and the app's Application do not wait for each other. A cell opts out
+with `observability: false` in its cell file; the design and the switch are in
+[`../rgds/README.md`](../rgds/README.md#the-platform-applicationset).
+
+### Adopting a cell that already runs the platform
+
+When a cell already runs these charts with Helm under the same release names and namespace (as
+`scripts/platform.sh install` does), Argo CD adopts the objects in place: server-side apply
+takes over the fields, and every object keeps its identity, so no pod is recreated when the
+rendered spec equals the live one. To read the diff before the first sync, hold the cell's
+platform Applications in manual sync first:
+
+```bash
+kubectl -n argocd annotate secret <cell> encabulator.io/platform-sync=manual   # before the ApplicationSet exists
+# ... the Applications appear without automated sync; read their diff, sync once by hand ...
+kubectl -n argocd annotate secret <cell> encabulator.io/platform-sync-         # automated sync from now on
+```
+
+Helm keeps its release records (`sh.helm.release.v1.*` Secrets in the namespace). Argo CD does
+not read or remove them. Once Argo CD owns the platform, do not run `helm upgrade` or
+`helm uninstall` for these releases on that cell.
 
 ## Act 1 live: adopt the RDS instance (matches the deck's "IDE: adopt" slide)
 
