@@ -132,6 +132,11 @@ spec:
             - name: INFLUXDB3_WITHOUT_AUTH
               value: "true"
             {{- end }}
+            {{- with $ix.walFlushInterval }}
+            # How long a write may wait for the WAL flush that acknowledges it (default 1s).
+            - name: INFLUXDB3_WAL_FLUSH_INTERVAL
+              value: {{ . | quote }}
+            {{- end }}
             {{- range $k, $v := $ix.extraEnv }}
             - name: {{ $k }}
               value: {{ tpl (toString $v) $ | quote }}

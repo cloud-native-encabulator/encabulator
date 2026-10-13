@@ -116,6 +116,26 @@ else
   fail "template [volumeClaimTemplates]"
 fi
 
+# InfluxDB's WAL flush interval decides how long every recorder write waits. The default must
+# render as INFLUXDB3_WAL_FLUSH_INTERVAL=50ms, an empty value must leave InfluxDB's own default,
+# and an external InfluxDB must not render the StatefulSet at all.
+influx_env() {
+  # shellcheck disable=SC2086
+  $HELM template encabulator "$chart" --namespace encabulator "$@" \
+    | awk '/^kind: StatefulSet/{s=1} /^---/{s=0} s' \
+    | awk '/^  name: influxdb$/{f=1} f' \
+    | grep -A1 'name: INFLUXDB3_WAL_FLUSH_INTERVAL' | grep 'value:' | tr -d ' "' || true
+}
+if [ "$(influx_env)" != "value:50ms" ]; then
+  fail "influxdb: INFLUXDB3_WAL_FLUSH_INTERVAL is not 50ms by default (got '$(influx_env)')"
+elif [ -n "$(influx_env --set influxdb.walFlushInterval=)" ]; then
+  fail "influxdb: an empty walFlushInterval still renders INFLUXDB3_WAL_FLUSH_INTERVAL"
+elif [ "$(influx_env --set influxdb.walFlushInterval=250ms)" != "value:250ms" ]; then
+  fail "influxdb: walFlushInterval=250ms does not reach the StatefulSet"
+else
+  log "ok  [influxdb WAL flush interval: 50ms default, empty omits it, override applied]"
+fi
+
 if [ "$failures" -ne 0 ]; then
   printf '\033[31m==> %d check(s) failed\033[0m\n' "$failures" >&2
   exit 1

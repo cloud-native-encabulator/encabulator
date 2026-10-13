@@ -204,6 +204,17 @@ Two consequences:
 `influxdb.auth.enabled: false` falls back to `INFLUXDB3_WITHOUT_AUTH`. That is for throwaway
 clusters, and `helm install` prints a warning when you use it.
 
+## InfluxDB 3 Core write latency
+
+InfluxDB 3 Core acknowledges a write only once the WAL flush that holds it has completed, every
+1s by default (`--wal-flush-interval`, env `INFLUXDB3_WAL_FLUSH_INTERVAL`). With the default every
+recorder write waits 0 to 1s, the recorder's p99 sits near 1s, and the console colours the
+recorder and InfluxDB red. `influxdb.walFlushInterval` (default `50ms`) sets the env var on the
+StatefulSet, which keeps writes under 100ms. The cost is more, smaller WAL files and object-store
+writes, and a snapshot every 30s rather than every 10 minutes (600 WAL files per snapshot). An
+empty value leaves InfluxDB's own default. Changing it restarts `influxdb-0` once; the data PVC
+stays.
+
 ## Going external (phase 3)
 
 Every store has an `external:` block, so pointing at RDS, ElastiCache and Timestream for InfluxDB
