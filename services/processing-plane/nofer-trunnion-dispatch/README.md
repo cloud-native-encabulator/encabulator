@@ -10,7 +10,7 @@ simulated transit time lives in a Valkey sorted set rather than in a `setTimeout
 restart in the middle of a demo loses nothing: whichever replica comes back claims the
 delivery when it falls due.
 
-- Plane: `processing` · Language: TypeScript (Node 24, Fastify 5) · Owns Valkey keys `shipment:*`
+- Plane: `processing` · Language: TypeScript (Node 24, Fastify 5) · Owns Valkey keys `{shipment}:*`
 - Design: [section 8.5](../../../docs/design.md#85-nofer-trunnion-dispatch)
 
 ## What it does
@@ -62,10 +62,10 @@ seconds.
 
 | Key | Type | Purpose |
 |---|---|---|
-| `shipment:order:<orderId>` | string (JSON) | The shipment record, written once and never mutated |
-| `shipment:delivered:<orderId>` | string | Delivery timestamp; the key's presence *is* the status |
-| `shipment:due` | sorted set | Order ids scored by due time in epoch millis; the delivery queue |
-| `shipment:recent` | list | Recently dispatched order ids, newest first, capped at 500 |
+| `{shipment}:order:<orderId>` | string (JSON) | The shipment record, written once and never mutated |
+| `{shipment}:delivered:<orderId>` | string | Delivery timestamp; the key's presence *is* the status |
+| `{shipment}:due` | sorted set | Order ids scored by due time in epoch millis; the delivery queue |
+| `{shipment}:recent` | list | Recently dispatched order ids, newest first, capped at 500 |
 
 Keeping the record immutable and the delivery in a separate key means no Lua script ever
 calls `cjson.encode`, so nothing can quietly reshape the stored JSON, and claiming a

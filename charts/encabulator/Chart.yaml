@@ -9,8 +9,8 @@ type: application
 
 # Chart version tracks the chart; appVersion tracks the application images and is the
 # default tag for every service image. Keep appVersion in sync with the repo VERSION file.
-version: 1.0.0
-appVersion: "1.0.0"
+version: 1.0.1
+appVersion: "1.0.1"
 
 kubeVersion: ">=1.27.0-0"
 

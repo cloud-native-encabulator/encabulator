@@ -414,6 +414,19 @@ args: dict "root" $ "name" <store name>
 {{- include "encabulator.labels" (dict "root" .root "name" .name "plane" "data" "component" "backing-store") -}}
 {{- end -}}
 
+{{/*
+Labels for a StatefulSet's volumeClaimTemplates. volumeClaimTemplates cannot change after the
+StatefulSet exists, so these leave out everything that changes with a release
+(helm.sh/chart, app.kubernetes.io/version); with them, every chart or image bump failed the
+upgrade with "spec.volumeClaimTemplates: field is immutable".
+*/}}
+{{- define "encabulator.storeVolumeLabels" -}}
+{{- include "encabulator.selectorLabels" (dict "root" .root "name" .name) }}
+app.kubernetes.io/part-of: encabulator
+app.kubernetes.io/component: backing-store
+encabulator.io/plane: data
+{{- end -}}
+
 {{- define "encabulator.storePodLabels" -}}
 {{- include "encabulator.selectorLabels" (dict "root" .root "name" .name) }}
 app.kubernetes.io/part-of: encabulator

@@ -67,15 +67,15 @@ application workloads and backing stores run in the `encabulator` namespace; the
 |---|---|---|---|---|
 | `encabulation-control-console` | control | TypeScript (Vue + Fastify BFF) | The web portal: topology, traffic, malaise, scenarios, flags, storefront | none |
 | `cardinal-grammeter` | control | Go | Synthetic customer traffic generator | none |
-| `malaise-injection-engine` | control | Go | Fault injection, app-level and Kubernetes-level | Valkey keys `malaise:*` |
+| `malaise-injection-engine` | control | Go | Fault injection, app-level and Kubernetes-level | Valkey keys `{malaise}:*` |
 | `demo-scenario-orchestrator` | control | Python | Runs scripted demo scenarios with narration | in-memory run history |
 | `dingle-arm-gateway` | processing | Go | Edge API gateway: JWT auth, rate limiting, routing | none |
 | `panametric-fam-processor` | processing | TypeScript | Order orchestration saga | none |
 | `spurving-bearing-quoter` | processing | Rust | Pricing engine | Valkey keys `quote:*` |
 | `logarithmic-casing-line` | processing | Python | Fabrication workers | none |
-| `nofer-trunnion-dispatch` | processing | TypeScript | Shipping and delivery | Valkey keys `shipment:*` |
+| `nofer-trunnion-dispatch` | processing | TypeScript | Shipping and delivery | Valkey keys `{shipment}:*` |
 | `hydrocoptic-datastore` | data | Go | Order ledger and timeline | Postgres db `hydrocoptic` |
-| `prefabulated-amulite-depot` | data | TypeScript | Parts inventory and reservations | Valkey keys `depot:*` |
+| `prefabulated-amulite-depot` | data | TypeScript | Parts inventory and reservations | Valkey keys `{depot}:*` |
 | `sinusoidal-recorder` | data | Go | Unit telemetry (sinusoidal repleneration readings) | InfluxDB database `sinusoidal` |
 | `unilateral-phase-detractor` | support | Python | Identity: users, login, JWT issuance, JWKS | Postgres db `detractor` |
 | `differential-girdlespring` | support | Go | Feature flags | Postgres db `girdlespring` |

@@ -82,7 +82,7 @@ export async function startNats(): Promise<StartedNats> {
   const container = await new GenericContainer('nats:2.12')
     .withCommand(['-js', '-sd', '/tmp/nats'])
     .withExposedPorts({ container: 4222, host })
-    .withWaitStrategy(Wait.forListeningPorts())
+    .withWaitStrategy(Wait.forLogMessage(/Server is ready/))
     .withStartupTimeout(90_000)
     .start();
   return { url: `nats://127.0.0.1:${host}`, container };

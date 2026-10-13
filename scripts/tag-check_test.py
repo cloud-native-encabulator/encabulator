@@ -67,6 +67,8 @@ def tag_holders(node, path=()):
         for k, v in node.items():
             if k in ("Tags", "TagSet", "TagList") and isinstance(v, list) and {"Key": "auto-delete", "Value": "no"} in v:
                 yield path + (k,)
+            elif k == "tags" and isinstance(v, list) and {"Key": "auto-delete", "Value": "no"} in v:
+                yield path + (k,)  # ECR
             elif k == "tags" and isinstance(v, dict) and v.get("auto-delete") == "no":
                 yield path + (k,)
             else:
@@ -144,18 +146,25 @@ class TagCheckTest(unittest.TestCase):
             "ec2 vpc", "ec2 subnet", "ec2 route-table", "ec2 network-acl", "ec2 security-group",
             "ec2 internet-gateway", "ec2 natgateway", "ec2 elastic-ip", "ec2 network-interface",
             "ec2 instance", "ec2 volume", "rds db-instance", "elasticache serverless-cache",
-            "eks cluster", "eks capability", "eks access-entry", "iam role",
+            "eks cluster", "eks capability", "eks access-entry", "iam role", "ecr repository",
         }
         self.assertTrue(required <= kinds, f"kinds never proven to fail: {sorted(required - kinds)}")
 
     def test_resources_outside_the_stacks_are_ignored(self):
         # The fixture holds an untagged foreign Elastic IP, RDS instance and subnet group, cache,
-        # roles (Admin, encabulator-usw2) and a deleted NAT gateway; the tagged run passes anyway.
+        # roles (Admin, encabulator-usw2), ECR repository and a deleted NAT gateway; the tagged
+        # run passes anyway.
         report = check_in_process(self.tagged)
         self.assertEqual(report.bad, 0, [line for line in report.lines if not line.startswith("ok")])
         text = "\n".join(report.lines)
-        for foreign in ("eipalloc-000000000000ffff", "unrelated-db", "unrelated-cache", "nat-0000000000000dead", " Admin\n"):
+        for foreign in ("eipalloc-000000000000ffff", "unrelated-db", "unrelated-cache", "nat-0000000000000dead", " Admin\n",
+                        "other-team/unrelated-app"):
             self.assertNotIn(foreign, text + "\n")
+
+    def test_ecr_repositories_are_counted_once_per_region(self):
+        report = check_in_process(self.tagged, stacks=(("us-west-2", "encabulator-usw2"), ("us-west-2", "encabulator-usw2")))
+        repos = [line for line in report.lines if " ecr repository " in line]
+        self.assertEqual(len(repos), 2, repos)
 
     def test_missing_stack_fails(self):
         calls = copy.deepcopy(self.tagged)
@@ -166,7 +175,7 @@ class TagCheckTest(unittest.TestCase):
         self.assertEqual(len(problems), 2, report.lines)
 
     def test_only_read_only_calls(self):
-        ops = re.findall(r'call\("(?:ec2|eks|rds|elasticache|iam)", "([a-z-]+)"', CHECK.read_text())
+        ops = re.findall(r'call\("(?:ec2|eks|rds|elasticache|iam|ecr)", "([a-z-]+)"', CHECK.read_text())
         self.assertGreater(len(ops), 20)
         self.assertEqual([op for op in ops if not op.startswith(tc.READ_ONLY)], [])
         with self.assertRaises(SystemExit):

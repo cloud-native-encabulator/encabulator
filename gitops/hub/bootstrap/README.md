@@ -44,8 +44,8 @@ values into both CRs).
 
 ```bash
 kubectl apply -f gitops/explore/postgres.yaml        # adopt, no spec
-kubectl get dbinstance -w                            # READY goes True
-kubectl get dbinstance encabulator-pg -o yaml | yq .spec
+kubectl get dbinstance.rds -w                        # STATUS goes available
+kubectl get dbinstance.rds encabulator-pg -o yaml | yq .spec
 kubectl delete -f gitops/explore/postgres.yaml       # retain: the database stays
 git add gitops/hub/brownfield/
 git commit -s -m "Adopt encabulator-pg"; git push
@@ -84,7 +84,10 @@ Nothing here relies on sync waves, so no Argo CD health customization for `Appli
 Ordering is handled by retry instead: `hub-cells` uses `SkipDryRunOnMissingResource=true` and
 retries until kro has turned the RGD from `hub-rgds` into the `EncabulatorCell` CRD. Argo CD
 v3.5.5 ships no health check for `*.services.k8s.aws` kinds, so ACK CRs show no health in the UI;
-read `kubectl get dbinstance,serverlesscache,dbsubnetgroup` for the ACK `Synced` condition.
+read `kubectl get dbinstance.rds,serverlesscache,dbsubnetgroup.rds` for the ACK `Synced` condition.
+The EKS ACK capability installs the CRDs of every ACK controller, and DocumentDB also has
+`DBInstance` and `DBSubnetGroup` kinds, so a bare `kubectl get dbinstance` lists the DocumentDB
+kind and shows nothing. Keep the `.rds` group suffix.
 
 ## Verified in the controller source
 

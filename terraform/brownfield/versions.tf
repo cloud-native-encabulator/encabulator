@@ -6,6 +6,11 @@
 terraform {
   required_version = ">= 1.7.0, < 2.0.0"
 
+  # Local state. The default path is terraform.tfstate here (gitignored); keep it outside
+  # the checkout with: terraform init -backend-config="path=/somewhere/terraform.tfstate".
+  # The state holds the generated passwords; use a remote backend for a shared stack.
+  backend "local" {}
+
   required_providers {
     aws = {
       source  = "hashicorp/aws"

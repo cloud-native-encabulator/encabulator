@@ -194,7 +194,7 @@ spec:
     - metadata:
         name: data
         labels:
-          {{- include "encabulator.storeLabels" (dict "root" $ "name" "influxdb") | nindent 10 }}
+          {{- include "encabulator.storeVolumeLabels" (dict "root" $ "name" "influxdb") | nindent 10 }}
       spec:
         {{- include "encabulator.pvc" (dict "persistence" $ix.persistence "root" $) | nindent 8 }}
   {{- end }}
