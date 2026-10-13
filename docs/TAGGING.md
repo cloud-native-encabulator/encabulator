@@ -12,7 +12,7 @@ the service itself. Two ways to get there:
 | create time | NodeClass `spec.tags` (hub: `terraform/brownfield/nodes.tf`, cells: `gitops/app/nodes`) | Auto Mode instances, root volumes, network interfaces, launch templates |
 | create time | StorageClass `tagSpecification_1..3` (hub: `charts/encabulator/values-brownfield.yaml`, cells: the `encabulator-gp3` StorageClass in `gitops/app/rgds/encabulator.yaml`) | EBS volumes for the NATS and InfluxDB PVCs |
 | create time | RDS copy tags to snapshot (hub: `copy_tags_to_snapshot`, cells: `copyTagsToSnapshot`) | automated backups |
-| post-pass | the tagger CronJob on the hub, every 10 minutes (`terraform/brownfield/tagger.tf`, `tagger/sweep.py`) | what AWS creates without a tag request: a cell's main route table, default security group, default network ACL and EKS cluster security group; the requester-managed network interfaces of the EKS control plane, NAT gateways, RDS and ElastiCache in the hub and every cell; ElastiCache serverless snapshots; Auto Mode's instance profiles; the access entry EKS creates for its service-linked role on the hub and every cell |
+| post-pass | the tagger CronJob on the hub, every 10 minutes (`terraform/brownfield/tagger.tf`, `tagger/sweep.py`) | what AWS creates without a tag request: a cell's main route table, default security group, default network ACL and EKS cluster security group; the requester-managed network interfaces of the EKS control plane, NAT gateways, RDS and ElastiCache in the hub and every cell; the three requester-managed VPC endpoints ElastiCache Serverless creates in the hub's and every cell's VPC; ElastiCache serverless snapshots; Auto Mode's instance profiles; the access entry EKS creates for its service-linked role on the hub and every cell |
 
 Nothing creates load balancers (no Ingress, no Service of type `LoadBalancer`), and the cell
 cluster has no creator access entry (`bootstrapClusterCreatorAdminPermissions: false`).
@@ -22,7 +22,9 @@ cluster has no creator access entry (`bootstrapClusterCreatorAdminPermissions: f
 A CronJob `encabulator-tagger` in namespace `encabulator-tagger` on the hub, installed by
 `terraform/brownfield`. Every 10 minutes it finds the VPCs tagged `project=encabulator` and
 `talk=opn315` in us-west-2 and us-east-2 (`var.ack_regions`) and adds the three tags to every route
-table, network ACL, security group and network interface in them that lacks one, then to the
+table, network ACL, security group, network interface and VPC endpoint in them that lacks one
+(ElastiCache Serverless puts three requester-managed interface endpoints in each VPC it uses,
+tagged only `AmazonElastiCacheManaged=true`; endpoints being deleted are skipped), then to the
 `encabulator-valkey` snapshots, the instance profiles of `encabulator-usw2-node` and
 `encabulator-use2-node`, and the access entries EKS creates itself on `encabulator-usw2` and
 `encabulator-use2` (Auto Mode adds one, untagged, for the `AWSServiceRoleForAmazonEKS`
@@ -38,8 +40,9 @@ service-linked role). It only ever adds those three tags.
   miss them. ACK cannot give hub pods an AWS identity (the hub is outside its permissions), so
   Terraform creates the role and the Pod Identity association.
 - Watch it: `kubectl -n encabulator-tagger get cronjob,jobs` and
-  `kubectl -n encabulator-tagger logs job/<latest>` (one JSON line per resource tagged, then a
-  summary). `DRY_RUN=1` in the container env prints instead of tagging.
+  `kubectl -n encabulator-tagger logs job/<latest>` (one JSON line per VPC with what it checked
+  and the VPC endpoints already tagged, one per resource tagged, then a summary). `DRY_RUN=1` in
+  the container env prints instead of tagging.
 - Tests: `python3 terraform/brownfield/tagger/test_sweep.py` (offline, fake boto3).
 
 ## Checking a live account
@@ -140,6 +143,7 @@ scripts/tag-check-audit.py --terraform "..." --write-doc docs/TAGGING.md   # ref
 | EBS volumes for the NATS and InfluxDB PVCs | EKS Auto Mode EBS driver | create time: StorageClass `encabulator-gp3` tagSpecification_1..3 (charts/encabulator/values-brownfield.yaml) |
 | RDS automated backups of `encabulator-pg` | RDS | create time: copy_tags_to_snapshot = true |
 | requester-managed network interfaces: EKS control plane, NAT gateway, RDS, ElastiCache | EKS, VPC, RDS, ElastiCache | post-pass: tagger CronJob on the hub (terraform/brownfield/tagger.tf) |
+| requester-managed VPC endpoints of `encabulator-valkey` (three, tagged only AmazonElastiCacheManaged=true) | ElastiCache Serverless | post-pass: tagger CronJob on the hub (terraform/brownfield/tagger.tf) |
 | ElastiCache serverless snapshots of `encabulator-valkey` (daily) | ElastiCache | post-pass: tagger CronJob on the hub (terraform/brownfield/tagger.tf) |
 | IAM instance profile of `encabulator-usw2-node` | EKS Auto Mode | post-pass: tagger CronJob on the hub (terraform/brownfield/tagger.tf) |
 | EKS access entry of the service-linked role AWSServiceRoleForAmazonEKS | EKS Auto Mode | post-pass: tagger CronJob on the hub (terraform/brownfield/tagger.tf) |
@@ -197,6 +201,7 @@ scripts/tag-check-audit.py --terraform "..." --write-doc docs/TAGGING.md   # ref
 | EncabulatorService (x15) | kro | no AWS resources: Kubernetes objects only |
 | RDS automated backups | RDS | create time: DBInstance copyTagsToSnapshot true |
 | RDS and ElastiCache requester-managed network interfaces | RDS, ElastiCache | post-pass: tagger CronJob on the hub (terraform/brownfield/tagger.tf) |
+| ElastiCache Serverless requester-managed VPC endpoints (three per cache's VPC) | ElastiCache Serverless | post-pass: tagger CronJob on the hub (terraform/brownfield/tagger.tf) |
 | ElastiCache serverless snapshots of `encabulator-valkey` (daily) | ElastiCache | post-pass: tagger CronJob on the hub (terraform/brownfield/tagger.tf) |
 | EBS volumes for PVCs of StorageClass `encabulator-gp3` | EKS Auto Mode EBS driver | create time: StorageClass tagSpecification_1..3 |
 | EC2 instances, root volumes, network interfaces, launch templates (NodeClass `encabulator`) | EKS Auto Mode | create time: NodeClass spec.tags (custom-tags policy on the cell's cluster role) |

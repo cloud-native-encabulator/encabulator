@@ -9,15 +9,16 @@
 #     network.tf), and the cluster security group EKS creates (on the hub: aws_ec2_tag in
 #     network.tf);
 #   - in every VPC: the requester-managed network interfaces of the EKS control plane, the NAT
-#     gateway, RDS and ElastiCache;
+#     gateway, RDS and ElastiCache, and the three requester-managed interface VPC endpoints
+#     ElastiCache Serverless creates (tagged only AmazonElastiCacheManaged=true);
 #   - ElastiCache serverless snapshots and the instance profiles EKS Auto Mode creates.
 #
-# A CronJob and not a one-time pass: the requester-managed interfaces appear whenever those
-# services create or replace them (RDS and ElastiCache on a cell only after Argo CD has synced
-# the app there), and a cell is built long after this stack is applied. It runs on the hub
-# because the hub is where the cells come from; ACK cannot give pods on the hub an AWS identity
-# (the hub cluster is outside its permissions on purpose), so the role and the Pod Identity
-# association are here.
+# A CronJob and not a one-time pass: the requester-managed interfaces and endpoints appear
+# whenever those services create or replace them (RDS and ElastiCache on a cell only after Argo
+# CD has synced the app there), and a cell is built long after this stack is applied. It runs on
+# the hub because the hub is where the cells come from; ACK cannot give pods on the hub an AWS
+# identity (the hub cluster is outside its permissions on purpose), so the role and the Pod
+# Identity association are here.
 
 locals {
   tagger_name = "encabulator-tagger"
@@ -78,6 +79,7 @@ data "aws_iam_policy_document" "tagger" {
       "ec2:DescribeNetworkAcls",
       "ec2:DescribeSecurityGroups",
       "ec2:DescribeNetworkInterfaces",
+      "ec2:DescribeVpcEndpoints",
       "elasticache:DescribeServerlessCacheSnapshots",
       "elasticache:ListTagsForResource",
     ]
@@ -93,7 +95,7 @@ data "aws_iam_policy_document" "tagger" {
     sid     = "TagVpcResources"
     actions = ["ec2:CreateTags"]
     resources = [
-      for type in ["route-table", "network-acl", "security-group", "network-interface"] :
+      for type in ["route-table", "network-acl", "security-group", "network-interface", "vpc-endpoint"] :
       "arn:${local.partition}:ec2:*:${local.account_id}:${type}/*"
     ]
     condition {

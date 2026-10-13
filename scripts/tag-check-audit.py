@@ -196,6 +196,13 @@ def by_address(planned, prefix):
     return [p for p in planned if p.address == prefix or p.address.startswith(prefix + "[")]
 
 
+def tagger_tags_vpc_endpoints(planned):
+    """The tagger's planned IAM policy lets it describe VPC endpoints and tag them."""
+    policy = next((p for p in planned if p.address == "aws_iam_role_policy.tagger"), None)
+    return (policy is not None and '"ec2:DescribeVpcEndpoints"' in policy.body
+            and re.search(r':vpc-endpoint/\*"', policy.body) is not None)
+
+
 def hub_terraform(planned, rows, tagger):
     stack = "hub (Terraform, us-west-2)"
     groups = {}
@@ -273,6 +280,9 @@ def hub_terraform(planned, rows, tagger):
 
     rows.append(Row(stack, "requester-managed network interfaces: EKS control plane, NAT gateway, RDS, ElastiCache", "EKS, VPC, RDS, ElastiCache",
                     POST_PASS, swept))
+    rows.append(Row(stack, "requester-managed VPC endpoints of `encabulator-valkey` (three, tagged only AmazonElastiCacheManaged=true)",
+                    "ElastiCache Serverless", POST_PASS,
+                    swept and present("aws_elasticache_serverless_cache.valkey") and tagger_tags_vpc_endpoints(planned)))
     rows.append(Row(stack, "ElastiCache serverless snapshots of `encabulator-valkey` (daily)", "ElastiCache",
                     POST_PASS, "encabulator-valkey" in tagger.get("CACHE_NAMES", "").split() and swept))
     rows.append(Row(stack, "IAM instance profile of `encabulator-usw2-node`", "EKS Auto Mode",
@@ -413,7 +423,7 @@ def cell_rgd(rows, tagger):
                     bool(the_cells) and all(n in clusters_swept for n, _ in the_cells)))
 
 
-def app_rgds(rows, tagger):
+def app_rgds(rows, tagger, vpc_endpoints_swept):
     stack = "cell (Encabulator RGDs, cell ACK + Auto Mode)"
     rgd = REPO / "gitops" / "app" / "rgds" / "encabulator.yaml"
     service = REPO / "gitops" / "app" / "rgds" / "encabulator-service.yaml"
@@ -431,6 +441,8 @@ def app_rgds(rows, tagger):
                     bool(dbs) and all(d["template"]["spec"].get("copyTagsToSnapshot") is True for d in dbs)))
     rows.append(Row(stack, "RDS and ElastiCache requester-managed network interfaces", "RDS, ElastiCache", POST_PASS,
                     bool(dbs) and bool(found.get("ServerlessCache")) and swept))
+    rows.append(Row(stack, "ElastiCache Serverless requester-managed VPC endpoints (three per cache's VPC)", "ElastiCache Serverless",
+                    POST_PASS, bool(found.get("ServerlessCache")) and swept and vpc_endpoints_swept))
 
     instance = load_all(REPO / "gitops" / "app" / "instance" / "encabulator.yaml")[0]["metadata"]["name"]
     caches = [c["template"]["metadata"]["name"].replace("${schema.metadata.name}", instance) for c in found.get("ServerlessCache", [])]
@@ -514,7 +526,7 @@ def main():
     hub_terraform(planned, rows, tagger)
     hub_ack(rows)
     cell_rgd(rows, tagger)
-    app_rgds(rows, tagger)
+    app_rgds(rows, tagger, tagger_tags_vpc_endpoints(planned))
     not_per_stack(rows)
 
     generated = markdown(rows)

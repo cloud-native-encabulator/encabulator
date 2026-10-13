@@ -5,7 +5,8 @@
 
 No AWS calls and no boto3 needed. The fake EC2 client applies the vpc-id and tag:<key>
 filters the way EC2 does, so the tests prove the sweeper selects by VPC and touches nothing
-outside the Encabulator VPCs.
+outside the Encabulator VPCs. One test reads tagger.tf, so the IAM policy and the calls the
+sweep makes cannot drift apart.
 """
 from __future__ import annotations
 
@@ -13,6 +14,7 @@ import contextlib
 import copy
 import io
 import json
+import re
 import sys
 import unittest
 from pathlib import Path
@@ -68,9 +70,31 @@ CELL = {
         {"NetworkInterfaceId": "eni-0otherlambda", "VpcId": "vpc-0other", "RequesterManaged": True,
          "Description": "AWS Lambda VPC ENI", "TagSet": []},
     ],
+    # ElastiCache Serverless creates three requester-managed interface endpoints per VPC,
+    # tagged only AmazonElastiCacheManaged=true. One being deleted and one already deleted
+    # (EC2 lists deleted endpoints for a while; the API documents the states capitalised) are
+    # left alone.
+    "VpcEndpoints": [
+        *[{"VpcEndpointId": f"vpce-0cache{n}", "VpcId": "vpc-0cell", "VpcEndpointType": "Interface",
+           "ServiceName": "com.amazonaws.elasticache.serverless.us-east-2", "State": "available",
+           "RequesterManaged": True, "Tags": [{"Key": "AmazonElastiCacheManaged", "Value": "true"}]}
+          for n in "abc"],
+        {"VpcEndpointId": "vpce-0deleting", "VpcId": "vpc-0cell", "VpcEndpointType": "Interface",
+         "ServiceName": "com.amazonaws.elasticache.serverless.us-east-2", "State": "deleting",
+         "RequesterManaged": True, "Tags": [{"Key": "AmazonElastiCacheManaged", "Value": "true"}]},
+        {"VpcEndpointId": "vpce-0deleted", "VpcId": "vpc-0cell", "VpcEndpointType": "Interface",
+         "ServiceName": "com.amazonaws.elasticache.serverless.us-east-2", "State": "Deleted",
+         "RequesterManaged": True, "Tags": []},
+        {"VpcEndpointId": "vpce-0othercache", "VpcId": "vpc-0other", "VpcEndpointType": "Interface",
+         "ServiceName": "com.amazonaws.elasticache.serverless.us-east-2", "State": "available",
+         "RequesterManaged": True, "Tags": [{"Key": "AmazonElastiCacheManaged", "Value": "true"}]},
+    ],
 }
-EXPECTED_CELL = {"rtb-0main", "acl-0default", "sg-0default", "sg-0cluster", "eni-0eks", "eni-0nat", "eni-0rds"}
-OUTSIDE = {"vpc-0other", "rtb-0othermain", "acl-0other", "sg-0otherdefault", "eni-0otherlambda"}
+CACHE_ENDPOINTS = {"vpce-0cachea", "vpce-0cacheb", "vpce-0cachec"}
+GONE_ENDPOINTS = {"vpce-0deleting", "vpce-0deleted"}
+EXPECTED_CELL = {"rtb-0main", "acl-0default", "sg-0default", "sg-0cluster", "eni-0eks", "eni-0nat", "eni-0rds",
+                 *CACHE_ENDPOINTS}
+OUTSIDE = {"vpc-0other", "rtb-0othermain", "acl-0other", "sg-0otherdefault", "eni-0otherlambda", "vpce-0othercache"}
 
 SNAPSHOTS = {
     "encabulator-valkey": [
@@ -134,15 +158,17 @@ def matches(item, filters):
 class FakeEC2:
     KEYS = {"describe_vpcs": "Vpcs", "describe_route_tables": "RouteTables",
             "describe_network_acls": "NetworkAcls", "describe_security_groups": "SecurityGroups",
-            "describe_network_interfaces": "NetworkInterfaces"}
+            "describe_network_interfaces": "NetworkInterfaces", "describe_vpc_endpoints": "VpcEndpoints"}
     IDS = {"Vpcs": "VpcId", "RouteTables": "RouteTableId", "NetworkAcls": "NetworkAclId",
-           "SecurityGroups": "GroupId", "NetworkInterfaces": "NetworkInterfaceId"}
+           "SecurityGroups": "GroupId", "NetworkInterfaces": "NetworkInterfaceId", "VpcEndpoints": "VpcEndpointId"}
 
-    def __init__(self, world, calls, deny_create=False):
+    def __init__(self, world, calls, deny_create=False, reads=None):
         self.world, self.calls, self.deny_create = world, calls, deny_create
+        self.reads = reads if reads is not None else []
 
     def get_paginator(self, op):
         key = self.KEYS[op]
+        self.reads.append(op)
         return Paginator(lambda Filters=None: {key: [copy.deepcopy(i) for i in self.world.get(key, [])
                                                     if matches(i, Filters)]})
 
@@ -228,6 +254,7 @@ class FakeSession:
     def __init__(self, worlds, deny_create=False):
         self.worlds = worlds
         self.calls = []
+        self.reads = []
         self.deny_create = deny_create
         self.snapshot_tags = copy.deepcopy(SNAPSHOT_TAGS)
         self.profile_tags = copy.deepcopy(PROFILE_TAGS)
@@ -235,7 +262,7 @@ class FakeSession:
 
     def client(self, service, region_name=None):
         if service == "ec2":
-            return FakeEC2(self.worlds.setdefault(region_name, {}), self.calls, self.deny_create)
+            return FakeEC2(self.worlds.setdefault(region_name, {}), self.calls, self.deny_create, self.reads)
         if service == "elasticache":
             return FakeElastiCache(region_name, self.calls, SNAPSHOTS, self.snapshot_tags)
         if service == "iam":
@@ -335,10 +362,81 @@ class SweepTest(unittest.TestCase):
                                 "VpcId": "vpc-0hub", "Tags": list(CONTRACT)}],
             "NetworkInterfaces": [{"NetworkInterfaceId": "eni-0hubcache", "VpcId": "vpc-0hub", "RequesterManaged": True,
                                    "Description": "ElastiCache Serverless encabulator-valkey", "TagSet": []}],
+            "VpcEndpoints": [{"VpcEndpointId": f"vpce-0hub{n}", "VpcId": "vpc-0hub", "VpcEndpointType": "Interface",
+                              "ServiceName": "com.amazonaws.elasticache.serverless.us-west-2", "State": "available",
+                              "RequesterManaged": True, "Tags": [{"Key": "AmazonElastiCacheManaged", "Value": "true"}]}
+                             for n in "abc"],
         }
         session = FakeSession({"us-west-2": hub, "us-east-2": {"Vpcs": []}})
         run(session)
-        self.assertEqual({rid for c in session.calls if c[0] == "ec2.create_tags" for rid in c[1]}, {"eni-0hubcache"})
+        self.assertEqual({rid for c in session.calls if c[0] == "ec2.create_tags" for rid in c[1]},
+                         {"eni-0hubcache", "vpce-0huba", "vpce-0hubb", "vpce-0hubc"})
+
+    # ---------------------------------------------------------------- VPC endpoints
+    def test_elasticache_vpc_endpoints_are_tagged_and_keep_their_own_tag(self):
+        status, lines = run(self.session)
+        self.assertEqual(status, 0)
+        self.assertTrue(CACHE_ENDPOINTS <= self.ec2_tagged(), self.ec2_tagged())
+        after = {e["VpcEndpointId"]: sweep.tag_map(e["Tags"]) for e in self.session.worlds["us-east-2"]["VpcEndpoints"]}
+        for vpce in CACHE_ENDPOINTS:
+            self.assertEqual(after[vpce], {"AmazonElastiCacheManaged": "true", **CONTRACT_MAP}, vpce)
+        what = {line["resource"]: line["what"] for line in lines if line.get("action") == "tagged"}
+        self.assertEqual(what["vpce-0cachea"], "VPC endpoint (requester-managed: com.amazonaws.elasticache.serverless.us-east-2)")
+
+    def test_vpc_endpoints_being_deleted_are_left_alone(self):
+        run(self.session)
+        self.assertFalse(self.ec2_tagged() & GONE_ENDPOINTS)
+        _, lines = run(FakeSession({"us-east-2": copy.deepcopy(CELL)}), dry_run=True)
+        self.assertFalse({line["resource"] for line in lines if line.get("action") == "would tag"} & GONE_ENDPOINTS)
+
+    def test_checked_line_names_the_vpc_endpoints_already_tagged(self):
+        _, first = run(self.session)
+        cell = [line for line in first if line.get("action") == "checked" and line["vpc"] == "vpc-0cell"]
+        self.assertEqual(len(cell), 1, first)
+        self.assertEqual((cell[0]["vpc_endpoints"], cell[0]["untagged"], cell[0]["vpc_endpoints_already_tagged"]),
+                         (3, len(EXPECTED_CELL), []))
+        _, second = run(self.session)
+        cell = [line for line in second if line.get("action") == "checked" and line["vpc"] == "vpc-0cell"]
+        self.assertEqual((cell[0]["vpc_endpoints"], cell[0]["untagged"], sorted(cell[0]["vpc_endpoints_already_tagged"])),
+                         (3, 0, sorted(CACHE_ENDPOINTS)))
+
+    def test_live_shape_six_endpoints_already_tagged_is_nothing_to_do(self):
+        # Both stacks as they are live: three ElastiCache endpoints per VPC, each already carrying
+        # the contract tags next to AmazonElastiCacheManaged=true. The run changes nothing and its
+        # log names all six.
+        def stack(vpc, region):
+            return {"Vpcs": [{"VpcId": vpc, "Tags": list(CONTRACT)}],
+                    "VpcEndpoints": [{"VpcEndpointId": f"vpce-0{vpc[5:]}{n}", "VpcId": vpc, "VpcEndpointType": "Interface",
+                                      "ServiceName": f"com.amazonaws.elasticache.serverless.{region}", "State": "available",
+                                      "RequesterManaged": True,
+                                      "Tags": [{"Key": "AmazonElastiCacheManaged", "Value": "true"}, *CONTRACT]}
+                                     for n in "abc"]}
+        session = FakeSession({"us-west-2": stack("vpc-0hub", "us-west-2"), "us-east-2": stack("vpc-0cell", "us-east-2")})
+        status, lines = run(session)
+        self.assertEqual(status, 0)
+        self.assertFalse([c for c in session.calls if c[0] == "ec2.create_tags"], session.calls)
+        checked = {line["region"]: line for line in lines if line.get("action") == "checked"}
+        self.assertEqual(set(checked), {"us-west-2", "us-east-2"})
+        listed = {v for line in checked.values() for v in line["vpc_endpoints_already_tagged"]}
+        self.assertEqual(listed, {f"vpce-0{v}{n}" for v in ("hub", "cell") for n in "abc"})
+        self.assertTrue(all(line["untagged"] == 0 for line in checked.values()))
+
+    def test_iam_allows_every_ec2_call_the_sweep_makes(self):
+        # tagger.tf's Read actions and TagVpcResources resource types must cover what the sweep
+        # describes and tags in a VPC, or the live run fails with UnauthorizedOperation.
+        tf = (Path(__file__).resolve().parents[1] / "tagger.tf").read_text()
+        read = re.search(r'sid = "Read"\s+actions = \[(.*?)\]', tf, re.S).group(1)
+        allowed_reads = set(re.findall(r'"(ec2:[A-Za-z]+)"', read))
+        types = re.search(r'sid\s+= "TagVpcResources".*?for type in \[(.*?)\]', tf, re.S).group(1)
+        allowed_types = set(re.findall(r'"([a-z-]+)"', types))
+        run(self.session)
+        made = {"ec2:" + "".join(w.capitalize() for w in op.split("_")) for op in self.session.reads}
+        self.assertTrue(made <= allowed_reads, made - allowed_reads)
+        prefixes = {"rtb": "route-table", "acl": "network-acl", "sg": "security-group", "eni": "network-interface",
+                    "vpce": "vpc-endpoint"}
+        tagged_types = {prefixes[rid.split("-")[0]] for rid in self.ec2_tagged()}
+        self.assertIn("vpc-endpoint", tagged_types)
+        self.assertTrue(tagged_types <= allowed_types, tagged_types - allowed_types)
 
 
 if __name__ == "__main__":

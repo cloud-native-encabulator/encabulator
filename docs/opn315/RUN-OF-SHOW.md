@@ -128,8 +128,9 @@ Checked offline (controller source, CRDs, kind clusters) but not yet against AWS
 - The arm64 build of the quoter image (rustls with the ring provider); only amd64 has been built.
 - Every AWS resource tagged `auto-delete=no`, including the ones AWS creates without a tag
   request (main route tables, default security groups and network ACLs, EKS cluster security
-  groups, requester-managed network interfaces), which the hub's tagger CronJob tags every 10
-  minutes (`docs/TAGGING.md`). `scripts/tag-check.py` checks the live account.
+  groups, requester-managed network interfaces, the VPC endpoints ElastiCache Serverless
+  creates), which the hub's tagger CronJob tags every 10 minutes (`docs/TAGGING.md`).
+  `scripts/tag-check.py` checks the live account.
 - Adoption on the capability's controller versions: `adoption-fields` key `dbInstanceIdentifier`,
   `adopt` versus `adopt-or-create` (resource adoption is a Beta feature in ACK).
 - The status fields kro waits for (`dbInstanceStatus`, ServerlessCache `status` and `endpoint`).
