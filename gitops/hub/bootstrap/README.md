@@ -10,7 +10,7 @@ registers the hub with its own Argo CD.
 | `hub-brownfield.yaml` | ApplicationSet `hub-brownfield`, renders Application `hub-brownfield` | `gitops/hub/brownfield` | hub, ns `encabulator` |
 | `hub-rgds.yaml` | Application `hub-rgds` | `gitops/hub/rgds` + `gitops/hub/rbac` | hub |
 | `hub-cells.yaml` | Application `hub-cells` | `gitops/hub/cells` | hub, ns `encabulator-cells` |
-| `hub-appset.yaml` | Application `hub-appset` | `gitops/hub/appset.yaml` only | hub, ns `argocd` |
+| `hub-cell-apps.yaml` | Application `hub-cell-apps` | `gitops/hub/appset.yaml` only, the cell ApplicationSet `encabulator` | hub, ns `argocd` |
 | `register-hub.sh` | Secret `encabulator-usw2` in `argocd` (not committed) | - | - |
 
 All four sync from `https://github.com/jlbutler/cloud-native-encabulator` at `carrlos`, with

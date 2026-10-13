@@ -1,9 +1,10 @@
-# The cell ApplicationSet (gitops/hub/appset.yaml): one Application per cluster Secret labelled
-# encabulator.io/cell=true. Only that one file in gitops/hub is synced.
+# hub-cell-apps: an Argo CD Application (not an ApplicationSet). It syncs one file, the cell
+# ApplicationSet gitops/hub/appset.yaml, which renders one Application per cluster Secret
+# labelled encabulator.io/cell=true. Only that one file in gitops/hub is synced.
 apiVersion: argoproj.io/v1alpha1
 kind: Application
 metadata:
-  name: hub-appset
+  name: hub-cell-apps
   namespace: argocd
 spec:
   project: encabulator-hub

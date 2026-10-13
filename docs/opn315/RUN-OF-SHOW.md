@@ -63,7 +63,7 @@ terraform/brownfield/            hub stack: VPC, hub EKS Auto Mode cluster, RDS,
   deploy-app.sh                  the Helm chart on RDS + ElastiCache
 gitops/explore/postgres.yaml     adopt-only DBInstance, applied by hand in Act 1 and then deleted
 gitops/hub/
-  bootstrap/                     AppProjects, hub-brownfield ApplicationSet, hub-rgds, hub-cells, hub-appset,
+  bootstrap/                     AppProjects, hub-brownfield ApplicationSet, hub-rgds, hub-cells, hub-cell-apps,
                                  register-hub.sh (the hub's cluster Secret, not committed)
   brownfield/                    ACK CRs Git owns after Act 1: postgres.yaml, valkey.yaml, subnet-group.yaml,
                                  kustomization.yaml (subnet and SG ids patched in from the cluster Secret)
@@ -104,7 +104,7 @@ Act 3, what the presenter types:
 
 ```sh
 # hub context (encabulator-usw2)
-kubectl -n argocd get applications                       # hub-brownfield, hub-rgds, hub-appset, hub-cells
+kubectl -n argocd get applications                       # hub-brownfield, hub-rgds, hub-cell-apps, hub-cells
 git push                                                 # the commit that adds gitops/hub/cells/use2.yaml
 kubectl get encabulatorcells -n encabulator-cells -w     # CLUSTER: CREATING -> ACTIVE, STATE: IN_PROGRESS -> ACTIVE
 kubectl get clusters.eks.services.k8s.aws,capabilities.eks.services.k8s.aws -n encabulator-cells
