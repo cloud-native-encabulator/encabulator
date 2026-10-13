@@ -27,6 +27,10 @@ locals {
 
   # Auto Mode creates an instance profile for each NodeClass role: the hub's and every cell's.
   tagger_node_roles = concat([aws_iam_role.node.name], [for name in var.ack_eks_cluster_names : "${name}-node"])
+
+  # EKS creates an access entry for its service-linked role on every Auto Mode cluster, without
+  # tags: the hub's and every cell's.
+  tagger_clusters = concat([local.cluster_name], var.ack_eks_cluster_names)
 }
 
 # ------------------------------------------------------------------------- IAM role
@@ -167,6 +171,46 @@ data "aws_iam_policy_document" "tagger" {
       }
     }
   }
+
+  statement {
+    sid     = "ReadAccessEntries"
+    actions = ["eks:ListAccessEntries", "eks:DescribeAccessEntry"]
+    resources = flatten([
+      for name in local.tagger_clusters : [
+        "arn:${local.partition}:eks:*:${local.account_id}:cluster/${name}",
+        "arn:${local.partition}:eks:*:${local.account_id}:access-entry/${name}/*",
+      ]
+    ])
+    condition {
+      test     = "StringEquals"
+      variable = "aws:RequestedRegion"
+      values   = var.ack_regions
+    }
+  }
+
+  statement {
+    sid       = "TagAccessEntries"
+    actions   = ["eks:TagResource"]
+    resources = [for name in local.tagger_clusters : "arn:${local.partition}:eks:*:${local.account_id}:access-entry/${name}/*"]
+    condition {
+      test     = "StringEquals"
+      variable = "aws:RequestedRegion"
+      values   = var.ack_regions
+    }
+    condition {
+      test     = "ForAllValues:StringEquals"
+      variable = "aws:TagKeys"
+      values   = keys(local.tags)
+    }
+    dynamic "condition" {
+      for_each = local.tags
+      content {
+        test     = "StringEquals"
+        variable = "aws:RequestTag/${condition.key}"
+        values   = [condition.value]
+      }
+    }
+  }
 }
 
 resource "aws_iam_role_policy" "tagger" {
@@ -285,6 +329,10 @@ resource "kubernetes_cron_job_v1" "tagger" {
               env {
                 name  = "NODE_ROLES"
                 value = join(" ", local.tagger_node_roles)
+              }
+              env {
+                name  = "CLUSTER_NAMES"
+                value = join(" ", local.tagger_clusters)
               }
               env {
                 name  = "HOME"

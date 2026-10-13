@@ -12,7 +12,7 @@ the service itself. Two ways to get there:
 | create time | NodeClass `spec.tags` (hub: `terraform/brownfield/nodes.tf`, cells: `gitops/app/nodes`) | Auto Mode instances, root volumes, network interfaces, launch templates |
 | create time | StorageClass `tagSpecification_1..3` (hub: `charts/encabulator/values-brownfield.yaml`, cells: the `encabulator-gp3` StorageClass in `gitops/app/rgds/encabulator.yaml`) | EBS volumes for the NATS and InfluxDB PVCs |
 | create time | RDS copy tags to snapshot (hub: `copy_tags_to_snapshot`, cells: `copyTagsToSnapshot`) | automated backups |
-| post-pass | the tagger CronJob on the hub, every 10 minutes (`terraform/brownfield/tagger.tf`, `tagger/sweep.py`) | what AWS creates without a tag request: a cell's main route table, default security group, default network ACL and EKS cluster security group; the requester-managed network interfaces of the EKS control plane, NAT gateways, RDS and ElastiCache in the hub and every cell; ElastiCache serverless snapshots; Auto Mode's instance profiles |
+| post-pass | the tagger CronJob on the hub, every 10 minutes (`terraform/brownfield/tagger.tf`, `tagger/sweep.py`) | what AWS creates without a tag request: a cell's main route table, default security group, default network ACL and EKS cluster security group; the requester-managed network interfaces of the EKS control plane, NAT gateways, RDS and ElastiCache in the hub and every cell; ElastiCache serverless snapshots; Auto Mode's instance profiles; the access entry EKS creates for its service-linked role on the hub and every cell |
 
 Nothing creates load balancers (no Ingress, no Service of type `LoadBalancer`), and the cell
 cluster has no creator access entry (`bootstrapClusterCreatorAdminPermissions: false`).
@@ -23,8 +23,10 @@ A CronJob `encabulator-tagger` in namespace `encabulator-tagger` on the hub, ins
 `terraform/brownfield`. Every 10 minutes it finds the VPCs tagged `project=encabulator` and
 `talk=opn315` in us-west-2 and us-east-2 (`var.ack_regions`) and adds the three tags to every route
 table, network ACL, security group and network interface in them that lacks one, then to the
-`encabulator-valkey` snapshots and the instance profiles of `encabulator-usw2-node` and
-`encabulator-use2-node`. It only ever adds those three tags.
+`encabulator-valkey` snapshots, the instance profiles of `encabulator-usw2-node` and
+`encabulator-use2-node`, and the access entries EKS creates itself on `encabulator-usw2` and
+`encabulator-use2` (Auto Mode adds one, untagged, for the `AWSServiceRoleForAmazonEKS`
+service-linked role). It only ever adds those three tags.
 
 - Identity: IAM role `encabulator-usw2-tagger` through EKS Pod Identity, trusted only for its own
   service account on the hub. It may describe, and it may write tags only when the request is
@@ -140,6 +142,7 @@ scripts/tag-check-audit.py --terraform "..." --write-doc docs/TAGGING.md   # ref
 | requester-managed network interfaces: EKS control plane, NAT gateway, RDS, ElastiCache | EKS, VPC, RDS, ElastiCache | post-pass: tagger CronJob on the hub (terraform/brownfield/tagger.tf) |
 | ElastiCache serverless snapshots of `encabulator-valkey` (daily) | ElastiCache | post-pass: tagger CronJob on the hub (terraform/brownfield/tagger.tf) |
 | IAM instance profile of `encabulator-usw2-node` | EKS Auto Mode | post-pass: tagger CronJob on the hub (terraform/brownfield/tagger.tf) |
+| EKS access entry of the service-linked role AWSServiceRoleForAmazonEKS | EKS Auto Mode | post-pass: tagger CronJob on the hub (terraform/brownfield/tagger.tf) |
 | load balancers, their security groups and target groups | EKS Auto Mode | none created: no Ingress and no Service of type LoadBalancer (chart rendered with the hub overlays) |
 
 ### hub (ACK, Act 1)
@@ -182,6 +185,7 @@ scripts/tag-check-audit.py --terraform "..." --write-doc docs/TAGGING.md   # ref
 | EKS access entry for the cluster creator | nobody | not created: bootstrapClusterCreatorAdminPermissions false |
 | EKS access entries of the ACK and kro capabilities | ACK, before each capability (EKS would create them untagged) | create time: ACK spec.tags (AccessEntry rows above) |
 | IAM instance profile of the cell's node role | EKS Auto Mode | post-pass: tagger CronJob on the hub (terraform/brownfield/tagger.tf) |
+| EKS access entry of the service-linked role AWSServiceRoleForAmazonEKS | EKS Auto Mode | post-pass: tagger CronJob on the hub (terraform/brownfield/tagger.tf) |
 
 ### cell (Encabulator RGDs, cell ACK + Auto Mode)
 

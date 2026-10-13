@@ -4,6 +4,12 @@
 resource "kubernetes_namespace_v1" "encabulator" {
   metadata {
     name = local.namespace
+    # deploy-app.sh runs `helm upgrade --install --create-namespace`; Helm 4 server-side applies
+    # the label name=<namespace> to the namespace even when it already exists. Set it here too,
+    # or every plan after the first app deploy shows the label as drift.
+    labels = {
+      name = local.namespace
+    }
   }
 
   # Auto Mode needs nodes before anything in the namespace can run.

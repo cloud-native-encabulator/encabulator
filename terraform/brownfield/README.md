@@ -24,7 +24,8 @@ security group, the NodeClass `tags` for Auto Mode instances, root volumes and E
 StorageClass `tagSpecification_N` in `charts/encabulator/values-brownfield.yaml` for PVC volumes,
 `copy_tags_to_snapshot` for RDS backups, and the tagger CronJob for what AWS creates without a tag
 request (requester-managed network interfaces, ElastiCache snapshots, Auto Mode instance profiles,
-and the same defaults in every cell). `docs/TAGGING.md` has the full list.
+the access entry EKS creates for its service-linked role, and the same defaults in every cell).
+`docs/TAGGING.md` has the full list.
 
 ## Prerequisites
 
@@ -177,7 +178,8 @@ service-linked roles for EKS, RDS and ElastiCache. The hub cluster and the hub's
 `encabulator-usw2-tagger` through EKS Pod Identity. In every VPC tagged `project=encabulator` and
 `talk=opn315` in `var.ack_regions` (the hub's and every cell's) it adds the three contract tags to
 route tables, network ACLs, security groups and network interfaces that lack one, then to the
-`encabulator-valkey` snapshots and to the instance profiles of the hub's and the cells' node roles.
+`encabulator-valkey` snapshots, to the instance profiles of the hub's and the cells' node roles, and
+to the access entries EKS creates itself (Auto Mode's `AWSServiceRoleForAmazonEKS` entry).
 The role can read those and write tags only when the request is exactly the three contract tags.
 A CronJob rather than a one-time pass because requester-managed interfaces (RDS, ElastiCache, NAT
 gateways, the EKS control plane) appear whenever those services create or replace them, and cells

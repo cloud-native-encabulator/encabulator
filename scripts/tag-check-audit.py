@@ -277,6 +277,8 @@ def hub_terraform(planned, rows, tagger):
                     POST_PASS, "encabulator-valkey" in tagger.get("CACHE_NAMES", "").split() and swept))
     rows.append(Row(stack, "IAM instance profile of `encabulator-usw2-node`", "EKS Auto Mode",
                     POST_PASS, "encabulator-usw2-node" in tagger.get("NODE_ROLES", "").split()))
+    rows.append(Row(stack, "EKS access entry of the service-linked role AWSServiceRoleForAmazonEKS", "EKS Auto Mode",
+                    POST_PASS, "encabulator-usw2" in tagger.get("CLUSTER_NAMES", "").split()))
     rows.append(Row(stack, "load balancers, their security groups and target groups", "EKS Auto Mode",
                     "none created: no Ingress and no Service of type LoadBalancer (chart rendered with the hub overlays)",
                     hub_load_balancers_absent()))
@@ -406,6 +408,9 @@ def cell_rgd(rows, tagger):
     node_roles = tagger.get("NODE_ROLES", "").split()
     profiles_ok = "${schema.metadata.name}-node" in roles and bool(the_cells) and all(f"{n}-node" in node_roles for n, _ in the_cells)
     rows.append(Row(stack, "IAM instance profile of the cell's node role", "EKS Auto Mode", POST_PASS, profiles_ok))
+    clusters_swept = tagger.get("CLUSTER_NAMES", "").split()
+    rows.append(Row(stack, "EKS access entry of the service-linked role AWSServiceRoleForAmazonEKS", "EKS Auto Mode", POST_PASS,
+                    bool(the_cells) and all(n in clusters_swept for n, _ in the_cells)))
 
 
 def app_rgds(rows, tagger):
