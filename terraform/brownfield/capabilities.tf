@@ -246,6 +246,8 @@ resource "aws_eks_capability" "argocd" {
   role_arn                  = aws_iam_role.capability["argocd"].arn
   delete_propagation_policy = "RETAIN"
 
+  depends_on = [aws_eks_access_entry.capability]
+
   configuration {
     argo_cd {
       namespace = "argocd"
@@ -280,12 +282,23 @@ resource "aws_eks_capability" "ack" {
   role_arn                  = aws_iam_role.capability["ack"].arn
   delete_propagation_policy = "RETAIN"
 
-  depends_on = [aws_iam_role_policy.ack]
+  depends_on = [aws_iam_role_policy.ack, aws_eks_access_entry.capability]
 }
 
-# kro's access entry is created here, before the capability, so it can carry the
-# Kubernetes group that the GitOps RBAC binds (contract D4). EKS adds the capability's
-# own AmazonEKSKROPolicy to it when the capability is created.
+# Every capability's access entry is created here, before the capability, so it carries the
+# contract tags (an entry EKS creates for a capability carries none) and, for kro, the
+# Kubernetes group that the GitOps RBAC binds (contract D4). EKS adds each capability's
+# default access policies (Argo CD: AmazonEKSArgoCDClusterPolicy + AmazonEKSArgoCDPolicy in
+# argocd; ACK: AmazonEKSACKPolicy; kro: AmazonEKSKROPolicy) to the existing entry when the
+# capability is created. The cell (gitops/hub/rgds) pre-creates its entries the same way.
+resource "aws_eks_access_entry" "capability" {
+  for_each = toset(["argocd", "ack"])
+
+  cluster_name  = aws_eks_cluster.hub.name
+  principal_arn = aws_iam_role.capability[each.key].arn
+  type          = "STANDARD"
+}
+
 resource "aws_eks_access_entry" "kro" {
   cluster_name      = aws_eks_cluster.hub.name
   principal_arn     = aws_iam_role.capability["kro"].arn
@@ -304,8 +317,8 @@ resource "aws_eks_capability" "kro" {
 }
 
 # ------------------------------------------------ extra Kubernetes permissions (hub)
-# EKS creates the Argo CD and ACK access entries itself with each capability; these
-# associations add to them.
+# These associations add to the capability access entries above, after each capability has
+# added its default policies.
 
 # The rds controller reads the master password from the Secret encabulator-db.
 resource "aws_eks_access_policy_association" "ack_secret_reader" {
