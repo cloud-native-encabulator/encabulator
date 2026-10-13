@@ -78,7 +78,11 @@ storageClass ─> nats, influxdb (influxdb also reads its token Secret name from
 The AWS resources carry the Act 1 annotations: `services.k8s.aws/adoption-policy:
 adopt-or-create` (an `encabulator-pg` that already exists in the region is adopted, otherwise
 created; with no `adoption-fields` annotation ACK takes the identifiers from the spec) and
-`services.k8s.aws/deletion-policy: retain`. Tags are exactly the three contract tags (D3).
+`services.k8s.aws/deletion-policy: retain`. Tags are exactly the three contract tags (D3). The
+`encabulator-gp3` StorageClass puts the same three on every PVC volume (`tagSpecification_1..3`)
+and the DBInstance copies them to its backups (`copyTagsToSnapshot`); what RDS and ElastiCache
+create without tags (their network interfaces, cache snapshots) is tagged by the hub's tagger
+(`docs/TAGGING.md`).
 
 ## Secrets kro cannot generate
 
