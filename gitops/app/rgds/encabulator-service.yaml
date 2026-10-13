@@ -25,8 +25,9 @@ spec:
     apiVersion: v1alpha1
     kind: EncabulatorService
     spec:
-      # Image tag for ghcr.io/jlbutler/cloud-native-encabulator/<name>.
-      tag: string | default="1.0.0"
+      # The image is <registry>/<name>:<tag>.
+      tag: string | default="1.0.1"
+      registry: string | default="ghcr.io/jlbutler/cloud-native-encabulator"
       # The ConfigMap holding POSTGRES_HOST, POSTGRES_PORT, VALKEY_HOST and
       # VALKEY_PORT. Reading it makes every service wait until it exists.
       storesConfig: string | default="encabulator-aws"
@@ -166,7 +167,7 @@ spec:
               terminationGracePeriodSeconds: 30
               containers:
                 - name: ${schema.metadata.name}
-                  image: ghcr.io/jlbutler/cloud-native-encabulator/${schema.metadata.name}:${schema.spec.tag}
+                  image: ${schema.spec.registry + "/" + schema.metadata.name + ":" + schema.spec.tag}
                   imagePullPolicy: IfNotPresent
                   securityContext:
                     allowPrivilegeEscalation: false
