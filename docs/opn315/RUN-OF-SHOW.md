@@ -196,8 +196,12 @@ Confirmed on the hub (us-west-2) and on a cell built from `cells/use2.yaml` (us-
 - The status fields kro waits for (`dbInstanceStatus`, ServerlessCache `status` and `endpoint`),
   the ACK capability reading the `encabulator-db` Secret, and kro's RBAC on the group
   `encabulator:kro`: the cell's graph went ACTIVE and an order was delivered through its gateway.
-- `scripts/tag-check.py` exits 0 for both regions, including Auto Mode nodes and the VPC
-  endpoints ElastiCache Serverless creates.
+- Every AWS resource tagged `auto-delete=no`, including the ones AWS creates without a tag
+  request (main route tables, default security groups and network ACLs, EKS cluster security
+  groups, requester-managed network interfaces, the VPC endpoints ElastiCache Serverless
+  creates), which the hub's tagger CronJob tags every 10 minutes (`docs/TAGGING.md`).
+  `scripts/tag-check.py` exits 0 for both regions, including Auto Mode nodes and those VPC
+  endpoints.
 
 Still open:
 

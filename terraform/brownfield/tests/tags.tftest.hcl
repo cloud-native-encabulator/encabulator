@@ -127,6 +127,26 @@ run "tags" {
   }
   assert {
     condition = alltrue([
+      for s in jsondecode(data.aws_iam_policy_document.tagger.json).Statement :
+      alltrue([
+        toset(flatten([s.Action])) == toset(["ec2:CreateTags"]),
+        toset(flatten([s.Resource])) == toset([
+          for type in ["route-table", "network-acl", "security-group", "network-interface", "vpc-endpoint"] :
+          "arn:aws:ec2:*:111122223333:${type}/*"
+        ]),
+      ]) if contains(flatten([s.Action]), "ec2:CreateTags")
+    ])
+    error_message = "the tagger may tag exactly route tables, network ACLs, security groups, network interfaces and VPC endpoints in EC2, nothing else"
+  }
+  assert {
+    condition = anytrue([
+      for s in jsondecode(data.aws_iam_policy_document.tagger.json).Statement :
+      contains(flatten([s.Action]), "ec2:DescribeVpcEndpoints") && s.Resource == "*"
+    ])
+    error_message = "the tagger may describe VPC endpoints (ElastiCache Serverless creates three per VPC)"
+  }
+  assert {
+    condition = alltrue([
       jsondecode(data.aws_iam_policy_document.tagger_assume.json).Statement[0].Principal.Service == "pods.eks.amazonaws.com",
       jsondecode(data.aws_iam_policy_document.tagger_assume.json).Statement[0].Condition.StringEquals["aws:RequestTag/kubernetes-namespace"] == "encabulator-tagger",
       jsondecode(data.aws_iam_policy_document.tagger_assume.json).Statement[0].Condition.StringEquals["aws:RequestTag/kubernetes-service-account"] == "encabulator-tagger",

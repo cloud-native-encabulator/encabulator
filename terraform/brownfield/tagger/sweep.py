@@ -7,10 +7,12 @@ spec.tags, the NodeClass, the StorageClass). This covers what AWS creates on its
 without a tag request, in the hub and in every cell:
 
   in every VPC tagged project=encabulator and talk=opn315, in each region of REGIONS:
-    route tables, network ACLs, security groups and network interfaces that lack a contract
-    tag: the main route table, default network ACL and default security group EC2 creates
-    with the VPC, the cluster security group EKS creates, and the requester-managed network
-    interfaces of the EKS control plane, the NAT gateway, RDS and ElastiCache
+    route tables, network ACLs, security groups, network interfaces and VPC endpoints that
+    lack a contract tag: the main route table, default network ACL and default security group
+    EC2 creates with the VPC, the cluster security group EKS creates, the requester-managed
+    network interfaces of the EKS control plane, the NAT gateway, RDS and ElastiCache, and the
+    requester-managed interface endpoints ElastiCache Serverless creates (three per VPC,
+    tagged only AmazonElastiCacheManaged=true); endpoints being deleted are left alone
   ElastiCache serverless snapshots of the caches in CACHE_NAMES (the daily snapshot)
   IAM instance profiles of the roles in NODE_ROLES (EKS Auto Mode creates one per NodeClass role)
   EKS access entries of the clusters in CLUSTER_NAMES that EKS created itself (Auto Mode adds one
@@ -19,6 +21,9 @@ without a tag request, in the hub and in every cell:
 It only ever adds the three contract tags. It never removes a tag and never changes anything
 else, and the IAM role it runs with can do nothing but that (tagger.tf). Re-running is a no-op
 once everything is tagged.
+
+Output: one JSON line per VPC ("checked": how many of each kind it looked at, how many lacked a
+tag, and the VPC endpoints that already carry the tags), one per resource tagged, then "done".
 
 Environment:
   REGIONS       space-separated regions, e.g. "us-west-2 us-east-2"
@@ -40,6 +45,8 @@ TAGS = {"auto-delete": "no", "project": "encabulator", "talk": "opn315"}
 # How the hub and the cells mark their VPCs (auto-delete is what this adds, so not part of it).
 VPC_SELECTOR = {"project": "encabulator", "talk": "opn315"}
 EC2_BATCH = 100
+# VPC endpoint states (lower-cased) in which the endpoint is on its way out: never tagged.
+ENDPOINT_GONE = {"deleting", "deleted"}
 
 
 def log(**fields):
@@ -89,26 +96,47 @@ class Sweep:
         return [v["VpcId"] for v in pages(ec2, "describe_vpcs", "Vpcs", Filters=filters)]
 
     def untagged_in_vpc(self, ec2, vpc):
-        """(resource id, what it is) for every route table, NACL, SG and ENI missing a tag."""
+        """(found, seen) for one VPC: found is (resource id, what it is) for every route table,
+        NACL, SG, ENI and VPC endpoint missing a contract tag; seen counts how many of each kind
+        were looked at and names the VPC endpoints that already carry the contract tags (the
+        per-VPC "checked" log line)."""
         in_vpc = [{"Name": "vpc-id", "Values": [vpc]}]
         found = []
+        seen = {"route_tables": 0, "network_acls": 0, "security_groups": 0, "network_interfaces": 0,
+                "vpc_endpoints": 0, "vpc_endpoints_already_tagged": []}
         for rt in pages(ec2, "describe_route_tables", "RouteTables", Filters=in_vpc):
+            seen["route_tables"] += 1
             main = any(a.get("Main") for a in rt.get("Associations", []))
             if missing(rt.get("Tags")):
                 found.append((rt["RouteTableId"], "main route table" if main else "route table"))
         for acl in pages(ec2, "describe_network_acls", "NetworkAcls", Filters=in_vpc):
+            seen["network_acls"] += 1
             if missing(acl.get("Tags")):
                 found.append((acl["NetworkAclId"], "default network ACL" if acl.get("IsDefault") else "network ACL"))
         for sg in pages(ec2, "describe_security_groups", "SecurityGroups", Filters=in_vpc):
+            seen["security_groups"] += 1
             if missing(sg.get("Tags")):
                 found.append((sg["GroupId"], f"security group {sg.get('GroupName', '')}".strip()))
         for eni in pages(ec2, "describe_network_interfaces", "NetworkInterfaces", Filters=in_vpc):
+            seen["network_interfaces"] += 1
             if missing(eni.get("TagSet")):
                 what = "network interface"
                 if eni.get("RequesterManaged"):
                     what += f" (requester-managed: {eni.get('Description', '')})"
                 found.append((eni["NetworkInterfaceId"], what))
-        return found
+        # ElastiCache Serverless puts three requester-managed interface endpoints in each VPC it
+        # uses, tagged only AmazonElastiCacheManaged=true, and replaces them on its own.
+        for vpce in pages(ec2, "describe_vpc_endpoints", "VpcEndpoints", Filters=in_vpc):
+            if str(vpce.get("State", "")).lower() in ENDPOINT_GONE:
+                continue
+            seen["vpc_endpoints"] += 1
+            if missing(vpce.get("Tags")):
+                service = vpce.get("ServiceName", "")
+                what = f"VPC endpoint (requester-managed: {service})" if vpce.get("RequesterManaged") else f"VPC endpoint {service}"
+                found.append((vpce["VpcEndpointId"], what.strip()))
+            else:
+                seen["vpc_endpoints_already_tagged"].append(vpce["VpcEndpointId"])
+        return found, seen
 
     def sweep_ec2(self, region):
         ec2 = self.session.client("ec2", region_name=region)
@@ -119,10 +147,11 @@ class Sweep:
             return
         for vpc in vpcs:
             try:
-                found = self.untagged_in_vpc(ec2, vpc)
+                found, seen = self.untagged_in_vpc(ec2, vpc)
             except Exception as err:  # noqa: BLE001
                 self.fail("describe", err, region=region, vpc=vpc)
                 continue
+            log(level="info", action="checked", region=region, vpc=vpc, untagged=len(found), **seen)
             for i in range(0, len(found), EC2_BATCH):
                 batch = found[i:i + EC2_BATCH]
                 ids = [rid for rid, _ in batch]

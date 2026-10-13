@@ -320,6 +320,24 @@ class AuditTest(unittest.TestCase):
         status, out, _ = self.audit(plan=plan)
         self.assert_fails_on(status, out, "main route table, default security group, default network ACL")
 
+    def test_tagger_policy_without_vpc_endpoints_fails(self):
+        # ElastiCache Serverless creates three VPC endpoints per VPC; a tagger that may not
+        # describe and tag them leaves them without auto-delete=no, in the hub and every cell.
+        plan = self.tmp / "plan-no-vpce.txt"
+        text = self.plan.read_text()
+        start = text.index("  # aws_iam_role_policy.tagger will be created")
+        end = text.index("\n    }\n", start)
+        block = text[start:end]
+        cut = re.sub(r'\n\s+\+ "ec2:DescribeVpcEndpoints",', "", block)
+        cut = re.sub(r'\n\s+\+ "arn:aws:ec2:\*:\d+:vpc-endpoint/\*",', "", cut)
+        self.assertEqual(block.count("\n") - cut.count("\n"), 2, "expected the plan's tagger policy to name the describe action and the ARN")
+        plan.write_text(text[:start] + cut + text[end:])
+        status, out, _ = self.audit(plan=plan)
+        self.assertEqual(status, 1, out)
+        fails = [line for line in out.splitlines() if line.startswith("FAIL") and "VPC endpoints" in line]
+        self.assertEqual(len(fails), 2, fails)
+        self.assertTrue(any("hub (Terraform" in line for line in fails), fails)
+        self.assertTrue(any("cell (Encabulator RGDs" in line for line in fails), fails)
     def test_hub_defaults_neither_adopted_nor_swept_fails(self):
         plan = self.tmp / "plan-no-defaults.txt"
         text = self.plan.read_text()
