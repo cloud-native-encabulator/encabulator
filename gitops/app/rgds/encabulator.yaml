@@ -659,10 +659,19 @@ spec:
                     name: ${natsConfig.metadata.name}
                 - name: tmp
                   emptyDir: {}
+          # volumeClaimTemplates are immutable once the StatefulSet exists, so these labels must
+          # not change between releases: the natsLabels set minus app.kubernetes.io/version,
+          # like the chart's encabulator.storeVolumeLabels.
           volumeClaimTemplates:
             - metadata:
                 name: data
-                labels: *natsLabels
+                labels:
+                  app.kubernetes.io/name: nats
+                  app.kubernetes.io/instance: ${schema.metadata.name}
+                  app.kubernetes.io/part-of: encabulator
+                  app.kubernetes.io/managed-by: kro
+                  app.kubernetes.io/component: backing-store
+                  encabulator.io/plane: data
               spec:
                 accessModes: ["ReadWriteOnce"]
                 resources:
@@ -791,10 +800,17 @@ spec:
                   emptyDir: {}
                 - name: tmp
                   emptyDir: {}
+          # Immutable like the NATS ones above: the influxdbLabels set minus app.kubernetes.io/version.
           volumeClaimTemplates:
             - metadata:
                 name: data
-                labels: *influxdbLabels
+                labels:
+                  app.kubernetes.io/name: influxdb
+                  app.kubernetes.io/instance: ${schema.metadata.name}
+                  app.kubernetes.io/part-of: encabulator
+                  app.kubernetes.io/managed-by: kro
+                  app.kubernetes.io/component: backing-store
+                  encabulator.io/plane: data
               spec:
                 accessModes: ["ReadWriteOnce"]
                 resources:
