@@ -29,7 +29,7 @@ spec:
     kind: EncabulatorService
     spec:
       # The image is <registry>/<name>:<tag>.
-      tag: string | default="1.0.2"
+      tag: string | default="1.0.3"
       registry: string | default="ghcr.io/jlbutler/cloud-native-encabulator"
       # The ConfigMap holding POSTGRES_HOST, POSTGRES_PORT, VALKEY_HOST and
       # VALKEY_PORT. Reading it makes every service wait until it exists.

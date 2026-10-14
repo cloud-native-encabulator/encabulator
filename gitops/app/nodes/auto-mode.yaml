@@ -67,5 +67,13 @@ spec:
     consolidateAfter: 30s
     budgets:
       - nodes: "10%"
+      # Never repack a node that still runs pods. A rollout's surge pods add nodes, and
+      # consolidating them afterwards moved influxdb-0 (its EBS volume re-attached on another
+      # node, about 30 s down), the console and the grammeter mid-demo. Empty nodes are still
+      # removed, and drift (a new Auto Mode AMI, about weekly) and expireAfter still replace
+      # nodes, so node upgrades keep working. The cost is underused nodes that stay until they
+      # are empty. To repack again, delete this budget.
+      - nodes: "0"
+        reasons: ["Underutilized"]
   limits:
     cpu: "64"

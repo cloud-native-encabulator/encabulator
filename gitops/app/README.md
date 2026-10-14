@@ -27,7 +27,7 @@ gitops/app/
 | ElastiCache Serverless | engine `valkey`, major `8` (lead decision D2; 9.0 and 9.1 exist for Serverless) | `rgds/encabulator.yaml` |
 | secret-init image | `docker.io/library/python:3.13.16-slim-trixie@sha256:70729b46...c2f` (Python 3.13.16, OpenSSL 3.5.7) | `secretInit` Job |
 | db-init image | `docker.io/library/postgres:18.6-trixie@sha256:74935e72...4336` | `dbInit` Job |
-| Service images | `<spec.registry>/<service>:<spec.imageTag>`, default `ghcr.io/jlbutler/cloud-native-encabulator/<service>:1.0.2` | `spec.registry`, `spec.imageTag` |
+| Service images | `<spec.registry>/<service>:<spec.imageTag>`, default `ghcr.io/jlbutler/cloud-native-encabulator/<service>:1.0.3` | `spec.registry`, `spec.imageTag` |
 | NATS, InfluxDB images | `nats:2.12`, `influxdb:3-core` (the chart's tags, unchanged); InfluxDB flushes its WAL every 50 ms (`INFLUXDB3_WAL_FLUSH_INTERVAL`, the chart's `influxdb.walFlushInterval` default) and lets one query scan up to 4320 Parquet files (`INFLUXDB3_QUERY_FILE_LIMIT`, the chart's `influxdb.queryFileLimit` default) | StatefulSets |
 | Validation | kind cluster on `kindest/node` (shared `opn315-cell`, Kubernetes 1.35.8), helm 4.2.4, kubectl 1.35.0, Python 3.12 + PyYAML 6.0.3 | `hack/` |
 
@@ -38,7 +38,7 @@ apiVersion: kro.run/v1alpha1
 kind: Encabulator
 metadata: {name: encabulator, namespace: encabulator}
 spec:
-  imageTag: "1.0.2"               # default 1.0.2
+  imageTag: "1.0.3"               # default 1.0.3
   registry: ghcr.io/jlbutler/cloud-native-encabulator  # the default; a mirror per cell, see below
   dbInstanceClass: db.t4g.medium  # default db.t4g.medium
   subnetIDs: [...]                # patched in per cell
@@ -137,6 +137,13 @@ equivalent to the general-purpose pool replace them, same spec as the hub's. The
 subnets and the cluster security group are placeholders that the cell ApplicationSet replaces
 with patches (the role from the cell's name, so each cell's nodes join with the role that has
 the cell's EC2 access entry).
+
+The NodePool never consolidates a node that still runs pods (a `nodes: "0"` budget for the
+`Underutilized` reason). Without it, the nodes a rollout's surge pods add were repacked a few
+minutes later, which moved `influxdb-0` (about 30 s down while its EBS volume re-attaches), the
+console and the grammeter. Empty nodes are still removed, and drift (a new Auto Mode AMI, about
+weekly) and `expireAfter` (336h) still replace nodes, so node upgrades keep happening. The cost is
+underused nodes that stay until they are empty. Delete that budget to repack again.
 
 ## What the cell ApplicationSet patches
 
