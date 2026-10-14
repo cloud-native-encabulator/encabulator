@@ -236,15 +236,17 @@ run "plan" {
   assert {
     condition = alltrue([
       for s in jsondecode(data.aws_iam_policy_document.ack.json).Statement :
-      try(toset(s.Condition.StringEquals["aws:RequestedRegion"]) == toset(["us-west-2", "us-east-2"]), true)
+      try(toset(s.Condition.StringEquals["aws:RequestedRegion"]) == toset(["us-west-2", "us-east-2", "eu-west-1"]), true)
     ])
-    error_message = "ACK region scope is us-west-2 + us-east-2"
+    error_message = "ACK region scope is the hub (us-west-2) and the cell regions (us-east-2, eu-west-1)"
   }
   assert {
-    condition = contains(
-      flatten([for s in jsondecode(data.aws_iam_policy_document.ack.json).Statement : flatten([s.Resource]) if s.Sid == "IamPassCellRoles"]),
-      "arn:aws:iam::111122223333:role/encabulator-use2-*",
-    )
-    error_message = "ACK may pass the cell roles encabulator-use2-*"
+    condition = alltrue([
+      for p in ["encabulator-use2-*", "encabulator-reh1-*", "encabulator-euw1-*"] : contains(
+        flatten([for s in jsondecode(data.aws_iam_policy_document.ack.json).Statement : flatten([s.Resource]) if s.Sid == "IamPassCellRoles"]),
+        "arn:aws:iam::111122223333:role/${p}",
+      )
+    ])
+    error_message = "ACK may pass the roles of every cell (encabulator-use2-*, -reh1-*, -euw1-*)"
   }
 }

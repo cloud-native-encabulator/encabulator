@@ -21,14 +21,15 @@ cluster has no creator access entry (`bootstrapClusterCreatorAdminPermissions: f
 
 A CronJob `encabulator-tagger` in namespace `encabulator-tagger` on the hub, installed by
 `terraform/brownfield`. Every 10 minutes it finds the VPCs tagged `project=encabulator` and
-`talk=opn315` in us-west-2 and us-east-2 (`var.ack_regions`) and adds the three tags to every route
+`talk=opn315` in every region of `var.ack_regions` (us-west-2, us-east-2 and eu-west-1) and adds
+the three tags to every route
 table, network ACL, security group, network interface and VPC endpoint in them that lacks one
 (ElastiCache Serverless puts three requester-managed interface endpoints in each VPC it uses,
 tagged only `AmazonElastiCacheManaged=true`; endpoints being deleted are skipped), then to the
-`encabulator-valkey` snapshots, the instance profiles of `encabulator-usw2-node` and
-`encabulator-use2-node`, and the access entries EKS creates itself on `encabulator-usw2` and
-`encabulator-use2` (Auto Mode adds one, untagged, for the `AWSServiceRoleForAmazonEKS`
-service-linked role). It only ever adds those three tags.
+`encabulator-valkey` snapshots, the instance profiles of `encabulator-usw2-node` and every cell's
+node role (`<cell>-node` for each name in `var.ack_eks_cluster_names`), and the access entries
+EKS creates itself on `encabulator-usw2` and every cell (Auto Mode adds one, untagged, for the
+`AWSServiceRoleForAmazonEKS` service-linked role). It only ever adds those three tags.
 
 - Identity: IAM role `encabulator-usw2-tagger` through EKS Pod Identity, trusted only for its own
   service account on the hub. It may describe, and it may write tags only when the request is
