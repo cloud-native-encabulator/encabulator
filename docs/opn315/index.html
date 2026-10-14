@@ -580,7 +580,7 @@ resources:
   <g data-step="1">
    <rect class="box k8s" x="20" y="220" width="440" height="280" rx="20"/>
    <text class="sm" x="44" y="258">you write</text>
-   <g class="tmono"><text x="44" y="310" style="fill:#86b4ff">kind: Encabulator</text><text x="44" y="356">imageTag: 1.0.1</text><text x="44" y="402">dbInstanceClass: db.t4g…</text><text x="44" y="448">services: [15 names]</text></g>
+   <g class="tmono"><text x="44" y="310" style="fill:#86b4ff">kind: Encabulator</text><text x="44" y="356">imageTag: 1.0.2</text><text x="44" y="402">dbInstanceClass: db.t4g…</text><text x="44" y="448">services: [15 names]</text></g>
   </g>
   <g data-step="2">
    <path class="ar kro" d="M460 360 H534"/>
@@ -628,7 +628,7 @@ spec:
     apiVersion: v1alpha1
     kind: Encabulator
     spec:
-      imageTag: string | default="1.0.1"
+      imageTag: string | default="1.0.2"
       registry: string | default="ghcr.io/jlbutler/cloud-native-encabulator"
       dbInstanceClass: string | default="db.t4g.medium"
       subnetIDs: "[]string"
@@ -843,14 +843,14 @@ kubectl get encabulator encabulator -n encabulator -o yaml | yq .status
   </g>
  </svg>
  <aside class="notes">
-  <p>⏱ 40:00-42:00. The hub runs all three capabilities. Build 1: one more kro API on the hub, EncabulatorCell: one object per region, in namespace <code>encabulator-cells</code>. Build 2: ACK on the hub builds the new region in us-east-2: a VPC with public and private subnets and one NAT gateway, the IAM roles, the EKS Auto Mode cluster, its access entries and its ACK and kro capabilities (the EKS controller has Cluster, Capability and AccessEntry kinds), and the <code>encabulator-db</code> security group. Build 3: kro also writes the Argo CD cluster Secret, so the ApplicationSet picks up the new cluster and syncs <code>gitops/app</code> to it. Build 4: ACK on the cell creates RDS and ElastiCache in its own region. Green field, no Helm, no Terraform. The region we started at 8:00 is exactly this: the app there becomes Healthy near 42:00 and the first order is delivered near 43:00, so by the end of this act it is a live result, not a promise.</p>
+  <p>⏱ 40:00-42:00. The hub runs all three capabilities. Build 1: one more kro API on the hub, EncabulatorCell: one object per region, in namespace <code>encabulator-cells</code>. Build 2: ACK on the hub builds the new region in us-east-2: a VPC with public and private subnets and one NAT gateway, the IAM roles, the EKS Auto Mode cluster, its access entries and its ACK and kro capabilities (the EKS controller has Cluster, Capability and AccessEntry kinds), and the <code>encabulator-db</code> security group. Build 3: kro also writes the Argo CD cluster Secret, so the ApplicationSet picks up the new cluster and syncs <code>gitops/app</code> to it, and a second ApplicationSet installs the observability platform from pinned charts. Build 4: ACK on the cell creates RDS and ElastiCache in its own region. Green field: the app has no Helm and no Terraform. The region we started at 8:00 is exactly this: the app there becomes Healthy near 42:00 and the first order is delivered near 43:00, so by the end of this act it is a live result, not a promise.</p>
  </aside>
 </section>
 
 <section class="slide" data-act="3 · Replicate" data-mode="live" data-title="A cell is one object">
  <h2>A new region is one object</h2>
  <div class="cols">
-  <pre class="code xs" data-file="gitops/hub/rgds/encabulator-cell.yaml" data-hl="9,14,18,23" data-steps="2:16-25">
+  <pre class="code xs" data-file="gitops/hub/rgds/encabulator-cell.yaml" data-hl="9,14,18,23" data-steps="1:1-15;2:16-25">
 - id: cluster
   # ...
   template:
@@ -963,7 +963,7 @@ kustomize:
  <aside class="notes">
   <p>⏱ 45:00-47:00. The cluster generator watches Argo CD cluster Secrets. Label the Secret (kro already did) and an Application appears for that cluster. With <code>goTemplate</code>, <code>{{ .name }}</code> is the Secret's name, so the Application is called <code>encabulator-use2</code>, and <code>{{ .server }}</code> is the cluster ARN. It points at <code>gitops/app</code>: RBAC, the tagged NodeClass, the two RGDs and the Encabulator instance.</p>
   <p>Build 3: region-specific values never enter Git. Two kustomize patches copy the Secret's annotations into the instance (<code>spec.subnetIDs</code>, <code>spec.securityGroupID</code>) and into the NodeClass. <code>missingkey=error</code> fails the render if an annotation is missing instead of rendering an empty value. The third patch is optional: when the Secret carries <code>encabulator.io/registry</code>, it sets <code>spec.registry</code> and every image comes from that registry (a mirror, for example); without it the RGD default applies. Automated sync with prune and self-heal: Git is the source. <code>preserveResourcesOnDeletion</code> keeps a running region if the ApplicationSet is deleted.</p>
-  <p>Presenter prep: until 1.0.1 is on GHCR and the dingle-arm-gateway package there is public, all 15 images come from the mirror. Annotate the cell's cluster Secret the moment kro creates it, before Argo CD's first sync: <code>kubectl -n argocd wait --for=create secret/encabulator-use2 --timeout=40m &amp;&amp; kubectl -n argocd annotate secret encabulator-use2 encabulator.io/registry=&lt;account&gt;.dkr.ecr.us-west-2.amazonaws.com/encabulator</code>. kro applies the Secret with server-side apply and does not own that annotation, so it keeps it.</p>
+  <p>Presenter prep: until 1.0.2 is on GHCR and the dingle-arm-gateway package there is public, all 15 images come from the mirror. Annotate the cell's cluster Secret the moment kro creates it, before Argo CD's first sync: <code>kubectl -n argocd wait --for=create secret/encabulator-use2 --timeout=40m &amp;&amp; kubectl -n argocd annotate secret encabulator-use2 encabulator.io/registry=&lt;account&gt;.dkr.ecr.us-west-2.amazonaws.com/encabulator</code>. kro applies the Secret with server-side apply and does not own that annotation, so it keeps it.</p>
  </aside>
 </section>
 
