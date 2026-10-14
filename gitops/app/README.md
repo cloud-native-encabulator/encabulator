@@ -136,6 +136,13 @@ Lead decision D8: the cell has no built-in node pools; this NodeClass (role
 equivalent to the general-purpose pool replace them, same spec as the hub's. Subnets and the
 cluster security group are placeholders that the cell ApplicationSet replaces with `add` patches.
 
+The NodePool never consolidates a node that still runs pods (a `nodes: "0"` budget for the
+`Underutilized` reason). Without it, the nodes a rollout's surge pods add were repacked a few
+minutes later, which moved `influxdb-0` (about 30 s down while its EBS volume re-attaches), the
+console and the grammeter. Empty nodes are still removed, and drift (a new Auto Mode AMI, about
+weekly) and `expireAfter` (336h) still replace nodes, so node upgrades keep happening. The cost is
+underused nodes that stay until they are empty. Delete that budget to repack again.
+
 ## What the cell ApplicationSet patches
 
 - `Encabulator/encabulator` in `encabulator`: `/spec/subnetIDs` and `/spec/securityGroupID`
