@@ -29,7 +29,7 @@ spec:
     apiVersion: v1alpha1
     kind: Encabulator
     spec:
-      imageTag: string | default="1.0.1"
+      imageTag: string | default="1.0.2"
       # Images are <registry>/<service>:<imageTag>, like the chart's global.registry. The cell
       # ApplicationSet sets it from the cluster Secret annotation encabulator.io/registry when
       # one is present (a mirror), so no registry hostname has to live in Git.
