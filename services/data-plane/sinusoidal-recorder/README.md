@@ -47,6 +47,11 @@ time.
 `limit` is 1 to 50,000 (default 5,000). An unknown serial is an empty array, not a 404: the detector
 asks about units the recorder may not have heard of yet.
 
+The read starts five minutes before the time in the serial. The casing line mints a serial as
+`ENC-<model>-<base36 milliseconds>-<4 hex>` before the unit's first stage and stamps every reading
+with the same clock afterwards, so every reading of the unit is later than that, and InfluxDB opens
+only the Parquet files from then on. A serial in any other form reads the last six hours.
+
 ### GET /v1/summary
 
 ```json
@@ -66,7 +71,7 @@ p95 uses DataFusion's `approx_percentile_cont`, so it is approximate by design.
 
 ### SQL safety
 
-Every read is a parameterized Flight SQL query: the serial and the window lower bound are bound
+Every read is a parameterized Flight SQL query: the serial and the time lower bounds are bound
 values, never interpolated into query text. The only value that reaches the SQL string is the row
 limit, and only after being parsed as an integer and clamped to a fixed range. An integration test
 pushes `' OR 1=1 --` and friends through the `serial` parameter and asserts they match nothing and
@@ -92,6 +97,11 @@ Worth knowing, because InfluxDB 3 differs from 1.x and 2.x in ways that bite:
   the first unit is built.
 - **Writes are visible after a short lag.** A read immediately after a write can miss rows still in
   the write buffer. The detector tolerates this; the integration tests poll.
+- **Every read needs a time bound.** Core writes one Parquet file per gen1 block and does not
+  compact them, so a query with no time bound opens every file the table has ever had, gets slower
+  as the table ages, and fails outright once it would scan more files than `--query-file-limit`
+  (432 by default): "Query would scan 432 Parquet files, exceeding the file limit". Both reads carry
+  a lower time bound: the summary its window, the per-serial read the time in the serial.
 - **Types on the way back.** Tags arrive as `string`, `value` as `float64`, `time` as `time.Time`.
 
 ## Tracing

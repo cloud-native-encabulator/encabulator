@@ -374,19 +374,72 @@ func (c *Client) Write(ctx context.Context, readings []Reading) (err error) {
 	return nil
 }
 
-// readingsSQL is a fixed query; only the serial is bound, as a parameter.
+// readingsSQL is a fixed query; the serial and the time lower bound are bound
+// as parameters. The time bound is what keeps the read cheap: InfluxDB 3 Core
+// keeps one Parquet file per gen1 block and never compacts them, so a query with
+// no time bound opens every file the table has ever had, and Core refuses one
+// that would scan more than its file limit (432 by default).
 const readingsSQL = `
 SELECT time, serial, order_id, model, stage, metric, value
   FROM ` + Table + `
  WHERE serial = $serial
+   AND time >= CAST($since AS TIMESTAMP)
  ORDER BY time
  LIMIT `
 
+// Time bounds of the per-serial read.
+const (
+	// SerialClockSlack is how far before the time in a serial the read starts.
+	// The casing line mints the serial before the unit's first stage and stamps
+	// every reading with the same clock afterwards, so the slack only has to
+	// cover a clock adjustment on that pod.
+	SerialClockSlack = 5 * time.Minute
+	// FallbackLookback is how far back the read goes for a serial that does not
+	// carry the casing line's time.
+	FallbackLookback = 6 * time.Hour
+)
+
+// serialEpoch is the earliest time a serial can plausibly carry.
+var serialEpoch = time.Date(2020, 1, 1, 0, 0, 0, 0, time.UTC)
+
+// SerialTime returns the time the casing line minted a serial, from its
+// ENC-<model>-<base36 ms>-<4 hex> form (design section 4.2). ok is false for
+// any other form, and for a time before 2020 or more than an hour after now.
+func SerialTime(serial string, now time.Time) (t time.Time, ok bool) {
+	parts := strings.Split(serial, "-")
+	n := len(parts)
+	if n < 4 || parts[0] != "ENC" || len(parts[n-1]) != 4 || parts[n-2] == "" || len(parts[n-2]) > 12 {
+		return time.Time{}, false
+	}
+	if _, err := strconv.ParseUint(parts[n-1], 16, 16); err != nil {
+		return time.Time{}, false
+	}
+	ms, err := strconv.ParseInt(parts[n-2], 36, 64)
+	if err != nil {
+		return time.Time{}, false
+	}
+	t = time.UnixMilli(ms).UTC()
+	if t.Before(serialEpoch) || t.After(now.Add(time.Hour)) {
+		return time.Time{}, false
+	}
+	return t, true
+}
+
+// ReadingsSince is the lower time bound of the read for one serial: the time in
+// the serial minus SerialClockSlack, or FallbackLookback before now when the
+// serial does not carry a time.
+func ReadingsSince(serial string, now time.Time) time.Time {
+	if t, ok := SerialTime(serial, now); ok {
+		return t.Add(-SerialClockSlack)
+	}
+	return now.Add(-FallbackLookback)
+}
+
 // ReadingsBySerial returns every reading for one unit, oldest first.
 //
-// The serial is bound as a query parameter and never interpolated. The limit is
-// interpolated, but only after being clamped to an integer in a fixed range, so
-// no caller-supplied text reaches the query.
+// The serial and the time bound are bound as query parameters and never
+// interpolated. The limit is interpolated, but only after being clamped to an
+// integer in a fixed range, so no caller-supplied text reaches the query.
 func (c *Client) ReadingsBySerial(ctx context.Context, serial string, limit int) (_ []Reading, err error) {
 	if limit <= 0 {
 		limit = DefaultReadLimit
@@ -394,12 +447,16 @@ func (c *Client) ReadingsBySerial(ctx context.Context, serial string, limit int)
 	if limit > MaxReadLimit {
 		limit = MaxReadLimit
 	}
+	since := ReadingsSince(serial, time.Now().UTC())
 	ctx, span := c.startSpan(ctx, "SELECT")
 	defer func() { endSpan(span, err) }()
 
 	it, err := c.influx.QueryWithParameters(ctx,
 		readingsSQL+strconv.Itoa(limit),
-		influxdb3.QueryParameters{"serial": serial},
+		influxdb3.QueryParameters{
+			"serial": serial,
+			"since":  since.Format("2006-01-02 15:04:05.000000"),
+		},
 	)
 	if isTableMissing(err) {
 		return []Reading{}, nil
