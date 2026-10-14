@@ -181,11 +181,11 @@ brownfield-apply: ## terraform apply: VPC, EKS Auto Mode, RDS, ElastiCache and t
 brownfield-deploy: ## Deploy the app onto the hub's RDS and ElastiCache (run `make platform` first)
 	@./$(TF_DIR)/deploy-app.sh
 
-gitops-register: ## Register the hub with its own Argo CD (REGISTER_ARGS=--dry-run shows the Secret first)
+gitops-register: ## Register the hub with its own Argo CD, recording GIT_REPO_URL, GIT_REVISION, REGISTRY (REGISTER_ARGS=--dry-run shows the Secret first)
 	@./gitops/hub/bootstrap/register-hub.sh $(REGISTER_ARGS)
 
-gitops-bootstrap: ## Apply the Argo CD projects, the hub ApplicationSet and the hub Applications
-	$(KUBECTL) apply -f gitops/hub/bootstrap/
+gitops-bootstrap: ## Apply the Argo CD projects and hub Applications for GIT_REPO_URL at GIT_REVISION; builds no cell
+	@./scripts/gitops.sh bootstrap
 
 gitops-validate: ## Validate gitops/app on a local kind cluster, no AWS (KIND_KUBECONFIG=path)
 	@test -n "$(KIND_KUBECONFIG)" || { echo "set KIND_KUBECONFIG=<kubeconfig of a kind cluster>"; exit 2; }
@@ -197,6 +197,31 @@ tag-check: ## Read-only: fail on any AWS resource of the stacks that lacks the a
 talk: ## Serve the OPN315 talk slides on http://localhost:DECK_PORT (press P for the presenter view)
 	@printf '$(BOLD)==> http://localhost:$(DECK_PORT)$(OFF)  (ctrl-c to stop)\n'
 	@cd docs/opn315 && python3 -m http.server $(DECK_PORT) --bind 127.0.0.1
+
+## Cells and repository access (settings from the environment; gitops/hub/bootstrap/README.md)
+.PHONY: gitops-repo-access add-cell cell-access gitops-render gitops-render-check gitops-test
+# The cell's file name in gitops/hub/cells/ without .yaml, e.g. CELL=use2. Passed to the
+# scripts through the environment, never through the shell.
+CELL ?=
+export CELL
+
+gitops-repo-access: ## Give Argo CD the token in GIT_TOKEN_FILE (mode 600) for a private GIT_REPO_URL; nothing when unset
+	@./scripts/gitops.sh repo-access
+
+add-cell: ## Build the cells in gitops/hub/cells at GIT_REVISION (CELL=<cell>; about 35 minutes; costs money)
+	@./scripts/gitops.sh add-cell
+
+cell-access: ## Give your AWS principal cluster admin on a cell's EKS cluster (CELL=<cell>)
+	@./scripts/gitops.sh cell-access
+
+gitops-render: ## Print the bootstrap manifests with GIT_REPO_URL and GIT_REVISION applied
+	@./scripts/gitops.sh render
+
+gitops-render-check: ## Offline: the default render equals the committed files; custom settings reach every place
+	@./scripts/gitops.sh check
+
+gitops-test: ## Offline tests for the GitOps scripts and targets, with stand-ins for aws, kubectl and git
+	@python3 scripts/gitops_test.py
 
 ## Local development
 .PHONY: dev-up dev-down dev-logs kind-up kind-down kind-load
