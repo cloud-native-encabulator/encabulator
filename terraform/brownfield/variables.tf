@@ -57,7 +57,7 @@ variable "idc_region" {
 }
 
 variable "argocd_rbac_role_mappings" {
-  description = "Identity Center users or groups mapped to Argo CD roles (ADMIN, EDITOR, VIEWER). Without one nobody can sign in to the Argo CD UI; kubectl still works."
+  description = "Identity Center users or groups mapped to Argo CD roles (ADMIN, EDITOR, VIEWER). Without one (or argocd_admin_group_id) nobody can sign in to the Argo CD UI; kubectl still works. When set, this list wins over argocd_admin_group_id."
   type = list(object({
     role = string
     identities = list(object({
@@ -70,6 +70,17 @@ variable "argocd_rbac_role_mappings" {
   validation {
     condition     = alltrue([for m in var.argocd_rbac_role_mappings : contains(["ADMIN", "EDITOR", "VIEWER"], m.role)])
     error_message = "role must be ADMIN, EDITOR or VIEWER."
+  }
+}
+
+variable "argocd_admin_group_id" {
+  description = "Id of one Identity Center group whose members become Argo CD admins: the short form of an argocd_rbac_role_mappings list with one ADMIN SSO_GROUP. Used only when argocd_rbac_role_mappings is empty; empty means no such mapping. `make hub` sets it from ARGOCD_ADMIN_GROUP_ID in .env."
+  type        = string
+  default     = ""
+
+  validation {
+    condition     = var.argocd_admin_group_id == "" || can(regex("^([0-9a-f]{10}-)?[A-Fa-f0-9]{8}-[A-Fa-f0-9]{4}-[A-Fa-f0-9]{4}-[A-Fa-f0-9]{4}-[A-Fa-f0-9]{12}$", var.argocd_admin_group_id))
+    error_message = "argocd_admin_group_id must be an Identity Center group id (aws identitystore list-groups), for example 00000000-0000-0000-0000-000000000000."
   }
 }
 
