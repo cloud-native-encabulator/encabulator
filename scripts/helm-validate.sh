@@ -136,6 +136,26 @@ else
   log "ok  [influxdb WAL flush interval: 50ms default, empty omits it, override applied]"
 fi
 
+# InfluxDB 3 Core refuses a query that would scan more Parquet files than its limit (432 by
+# default, 7.2 hours of data at the chart's 1m gen1). The chart default must render as
+# INFLUXDB3_QUERY_FILE_LIMIT=4320, an empty value must leave InfluxDB's own default.
+influx_file_limit() {
+  # shellcheck disable=SC2086
+  $HELM template encabulator "$chart" --namespace encabulator "$@" \
+    | awk '/^kind: StatefulSet/{s=1} /^---/{s=0} s' \
+    | awk '/^  name: influxdb$/{f=1} f' \
+    | grep -A1 'name: INFLUXDB3_QUERY_FILE_LIMIT' | grep 'value:' | tr -d ' "' || true
+}
+if [ "$(influx_file_limit)" != "value:4320" ]; then
+  fail "influxdb: INFLUXDB3_QUERY_FILE_LIMIT is not 4320 by default (got '$(influx_file_limit)')"
+elif [ -n "$(influx_file_limit --set influxdb.queryFileLimit=)" ]; then
+  fail "influxdb: an empty queryFileLimit still renders INFLUXDB3_QUERY_FILE_LIMIT"
+elif [ "$(influx_file_limit --set-string influxdb.queryFileLimit=1000)" != "value:1000" ]; then
+  fail "influxdb: queryFileLimit=1000 does not reach the StatefulSet"
+else
+  log "ok  [influxdb query file limit: 4320 default, empty omits it, override applied]"
+fi
+
 # KEDA scales the casing line. Its operator polls NATS from the keda namespace, so the endpoint
 # must carry the release namespace (a bare "nats" resolves to nats.keda). And the Deployment must
 # leave `replicas` out, or the next helm upgrade fights the HPA KEDA owns.
