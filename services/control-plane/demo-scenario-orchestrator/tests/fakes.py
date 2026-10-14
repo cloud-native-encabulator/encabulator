@@ -6,6 +6,8 @@ import itertools
 from dataclasses import dataclass, field
 from typing import Any
 
+from encabulator_kit import UpstreamError
+
 from orchestrator.clients import Upstreams
 
 
@@ -24,6 +26,10 @@ class FakeUpstreams(Upstreams):
     samples: dict[str, list[float | None]] = field(default_factory=dict)
     fail_on: str | None = None
     prometheus_enabled: bool = True
+    #: What GET /v1/traffic answers; every PUT updates it, like the real grammeter.
+    traffic_state: dict[str, Any] | None = None
+    #: Malaise targets the engine does not know (a managed store has no pod to delete).
+    unknown_targets: set[str] = field(default_factory=set)
     _ids: itertools.count = field(default_factory=lambda: itertools.count(1))
 
     def __post_init__(self) -> None:
@@ -32,15 +38,33 @@ class FakeUpstreams(Upstreams):
     async def aclose(self) -> None:
         return None
 
+    async def get_traffic(self) -> dict[str, Any] | None:
+        if self.fail_on == "get_traffic":
+            raise RuntimeError("the grammeter is not listening")
+        return None if self.traffic_state is None else dict(self.traffic_state)
+
     async def set_traffic(self, body: dict[str, Any]) -> dict[str, Any]:
         if self.fail_on == "traffic":
             raise RuntimeError("the grammeter is not listening")
         self.traffic_calls.append(dict(body))
+        if self.traffic_state is not None:
+            self.traffic_state.update(body)
         return dict(body)
 
     async def inject_malaise(self, body: dict[str, Any]) -> dict[str, Any]:
         if self.fail_on == "malaise":
             raise RuntimeError("the malaise engine is itself unwell")
+        if self.fail_on == "malaise_400":
+            raise UpstreamError(
+                "malaise-injection-engine", 400, "invalid_params", "count must be > 0"
+            )
+        if body.get("target") in self.unknown_targets:
+            raise UpstreamError(
+                "malaise-injection-engine",
+                400,
+                "unknown_target",
+                f"unknown malaise target: no malaise target with that name: {body['target']}",
+            )
         self.malaises.append(dict(body))
         return {"id": f"mal_{next(self._ids)}", **body}
 

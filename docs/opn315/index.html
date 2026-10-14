@@ -1,0 +1,1489 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>OPN315 · Bootstrapping GitOps on Amazon EKS with Argo CD, ACK, and kro</title>
+<style>
+:root{--bg:#0a0f1e;--panel:#121a30;--line:#2a3658;--text:#e9edf6;--muted:#8a96b3;--brass:#ffb547;
+--k8s:#5b8cff;--aws:#ff9900;--tf:#a77bff;--argo:#ef7b4d;--kro:#3ddcb0;--ok:#3ddc97;--bad:#ff5d6c;
+--mono:ui-monospace,SFMono-Regular,"JetBrains Mono",Menlo,Consolas,monospace;
+--sans:system-ui,-apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif}
+html,body{margin:0;height:100%;background:#05080f;overflow:hidden;font-family:var(--sans);color:var(--text)}
+body.black #stage{visibility:hidden}
+#stage{position:absolute;left:50%;top:50%;width:1920px;height:1080px;transform-origin:center center}
+section.slide{position:absolute;inset:0;display:none;box-sizing:border-box;padding:130px 110px 90px;
+ background:radial-gradient(1100px 650px at 88% -12%,#1b2752 0%,transparent 60%),var(--bg);overflow:hidden}
+section.slide.active{display:block}
+.top{position:absolute;top:44px;left:110px;right:110px;display:flex;justify-content:space-between;align-items:center;
+ font-size:22px;letter-spacing:.1em;text-transform:uppercase;color:var(--muted)}
+.badge{padding:8px 18px;border-radius:999px;font-weight:700;font-size:20px;letter-spacing:.06em}
+.badge.live{background:#3a1218;color:#ff9aa4;border:1px solid var(--bad)}
+.badge.live::before{content:"";display:inline-block;width:12px;height:12px;border-radius:50%;background:var(--bad);margin-right:10px;animation:blink 1.4s infinite}
+.badge.baked{background:#2e2410;color:#ffd389;border:1px solid var(--brass)}
+.badge.ide{background:#0f2a2a;color:#7ff0d0;border:1px solid var(--kro)}
+@keyframes blink{50%{opacity:.25}}
+h1{font-size:96px;line-height:1.02;margin:0;font-weight:800;letter-spacing:-.02em}
+h2{font-size:66px;line-height:1.08;margin:0 0 34px;font-weight:780;letter-spacing:-.01em}
+.sub{font-size:30px;color:var(--muted);margin:-18px 0 30px}
+.accent{color:var(--brass)}
+.mono{font-family:var(--mono)}
+/* builds */
+[data-step]{opacity:0;transform:translateY(14px);transition:opacity .5s ease,transform .5s ease}
+[data-step].shown{opacity:1;transform:none}
+svg [data-step]{transform:none}
+svg *{transition:opacity .5s ease,stroke .5s ease,fill .5s ease}
+.faded{opacity:.22!important}
+/* diagrams */
+svg.dia{display:block;width:100%;height:auto;overflow:visible}
+svg text{font-family:var(--sans);fill:var(--text)}
+.box{fill:var(--panel);stroke:var(--line);stroke-width:2.5}
+.box.aws{stroke:var(--aws)}.box.k8s{stroke:var(--k8s)}.box.tf{stroke:var(--tf)}.box.kro{stroke:var(--kro)}.box.argo{stroke:var(--argo)}.box.ok{stroke:var(--ok)}
+.dash{stroke-dasharray:10 8}
+.region{fill:none;stroke:var(--aws);stroke-width:2;stroke-dasharray:14 10;opacity:.7}
+.lbl{font-size:30px;font-weight:700}.lbl-s{font-size:24px;font-weight:650}
+.sm{font-size:20px;fill:var(--muted)!important}
+.tmono{font-family:var(--mono);font-size:22px}
+.ar{fill:none;stroke-width:4;stroke:var(--muted);marker-end:url(#ah)}
+.ar.aws{stroke:var(--aws);marker-end:url(#ah-aws)}.ar.k8s{stroke:var(--k8s);marker-end:url(#ah-k8s)}
+.ar.tf{stroke:var(--tf);marker-end:url(#ah-tf)}.ar.kro{stroke:var(--kro);marker-end:url(#ah-kro)}
+.ar.argo{stroke:var(--argo);marker-end:url(#ah-argo)}.ar.ok{stroke:var(--ok);marker-end:url(#ah-ok)}
+.flow{stroke-dasharray:12 12;animation:flow 1.1s linear infinite}
+@keyframes flow{to{stroke-dashoffset:-48}}
+.cyl{fill:#1a2340;stroke-width:2.5}
+.spin{transform-box:fill-box;transform-origin:center;animation:spin 14s linear infinite}
+.spin.rev{animation-direction:reverse;animation-duration:9s}
+@keyframes spin{to{transform:rotate(360deg)}}
+.lit{opacity:1!important;filter:drop-shadow(0 0 10px rgba(255,181,71,.55))}
+.dim{opacity:.3}
+/* code */
+pre.code{font-family:var(--mono);font-size:25px;line-height:1.42;background:#0b1226;border:1px solid var(--line);
+ border-radius:18px;padding:30px 34px;margin:0;white-space:pre;color:#cdd6ee;position:relative;overflow:hidden}
+pre.code[data-file]{padding-top:44px}
+pre.code[data-file]::before{content:attr(data-file);position:absolute;top:10px;right:18px;color:var(--muted);font-size:17px}
+pre.code .ln{display:block;margin:0 -34px;padding:0 34px;border-left:4px solid transparent}
+pre.code .ln.hl{background:rgba(255,181,71,.10);border-left-color:var(--brass)}
+pre.code .k{color:#86b4ff}pre.code .s{color:#a9e6a2}pre.code .c{color:#6d7896;font-style:italic}
+pre.code .cel{color:#ffd389;background:rgba(255,181,71,.12);border-radius:5px}
+pre.code.sm{font-size:21px}pre.code.xs{font-size:19px}
+pre.term{background:#06090f;border-color:#1f2a44}
+pre.term .ln::before{content:"$ ";color:var(--kro)}
+pre.term .ln.out::before{content:""}pre.term .ln.out{color:var(--muted)}
+/* layout */
+.cols{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:56px;align-items:start}
+.c64{grid-template-columns:minmax(0,1.25fr) minmax(0,.75fr)}.c46{grid-template-columns:minmax(0,.8fr) minmax(0,1.2fr)}
+.tip{border-left:6px solid var(--brass);background:#1d1a10;padding:18px 26px;border-radius:12px;font-size:27px;color:#ffe2a8;line-height:1.35}
+.card{background:var(--panel);border:2px solid var(--line);border-radius:22px;padding:28px 32px}
+.pill{display:inline-block;border-radius:999px;padding:6px 16px;font-size:20px;border:1px solid var(--line);background:#16203b}
+/* chrome */
+#bar{position:fixed;left:0;bottom:0;height:5px;background:var(--brass);transition:width .3s;z-index:5}
+#counter{position:absolute;right:110px;bottom:34px;font-size:20px;color:var(--muted)}
+#notes{position:fixed;left:0;right:0;bottom:0;max-height:42vh;overflow:auto;background:rgba(6,9,18,.97);
+ border-top:2px solid var(--brass);padding:16px 28px 24px;font-size:17px;line-height:1.5;display:none;z-index:9}
+#notes.open{display:block}#notes b{color:var(--brass)}
+#ov{position:fixed;inset:0;background:rgba(5,8,15,.96);display:none;z-index:10;overflow:auto;padding:40px 60px;columns:3;font-size:17px}
+#ov.open{display:block}#ov button{display:block;width:100%;text-align:left;background:none;border:0;color:var(--text);padding:6px 8px;font:inherit;cursor:pointer;border-radius:6px}
+#ov button:hover{background:#1b2547}#ov .a{color:var(--muted);margin-right:8px}
+aside.notes{display:none}
+#ov .help{break-inside:avoid;margin-top:22px;color:var(--muted);font-size:15px;line-height:1.8}
+#ov .help kbd{font:inherit;color:var(--brass);margin-right:6px}
+#toast{position:fixed;left:50%;bottom:28px;transform:translateX(-50%);display:none;z-index:20;background:#1d1a10;
+ border:1px solid var(--brass);color:#ffe2a8;padding:10px 18px;border-radius:10px;font-size:16px}
+/* presenter view: the same file opened as ?presenter in a popup, kept in step with the slide window */
+body.presenter #stage,body.presenter #bar,body.presenter #notes,body.presenter #ov{display:none!important}
+#pv{display:none}
+body.presenter #pv{position:fixed;inset:0;display:grid;grid-template-columns:minmax(0,1.05fr) minmax(0,1fr);
+ grid-template-rows:auto minmax(0,1fr);gap:12px 16px;padding:12px 16px;box-sizing:border-box;background:#070b16;
+ color:var(--text);font-size:15px}
+#pv button,#pv select{font:inherit;color:var(--text);background:#16203b;border:1px solid var(--line);border-radius:8px;padding:7px 12px;cursor:pointer}
+#pv button:hover{background:#1f2c52}
+#pv .hd{grid-column:1/-1;display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap}
+#pv .hl{display:flex;align-items:center;gap:12px;color:var(--muted)}#pv .hl b{color:var(--text);font-size:17px}
+#pv .dot{width:11px;height:11px;border-radius:50%;background:var(--bad)}#pv .dot.on{background:var(--ok)}
+#pv #pvblank{display:none;color:#ff9aa4;border:1px solid var(--bad);background:#3a1218;border-radius:999px;padding:3px 12px;font-size:13px}
+body.pblack #pv #pvblank{display:inline-block}
+#pv .tmr{display:flex;align-items:baseline;gap:18px;flex-wrap:wrap}
+#pv #pvel{font-size:40px;font-weight:750;font-variant-numeric:tabular-nums;line-height:1}
+#pv #pvrem,#pv #pvpace{font-size:18px;color:var(--muted);font-variant-numeric:tabular-nums}
+#pv #pvrem.over,#pv #pvpace.behind{color:var(--bad)}#pv #pvpace.ahead{color:var(--ok)}
+#pv .hr{display:flex;align-items:center;gap:8px}
+#pv #pvclock{color:var(--muted);margin-right:8px;font-variant-numeric:tabular-nums}
+#pv .left{display:grid;grid-template-rows:minmax(0,1.7fr) minmax(0,1fr);gap:12px;min-height:0}
+#pv .pane{background:#0c1328;border:1px solid var(--line);border-radius:12px;padding:10px 12px;display:flex;flex-direction:column;min-height:0;min-width:0}
+#pv .pane h5{margin:0 0 8px;font-size:12px;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);font-weight:700}
+#pv .pv-view{position:relative;flex:1;min-height:0;overflow:hidden;background:#05080f;border-radius:8px}
+#pv .pv-view .frame{position:absolute;left:50%;top:50%;width:1920px;height:1080px;transform-origin:center center}
+#pv .pv-view.empty::after{content:"End of talk";position:absolute;inset:0;display:flex;align-items:center;justify-content:center;color:var(--muted);font-size:20px}
+#pv .right{gap:10px}
+#pv .nav{display:flex;gap:8px}#pv .nav select{flex:1;min-width:0}
+#pv #pvnh{font-size:17px;color:var(--brass);font-weight:700}
+#pv #pvnb{flex:1;min-height:0;overflow:auto;font-size:var(--nfs,26px);line-height:1.5;padding-right:8px}
+#pv #pvnb p{margin:0 0 .75em}#pv #pvnb code{font-family:var(--mono);font-size:.88em;background:#16203b;padding:1px 6px;border-radius:5px}
+#pv #pvnb ul,#pv #pvnb ol{margin:0 0 .75em;padding-left:1.3em}#pv #pvnb b,#pv #pvnb strong{color:var(--brass)}
+#pv .muted{color:var(--muted)}
+@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+/* slide-specific */
+.planes{display:grid;grid-template-columns:repeat(4,1fr);gap:28px}
+.plane{background:var(--panel);border:2px solid var(--line);border-radius:20px;padding:20px 22px}
+.plane h4{margin:0 0 14px;font-size:22px;letter-spacing:.12em;text-transform:uppercase;color:var(--brass)}
+.plane div{font-size:19px;white-space:nowrap;padding:9px 12px;margin:8px 0;border-radius:10px;background:#18223f;font-family:var(--mono)}
+.stores{display:grid;grid-template-columns:repeat(4,1fr);gap:28px;margin-top:34px}
+.store{position:relative;text-align:center;padding:26px 10px 22px;border-radius:50% / 22px;background:#1a2340;border:2px solid var(--line);font-size:28px;font-weight:700}
+.store small{display:block;font-size:19px;font-weight:400;color:var(--muted);margin-top:4px}
+.store em{display:block;font-style:normal;font-size:20px;margin-top:10px;color:var(--aws)}
+.store em.stay{color:var(--muted)}
+.menu{display:grid;grid-template-columns:repeat(3,1fr);gap:40px;margin-top:20px}
+.course{background:var(--panel);border:2px solid var(--line);border-radius:26px;padding:38px 36px;min-height:420px}
+.course .n{font-size:110px;font-weight:800;color:var(--brass);line-height:1}
+.course h3{font-size:50px;margin:14px 0 18px}
+.course p{font-size:28px;color:var(--muted);line-height:1.35;margin:0}
+.legend{margin-top:44px;font-size:26px;color:var(--muted);display:flex;gap:40px}
+</style>
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+ <defs>
+  <marker id="ah" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="5" markerHeight="5" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" fill="#8a96b3"/></marker>
+  <marker id="ah-aws" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="5" markerHeight="5" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" fill="#ff9900"/></marker>
+  <marker id="ah-k8s" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="5" markerHeight="5" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" fill="#5b8cff"/></marker>
+  <marker id="ah-tf" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="5" markerHeight="5" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" fill="#a77bff"/></marker>
+  <marker id="ah-kro" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="5" markerHeight="5" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" fill="#3ddcb0"/></marker>
+  <marker id="ah-argo" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="5" markerHeight="5" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" fill="#ef7b4d"/></marker>
+  <marker id="ah-ok" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="5" markerHeight="5" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" fill="#3ddc97"/></marker>
+ </defs>
+</svg>
+
+<div id="stage">
+
+<!-- =============================================================== OPEN -->
+<section class="slide" data-act="OPN315 · Code Talk" data-mode="none" data-title="Title">
+ <div style="display:grid;grid-template-columns:1.25fr .75fr;align-items:center;height:100%">
+  <div>
+   <div class="sub" style="margin:0 0 34px;letter-spacing:.1em;text-transform:uppercase;font-size:24px">re:Invent 2026 · Open Source track · Level 300</div>
+   <h1>Bootstrapping GitOps<br>on Amazon EKS</h1>
+   <div style="font-size:52px;margin-top:22px;color:var(--brass);font-weight:650">with Argo CD, ACK, and kro</div>
+   <div style="margin-top:80px;font-size:30px;line-height:1.6">
+    <b>Carlos Santana</b> <span style="color:var(--muted)">· Specialist Solutions Architect, Amazon EKS</span><br>
+    <b>Jesse Butler</b> <span style="color:var(--muted)">· Principal PM, Amazon EKS</span>
+   </div>
+  </div>
+  <svg viewBox="0 0 600 600" style="width:600px">
+   <g class="spin"><circle cx="230" cy="250" r="150" fill="none" stroke="#ffb547" stroke-width="56" stroke-dasharray="34 30"/><circle cx="230" cy="250" r="118" fill="#1a2340" stroke="#ffb547" stroke-width="6"/><circle cx="230" cy="250" r="34" fill="#0a0f1e" stroke="#ffb547" stroke-width="6"/></g>
+   <g class="spin rev"><circle cx="440" cy="440" r="92" fill="none" stroke="#5b8cff" stroke-width="44" stroke-dasharray="25 22"/><circle cx="440" cy="440" r="68" fill="#1a2340" stroke="#5b8cff" stroke-width="5"/><circle cx="440" cy="440" r="22" fill="#0a0f1e" stroke="#5b8cff" stroke-width="5"/></g>
+  </svg>
+ </div>
+ <aside class="notes">
+  <p>⏱ 0:00-2:00. Introduce ourselves. Set the format: a cooking show. We cook the important steps live; anything that has to sit in the oven (clusters, databases) we baked earlier.</p>
+  <p>Keys: → / Space next build, ← back, ↓ / ↑ skip builds, N notes, O slide list, F fullscreen, B black screen.</p>
+ </aside>
+</section>
+
+<section class="slide" data-act="Open" data-mode="live" data-title="Meet the Encabulator">
+ <h2>Meet the <span class="accent">Cloud Native Encabulator</span></h2>
+ <div class="planes">
+  <div class="plane" data-step="1"><h4>control</h4><div>encabulation-control-console</div><div>cardinal-grammeter</div><div>malaise-injection-engine</div><div>demo-scenario-orchestrator</div></div>
+  <div class="plane" data-step="1"><h4>processing</h4><div>dingle-arm-gateway</div><div>panametric-fam-processor</div><div>spurving-bearing-quoter</div><div>logarithmic-casing-line</div><div>nofer-trunnion-dispatch</div></div>
+  <div class="plane" data-step="1"><h4>data</h4><div>hydrocoptic-datastore</div><div>prefabulated-amulite-depot</div><div>sinusoidal-recorder</div></div>
+  <div class="plane" data-step="1"><h4>support</h4><div>unilateral-phase-detractor</div><div>differential-girdlespring</div><div>side-fumbling-detector</div></div>
+ </div>
+ <div class="stores" data-step="2">
+  <div class="store">PostgreSQL<small>3 databases</small><em data-step="3">→ Amazon RDS</em></div>
+  <div class="store">Valkey<small>cache + state</small><em data-step="3">→ Amazon ElastiCache</em></div>
+  <div class="store">NATS JetStream<small>events</small><em class="stay" data-step="3">stays in-cluster</em></div>
+  <div class="store">InfluxDB 3<small>telemetry</small><em class="stay" data-step="3">stays in-cluster</em></div>
+ </div>
+ <aside class="notes">
+  <p>⏱ 2:00-6:00. Switch to the console (port-forward already open). Factory Floor: live topology from OpenTelemetry. Grammeters: start steady traffic. Works: place one order and follow it through the gateway, quoter, depot, processor, casing line, detector, dispatch.</p>
+  <p>Build 1: fifteen services, four languages, four planes. Build 2: four backing stores. Build 3: in our "production" region, PostgreSQL and Valkey are AWS managed services that Terraform created. NATS and InfluxDB stay as StatefulSets.</p>
+ </aside>
+</section>
+
+<section class="slide" data-act="Open" data-mode="none" data-title="Two toolchains">
+ <h2>Two toolchains, one app</h2>
+ <svg class="dia" viewBox="0 0 1700 740">
+  <g data-step="1">
+   <rect class="box tf" x="40" y="250" width="300" height="150" rx="20"/>
+   <text class="lbl" x="190" y="318" text-anchor="middle">Terraform</text>
+   <text class="sm" x="190" y="356" text-anchor="middle">plan · apply · state</text>
+   <rect class="box aws" x="500" y="20" width="800" height="260" rx="24"/>
+   <text class="sm" x="530" y="58">AWS · us-west-2</text>
+   <path class="cyl" stroke="#ff9900" d="M580 102 V218 A140 22 0 0 0 860 218 V102"/><ellipse class="cyl" stroke="#ff9900" cx="720" cy="102" rx="140" ry="22"/>
+   <text class="lbl-s" x="720" y="175" text-anchor="middle">RDS PostgreSQL</text>
+   <path class="cyl" stroke="#ff9900" d="M940 102 V218 A140 22 0 0 0 1220 218 V102"/><ellipse class="cyl" stroke="#ff9900" cx="1080" cy="102" rx="140" ry="22"/>
+   <text class="lbl-s" x="1080" y="175" text-anchor="middle">ElastiCache</text>
+   <text class="sm" x="1080" y="205" text-anchor="middle">Valkey</text>
+   <path class="ar tf" d="M340 300 C 420 250, 440 160, 495 150"/>
+  </g>
+  <g data-step="2">
+   <rect class="box k8s" x="500" y="420" width="800" height="300" rx="24"/>
+   <text class="sm" x="530" y="458">Amazon EKS · namespace encabulator</text>
+   <g fill="#1f2c55" stroke="#5b8cff" stroke-width="2">
+    <rect x="840" y="490" width="56" height="50" rx="8"/><rect x="920" y="490" width="56" height="50" rx="8"/><rect x="1000" y="490" width="56" height="50" rx="8"/><rect x="1080" y="490" width="56" height="50" rx="8"/><rect x="1160" y="490" width="56" height="50" rx="8"/>
+    <rect x="840" y="560" width="56" height="50" rx="8"/><rect x="920" y="560" width="56" height="50" rx="8"/><rect x="1000" y="560" width="56" height="50" rx="8"/><rect x="1080" y="560" width="56" height="50" rx="8"/><rect x="1160" y="560" width="56" height="50" rx="8"/>
+    <rect x="840" y="630" width="56" height="50" rx="8"/><rect x="920" y="630" width="56" height="50" rx="8"/><rect x="1000" y="630" width="56" height="50" rx="8"/><rect x="1080" y="630" width="56" height="50" rx="8"/><rect x="1160" y="630" width="56" height="50" rx="8"/>
+   </g>
+   <rect class="box k8s" x="1400" y="495" width="260" height="150" rx="20"/>
+   <text class="lbl" x="1530" y="565" text-anchor="middle">Helm</text>
+   <text class="sm" x="1530" y="602" text-anchor="middle">helm upgrade</text>
+   <path class="ar k8s" d="M1400 570 L1228 570"/>
+  </g>
+  <g data-step="3">
+   <rect class="box tf dash" x="540" y="500" width="250" height="170" rx="16"/>
+   <text class="lbl-s" x="665" y="560" text-anchor="middle">ConfigMap</text>
+   <text class="lbl-s" x="665" y="596" text-anchor="middle">Secret</text>
+   <text class="sm" x="665" y="636" text-anchor="middle">endpoints · passwords</text>
+   <path class="ar tf dash" d="M300 400 C 330 560, 420 590, 535 585"/>
+  </g>
+  <g data-step="4">
+   <text x="900" y="352" text-anchor="middle" style="font-size:28px;fill:#ff8a95;font-weight:700">⚡ Who owns the endpoint?</text>
+   <text x="190" y="460" text-anchor="middle" style="font-size:26px;fill:#ff8a95;font-weight:700">⚡ Two pipelines</text>
+   <text x="190" y="496" text-anchor="middle" style="font-size:26px;fill:#ff8a95;font-weight:700">two sources of truth</text>
+   <text x="1530" y="720" text-anchor="middle" style="font-size:26px;fill:#ff8a95;font-weight:700">⚡ Region 2 = copy &amp; paste</text>
+  </g>
+ </svg>
+ <aside class="notes">
+  <p>⏱ 6:00-7:00. This is where most teams are. Terraform builds the AWS side. Helm builds the Kubernetes side. They meet at a ConfigMap and a Secret that Terraform writes into the cluster.</p>
+  <p>Build 4: the pain. Two pipelines and two states. Drift between them. A second region means copying and editing both.</p>
+ </aside>
+</section>
+
+<section class="slide" data-act="Open" data-mode="none" data-title="On the menu">
+ <h2>On the menu</h2>
+ <div class="menu">
+  <div class="course" data-step="1"><div class="n">1</div><h3>Adopt</h3><p>Terraform built it.<br>ACK takes it over.<br>Nothing moves.</p></div>
+  <div class="course" data-step="2"><div class="n">2</div><h3>Package</h3><p>One kro API for the workloads <i>and</i> their AWS dependencies.</p></div>
+  <div class="course" data-step="3"><div class="n">3</div><h3>Replicate</h3><p>A new region, bootstrapped from one Git commit.</p></div>
+ </div>
+ <div class="legend" data-step="4"><span><span class="badge live">Cooked live</span></span><span><span class="badge baked">From the oven</span></span><span><span class="badge ide">Switch to IDE</span></span></div>
+ <aside class="notes">
+  <p>⏱ 7:00-8:00. Three courses. The badge at the top right of every slide tells the audience whether we cook it live, take it out of the oven, or switch to the IDE for the full file.</p>
+ </aside>
+</section>
+
+<!-- =============================================================== ACT 1 ADOPT -->
+<section class="slide" data-act="1 · Adopt" data-mode="baked" data-title="Where we start">
+ <h2>Where we start: <span class="accent">us-west-2</span></h2>
+ <svg class="dia" viewBox="0 0 1700 740">
+  <rect class="region" x="20" y="10" width="1660" height="725" rx="26"/>
+  <text class="sm" x="50" y="48">AWS Region · us-west-2</text>
+  <rect fill="none" stroke="#2a3658" stroke-width="2" x="360" y="62" width="1300" height="660" rx="22"/>
+  <text class="sm" x="385" y="96">VPC</text>
+  <g data-step="1">
+   <rect class="box k8s" x="400" y="112" width="790" height="590" rx="22"/>
+   <text class="lbl-s" x="430" y="152">EKS · encabulator-usw2</text>
+   <text class="sm" x="430" y="186">namespace encabulator</text>
+   <g fill="#1f2c55" stroke="#5b8cff" stroke-width="2">
+    <rect x="440" y="210" width="128" height="52" rx="10"/><rect x="588" y="210" width="128" height="52" rx="10"/><rect x="736" y="210" width="128" height="52" rx="10"/><rect x="884" y="210" width="128" height="52" rx="10"/><rect x="1032" y="210" width="128" height="52" rx="10"/>
+    <rect x="440" y="280" width="128" height="52" rx="10"/><rect x="588" y="280" width="128" height="52" rx="10"/><rect x="736" y="280" width="128" height="52" rx="10"/><rect x="884" y="280" width="128" height="52" rx="10"/><rect x="1032" y="280" width="128" height="52" rx="10"/>
+    <rect x="440" y="350" width="128" height="52" rx="10"/><rect x="588" y="350" width="128" height="52" rx="10"/><rect x="736" y="350" width="128" height="52" rx="10"/><rect x="884" y="350" width="128" height="52" rx="10"/><rect x="1032" y="350" width="128" height="52" rx="10"/>
+   </g>
+   <text class="sm" x="800" y="438" text-anchor="middle">15 services · Helm chart</text>
+   <rect class="box tf dash" x="440" y="470" width="330" height="190" rx="16"/>
+   <text class="lbl-s" x="605" y="530" text-anchor="middle">ConfigMap · Secret</text>
+   <text class="sm" x="605" y="568" text-anchor="middle">endpoints · passwords</text>
+   <text class="sm" x="605" y="600" text-anchor="middle">written by Terraform</text>
+   <rect class="box" x="810" y="470" width="165" height="96" rx="14"/><text class="lbl-s" x="892" y="526" text-anchor="middle">NATS</text>
+   <rect class="box" x="995" y="470" width="165" height="96" rx="14"/><text class="lbl-s" x="1077" y="526" text-anchor="middle">InfluxDB</text>
+   <text class="sm" x="985" y="604" text-anchor="middle">in-cluster StatefulSets</text>
+  </g>
+  <g data-step="2">
+   <path class="cyl" stroke="#ff9900" d="M1230 176 V324 A190 26 0 0 0 1610 324 V176"/><ellipse class="cyl" stroke="#ff9900" cx="1420" cy="176" rx="190" ry="26"/>
+   <text class="lbl-s" x="1420" y="252" text-anchor="middle">RDS PostgreSQL</text>
+   <text class="tmono" x="1420" y="290" text-anchor="middle">encabulator-pg</text>
+   <path class="cyl" stroke="#ff9900" d="M1230 446 V594 A190 26 0 0 0 1610 594 V446"/><ellipse class="cyl" stroke="#ff9900" cx="1420" cy="446" rx="190" ry="26"/>
+   <text class="lbl-s" x="1420" y="522" text-anchor="middle">ElastiCache Valkey</text>
+   <text class="tmono" x="1420" y="560" text-anchor="middle">encabulator-valkey</text>
+  </g>
+  <g data-step="3">
+   <rect class="box tf" x="50" y="300" width="260" height="170" rx="20"/>
+   <text class="lbl" x="180" y="372" text-anchor="middle">Terraform</text>
+   <text class="sm" x="180" y="410" text-anchor="middle">owns everything tagged</text>
+   <g fill="#2a1d4a" stroke="#a77bff" stroke-width="2">
+    <rect x="1335" y="320" width="170" height="36" rx="18"/><rect x="1335" y="590" width="170" height="36" rx="18"/><rect x="520" y="618" width="170" height="36" rx="18"/>
+   </g>
+   <g style="font-size:19px;font-weight:700" text-anchor="middle">
+    <text x="1420" y="345" style="fill:#c9a8ff">terraform</text><text x="1420" y="615" style="fill:#c9a8ff">terraform</text><text x="605" y="643" style="fill:#c9a8ff">terraform</text>
+   </g>
+  </g>
+ </svg>
+ <aside class="notes">
+  <p>⏱ 8:00-10:00. First, put the second region in the oven: push <code>gitops/hub/cells/use2.yaml</code> (the trigger note in Act 3 says how <code>hub-cells</code> is staged), then start the registry annotation wait in a second terminal. Say it in one sentence: a whole new region is cooking, and we come back to it in Act 3. Then, from the oven: Terraform applied yesterday (<code>terraform/brownfield</code>, about 25 minutes, RDS is the long pole). It built the VPC, the EKS Auto Mode cluster, an RDS for PostgreSQL 18 instance, an ElastiCache Serverless Valkey 8 cache, the <code>encabulator-db</code> security group and the three EKS capabilities. A one-time Job created the three logical databases and their roles. Terraform also wrote the endpoints and passwords into the cluster as the ConfigMap <code>encabulator-aws</code> and the Secret <code>encabulator-db</code>. The app is the Helm chart pointed at those external stores (<code>deploy-app.sh</code>).</p>
+  <p>NATS and InfluxDB stay in-cluster for this talk.</p>
+ </aside>
+</section>
+
+<section class="slide" data-act="1 · Adopt" data-mode="baked" data-title="Terraform hands off through a ConfigMap">
+ <h2>Terraform hands off through a ConfigMap</h2>
+ <div class="cols" style="grid-template-columns:minmax(0,1.4fr) minmax(0,.6fr)">
+  <div style="display:flex;flex-direction:column;gap:20px">
+   <pre class="code xs" data-lang="hcl" data-file="terraform/brownfield/stores.tf">
+resource "aws_db_instance" "pg" {
+  identifier     = local.db_identifier
+  engine         = "postgres"
+  # ...
+}
+   </pre>
+   <pre class="code xs" data-lang="hcl" data-file="terraform/brownfield/kubernetes.tf" data-step="2" data-hl="1,4,10-13">
+data "aws_db_instance" "pg" {
+  db_instance_identifier = local.postgres_lookup_identifier
+}
+data "aws_elasticache_serverless_cache" "valkey" {
+  name = local.valkey_lookup_name
+}
+resource "kubernetes_config_map_v1" "aws" {
+  # ...
+  data = {
+    POSTGRES_HOST = data.aws_db_instance.pg.address
+    POSTGRES_PORT = tostring(data.aws_db_instance.pg.port)
+    VALKEY_HOST   = data.aws_elasticache_serverless_cache.valkey.endpoint.address
+    VALKEY_PORT   = tostring(data.aws_elasticache_serverless_cache.valkey.endpoint.port)
+  }
+}
+   </pre>
+  </div>
+  <div style="display:flex;flex-direction:column;gap:30px;padding-top:20px">
+   <div class="card" data-step="1"><div style="font-size:24px;color:var(--muted)">AWS side · <span class="mono">stores.tf</span></div><div style="font-size:34px;font-weight:700;margin-top:6px">RDS · ElastiCache</div></div>
+   <div class="card" data-step="2" style="border-color:var(--tf)"><div style="font-size:24px;color:var(--muted)">Kubernetes side · <span class="mono">kubernetes.tf</span></div><div style="font-size:34px;font-weight:700;margin-top:6px">ConfigMap + Secret</div></div>
+   <div class="tip" data-step="3">Looked up by name: the ConfigMap stays the same when Terraform lets go of the stores.</div>
+  </div>
+ </div>
+ <aside class="notes">
+  <p>⏱ 10:00-11:00. Build 1: the stores are ordinary Terraform resources in <code>stores.tf</code>. Build 2: the ConfigMap <code>encabulator-aws</code> is not built from those resources. It is built from data sources that look the stores up by name. Point at the highlighted lines: that is the coupling, and the reason the hand-off later in this act changes nothing for the app. Build 3: when ACK takes the stores over, Terraform keeps writing the same four keys. The Secret <code>encabulator-db</code> holds the master and per-database passwords the chart reads.</p>
+ </aside>
+</section>
+
+<section class="slide" data-act="1 · Adopt" data-mode="baked" data-title="EKS Capabilities">
+ <h2>EKS Capabilities: <span class="accent">Argo CD · ACK · kro</span></h2>
+ <svg class="dia" viewBox="0 0 1700 560" style="width:1300px;margin:0 auto">
+  <rect fill="none" stroke="#8a96b3" stroke-width="2" stroke-dasharray="12 10" x="60" y="10" width="1580" height="240" rx="24"/>
+  <text class="sm" x="90" y="46">Managed by AWS · runs outside your nodes</text>
+  <rect class="box k8s" x="60" y="330" width="1580" height="220" rx="24"/>
+  <text class="lbl-s" x="90" y="370">Your EKS cluster · encabulator-usw2</text>
+  <rect class="box k8s" x="700" y="345" width="300" height="70" rx="14"/><text class="lbl-s" x="850" y="389" text-anchor="middle">Kubernetes API</text>
+  <rect class="box" x="200" y="440" width="380" height="90" rx="14"/><rect class="box" x="660" y="440" width="380" height="90" rx="14"/><rect class="box" x="1120" y="440" width="380" height="90" rx="14"/>
+  <text class="sm" x="850" y="494" text-anchor="middle">nodes · your workloads only</text>
+  <g data-step="1"><rect class="box argo" x="120" y="62" width="420" height="170" rx="18"/><text class="lbl" x="330" y="116" text-anchor="middle">Argo CD</text><text class="sm" x="330" y="152" text-anchor="middle">GitOps · many clusters</text><text class="tmono" x="330" y="200" text-anchor="middle" style="font-size:20px;fill:#ffd389">encabulator-usw2-argocd</text><path class="ar argo flow" d="M330 232 C 330 290, 640 300, 720 342"/></g>
+  <g data-step="2"><rect class="box aws" x="640" y="62" width="420" height="170" rx="18"/><text class="lbl" x="850" y="116" text-anchor="middle">ACK</text><text class="sm" x="850" y="152" text-anchor="middle">AWS resources as CRDs</text><text class="tmono" x="850" y="200" text-anchor="middle" style="font-size:20px;fill:#ffd389">encabulator-usw2-ack</text><path class="ar aws flow" d="M850 232 V340"/></g>
+  <g data-step="3"><rect class="box kro" x="1160" y="62" width="420" height="170" rx="18"/><text class="lbl" x="1370" y="116" text-anchor="middle">kro</text><text class="sm" x="1370" y="152" text-anchor="middle">compose your own APIs</text><text class="tmono" x="1370" y="200" text-anchor="middle" style="font-size:20px;fill:#ffd389">encabulator-usw2-kro</text><path class="ar kro flow" d="M1370 232 C 1370 290, 1060 300, 980 342"/></g>
+ </svg>
+ <pre class="code xs" data-lang="hcl" data-file="terraform/brownfield/capabilities.tf" data-step="4" data-hl="4-5" style="margin-top:22px">
+resource "aws_eks_capability" "kro" {
+  cluster_name              = aws_eks_cluster.hub.name
+  capability_name           = "kro"
+  type                      = "KRO"
+  role_arn                  = aws_iam_role.capability["kro"].arn
+  delete_propagation_policy = "RETAIN"
+  depends_on = [aws_eks_access_entry.kro]
+}
+ </pre>
+ <aside class="notes">
+  <p>⏱ 11:00-13:00. Each capability is an AWS-managed controller: it does not run on our nodes and we do not upgrade it. Each one assumes its own IAM capability role, named after the cluster: <code>encabulator-usw2-argocd</code>, <code>-ack</code> and <code>-kro</code>, all trusting <code>capabilities.eks.amazonaws.com</code>. ACK's role holds the AWS permissions: RDS and ElastiCache, plus the VPC, IAM and EKS calls it needs to build a new region in Act 3, limited to us-west-2 and us-east-2 and to the cell's own cluster and roles. Argo CD reads a public Git repo, so its role needs no AWS permissions. kro makes no AWS calls; it needs Kubernetes RBAC for whatever its RGDs create.</p>
+  <p>Build 4: Terraform creates all three in <code>capabilities.tf</code> (<code>aws_eks_capability</code>, AWS provider 6.68). It also creates each capability's access entry first, so the entries carry our tags and kro's carries the Kubernetes group <code>encabulator:kro</code>, which our RBAC binds instead of a role ARN. EKS then adds each capability's default access policies to the existing entry.</p>
+  <p>Live: <code>aws eks describe-capability --cluster-name encabulator-usw2 --capability-name kro --query capability.status</code> shows ACTIVE.</p>
+ </aside>
+</section>
+
+<section class="slide" data-act="1 · Adopt" data-mode="live" data-title="Adopt, don't rebuild">
+ <h2>Adopt, don't rebuild</h2>
+ <svg class="dia" viewBox="0 0 1700 700">
+  <g data-step="3">
+   <rect class="box" x="640" y="20" width="420" height="100" rx="18"/><text class="lbl-s" x="850" y="64" text-anchor="middle">Git</text><text class="tmono" x="850" y="98" text-anchor="middle" style="font-size:19px;fill:#8a96b3">gitops/hub/brownfield/</text>
+   <rect class="box argo" x="1320" y="20" width="340" height="100" rx="18"/><text class="lbl-s" x="1490" y="64" text-anchor="middle">Argo CD</text><text class="sm" x="1490" y="98" text-anchor="middle">ApplicationSet</text>
+   <path class="ar argo flow" d="M1060 70 H1314"/><path class="ar argo flow" d="M1490 120 V292"/>
+   <rect class="box argo dash" x="1080" y="160" width="320" height="90" rx="14"/><text class="lbl-s" x="1240" y="198" text-anchor="middle">cluster Secret</text><text class="sm" x="1240" y="230" text-anchor="middle">subnet + SG ids · not in Git</text>
+   <path class="ar argo" d="M1300 160 C 1300 140, 1330 130, 1356 126"/>
+  </g>
+  <rect class="box tf" x="40" y="300" width="320" height="150" rx="20"/><text class="lbl" x="200" y="368" text-anchor="middle">Terraform</text><text class="sm" x="200" y="406" text-anchor="middle">built it</text>
+  <path stroke="#a77bff" stroke-width="6" fill="none" d="M360 375 H676" data-cls="2:faded"/>
+  <g data-step="2"><path stroke="#ff5d6c" stroke-width="8" d="M498 345 L538 405 M538 345 L498 405"/><text class="tmono" x="518" y="320" text-anchor="middle" style="fill:#ff8a95">removed { }</text></g>
+  <path class="cyl" stroke="#ff9900" d="M680 290 V490 A170 30 0 0 0 1020 490 V290"/><ellipse class="cyl" stroke="#ff9900" cx="850" cy="290" rx="170" ry="30"/>
+  <text class="lbl-s" x="850" y="392" text-anchor="middle">RDS PostgreSQL</text>
+  <text class="tmono" x="850" y="432" text-anchor="middle">encabulator-pg</text>
+  <text class="sm" x="850" y="580" text-anchor="middle">same instance · same endpoint · no downtime</text>
+  <rect class="box aws" x="1320" y="300" width="340" height="150" rx="20"/><text class="lbl" x="1490" y="362" text-anchor="middle">ACK</text><text class="tmono" x="1490" y="404" text-anchor="middle" style="fill:#ffd389">kind: DBInstance</text>
+  <g data-step="1"><path class="ar ok" stroke-width="6" d="M1320 375 H1030"/><text class="lbl-s" x="1172" y="350" text-anchor="middle" style="fill:#3ddc97">adopt</text></g>
+ </svg>
+ <aside class="notes">
+  <p>⏱ 13:00-15:00. The database does not move and is not recreated. Build 1: ACK starts managing the existing instance through a DBInstance custom resource. Build 2: Terraform stops tracking it, with a <code>removed</code> block that drops it from state and does not destroy it. Build 3: the custom resource lives in Git, so Argo CD owns it from now on. The Application <code>hub-brownfield</code> comes from a one-cluster ApplicationSet. The subnet and security group ids the adopted resources need travel on annotations of the hub's Argo CD cluster Secret (<code>encabulator.io/subnet-ids</code>, <code>encabulator.io/security-group-id</code>), and the ApplicationSet patches them in at sync time. Git only holds placeholders.</p>
+ </aside>
+</section>
+
+<section class="slide" data-act="1 · Adopt" data-mode="live" data-title="Adopt: the manifest">
+ <h2>Point ACK at what already exists</h2>
+ <div class="cols">
+  <pre class="code" data-file="gitops/explore/postgres.yaml" data-hl="7-9">
+apiVersion: rds.services.k8s.aws/v1alpha1
+kind: DBInstance
+metadata:
+  name: encabulator-pg
+  namespace: encabulator
+  annotations:
+    services.k8s.aws/adoption-policy: adopt
+    services.k8s.aws/adoption-fields: |
+      {"dbInstanceIdentifier": "encabulator-pg"}
+    services.k8s.aws/deletion-policy: retain
+# no spec: ACK reads it back from AWS
+  </pre>
+  <div style="display:flex;flex-direction:column;gap:28px">
+   <pre class="code term sm" data-lang="sh" data-step="1" data-out="3-4">
+kubectl apply -f gitops/explore/postgres.yaml
+kubectl get dbinstances.rds encabulator-pg
+NAME             STATUS
+encabulator-pg   available
+   </pre>
+   <pre class="code sm" data-step="2" data-file="spec, read back from AWS by ACK">
+spec:
+  engine: postgres
+  dbInstanceClass: db.t4g.medium
+  allocatedStorage: 20
+  backupRetentionPeriod: 7
+  # ... every setting from AWS
+   </pre>
+   <div class="tip" data-step="3"><b>retain</b> first: deleting the CR never deletes the database.</div>
+  </div>
+ </div>
+ <aside class="notes">
+  <p>⏱ 15:00-19:00. LIVE. Type or paste the manifest. The highlighted annotations do the work: the adoption policy, and the field ACK uses to find the instance (<code>dbInstanceIdentifier</code> for RDS). No spec at all; with <code>adopt</code>, ACK fills it in from the real instance.</p>
+  <p>Build 1: apply and watch STATUS read <code>available</code> (the ACK.ResourceSynced condition goes True). Build 2: <code>kubectl get dbinstances.rds encabulator-pg -o yaml | yq .spec</code>. Always type <code>dbinstances.rds</code>: with the ACK capability the bare <code>dbinstance</code> resolves to the DocumentDB kind and prints "No resources found". The read-back also contains <code>kmsKeyID</code>, an ARN with the account id, and <code>availabilityZone</code>: scroll past them, never paste them into Git. The file we commit next keeps only the fields Git owns. Build 3: always add the retain annotation before you touch anything that holds data.</p>
+ </aside>
+</section>
+
+<section class="slide" data-act="1 · Adopt" data-mode="none" data-title="Two ways to adopt">
+ <h2>Two ways to adopt</h2>
+ <div class="cols">
+  <div class="card" data-step="1" style="min-height:430px">
+   <div class="mono" style="font-size:40px;color:var(--brass)">adopt</div>
+   <div style="font-size:34px;font-weight:700;margin:14px 0 30px">Import it exactly as it is</div>
+   <div style="display:flex;align-items:center;gap:22px;font-size:30px"><span class="pill" style="font-size:28px;border-color:var(--aws)">AWS</span><span style="color:var(--ok);font-size:44px">→</span><span class="pill" style="font-size:28px;border-color:var(--k8s)">spec</span></div>
+   <p style="font-size:27px;color:var(--muted);margin-top:30px">ACK writes what it finds into your spec. Nothing in AWS changes.</p>
+  </div>
+  <div class="card" data-step="2" style="min-height:430px">
+   <div class="mono" style="font-size:40px;color:var(--brass)">adopt-or-create</div>
+   <div style="font-size:34px;font-weight:700;margin:14px 0 30px">Your YAML is the truth</div>
+   <div style="display:flex;align-items:center;gap:22px;font-size:30px"><span class="pill" style="font-size:28px;border-color:var(--k8s)">spec</span><span style="color:var(--ok);font-size:44px">→</span><span class="pill" style="font-size:28px;border-color:var(--aws)">AWS</span></div>
+   <p style="font-size:27px;color:var(--muted);margin-top:30px">Adopts it if it exists and makes it match. Creates it if it doesn't.</p>
+  </div>
+ </div>
+ <div class="tip" data-step="3" style="margin-top:40px;font-size:30px">Recipe: <b>adopt</b> to read the spec → commit it to Git → <b>adopt-or-create</b> in every region</div>
+ <aside class="notes">
+  <p>⏱ 19:00-20:00. adopt is the safe first look: AWS is the source, your spec is filled in. adopt-or-create is the steady state: your manifest wins, and in a region where the resource does not exist yet, ACK creates it. That second property is what lets one definition serve both regions later.</p>
+ </aside>
+</section>
+
+<section class="slide" data-act="1 · Adopt" data-mode="live" data-title="Hand over the keys">
+ <h2>One owner per resource</h2>
+ <div class="cols">
+  <div>
+   <pre class="code" data-lang="hcl" data-file="terraform/brownfield/handoff.tf.example" data-step="1" data-hl="5">
+removed {
+  from = aws_db_instance.pg
+
+  lifecycle {
+    destroy = false
+  }
+}
+# ... the same for the cache and the subnet group
+   </pre>
+   <pre class="code term xs" data-lang="sh" data-step="1" data-out="4" style="margin-top:24px">
+git -C terraform/brownfield rm stores.tf
+git -C terraform/brownfield mv handoff.tf.example handoff.tf
+terraform -chdir=terraform/brownfield apply
+  # aws_db_instance.pg will no longer be managed by Terraform
+   </pre>
+  </div>
+  <div>
+   <pre class="code sm" data-file="gitops/hub/brownfield/postgres.yaml" data-step="2" data-hl="6,11">
+kind: DBInstance
+metadata:
+  name: encabulator-pg
+  namespace: encabulator
+  annotations:
+    services.k8s.aws/adoption-policy: adopt-or-create
+    services.k8s.aws/deletion-policy: retain
+spec:
+  dbInstanceIdentifier: encabulator-pg
+  # ...
+  backupRetentionPeriod: 7
+  # ...
+   </pre>
+   <div class="tip" data-step="3" style="margin-top:24px">Set <b>backupRetentionPeriod: 14</b> in Git. Argo CD syncs the CR, ACK changes the database.</div>
+  </div>
+ </div>
+ <aside class="notes">
+  <p>⏱ 20:00-24:00. LIVE. Build 1: the removed blocks ship disabled in <code>handoff.tf.example</code>, one per store. Deleting <code>stores.tf</code> and renaming the example is a change you review in a pull request, unlike <code>terraform state rm</code>. Apply shows the three stores leaving state with no destroy: the cache and the DB subnet group were adopted from the oven (next slide). A second <code>terraform plan</code> reports No changes, because the ConfigMap reads data sources and the VPC and security group are still Terraform's. Run the apply only after ACK reports the stores synced.</p>
+  <p>Build 2: the adopted spec, committed under <code>gitops/hub/brownfield</code>, which the <code>hub-brownfield</code> Application already syncs. It sets the same values Terraform used, so ACK finds nothing to change. Build 3: change backup retention from 7 to 14 in Git, push, refresh the Application, and show the RDS console moving to Modifying. That proves the new owner.</p>
+ </aside>
+</section>
+
+<section class="slide" data-act="1 · Adopt" data-mode="ide" data-title="IDE: adopt">
+ <h2>In the IDE: adopt</h2>
+ <div class="cols c46">
+  <div class="card" style="font-family:var(--mono);font-size:24px;line-height:1.75">
+   <div style="color:var(--muted)">terraform/brownfield/</div>
+   <div>&nbsp;&nbsp;stores.tf <span style="color:var(--bad)">✕</span></div>
+   <div style="color:var(--brass)">&nbsp;&nbsp;handoff.tf.example ←</div>
+   <div style="color:var(--muted);margin-top:14px">gitops/explore/ <span style="font-size:18px">(not synced)</span></div>
+   <div style="color:var(--brass)">&nbsp;&nbsp;postgres.yaml ←</div>
+   <div style="color:var(--muted);margin-top:14px">gitops/hub/brownfield/ <span style="font-size:18px">(Argo CD)</span></div>
+   <div style="color:var(--brass)">&nbsp;&nbsp;kustomization.yaml ←</div>
+   <div style="color:var(--brass)">&nbsp;&nbsp;postgres.yaml ←</div>
+   <div>&nbsp;&nbsp;subnet-group.yaml</div>
+   <div>&nbsp;&nbsp;valkey.yaml</div>
+  </div>
+  <div style="display:flex;flex-direction:column;gap:24px">
+   <pre class="code term sm" data-lang="sh">
+kubectl apply -f gitops/explore/postgres.yaml
+kubectl get dbinstances.rds -w
+kubectl get dbinstances.rds encabulator-pg -o yaml | yq .spec
+kubectl delete -f gitops/explore/postgres.yaml
+git add gitops/hub/brownfield/
+git -C terraform/brownfield rm stores.tf
+git -C terraform/brownfield mv handoff.tf.example handoff.tf
+git commit -s -m "Adopt encabulator-pg"; git push
+terraform -chdir=terraform/brownfield apply
+   </pre>
+   <pre class="code sm" data-file="gitops/hub/brownfield/kustomization.yaml" data-hl="3">
+resources:
+  - subnet-group.yaml
+  - postgres.yaml
+  - valkey.yaml
+   </pre>
+  </div>
+ </div>
+ <aside class="notes">
+  <p>Show the full files. The explore manifest is deleted after reading the spec: retain keeps the database. Delete it before the committed copy syncs, because both are DBInstance <code>encabulator-pg</code> in namespace <code>encabulator</code>, the same Kubernetes object. The committed <code>postgres.yaml</code> then takes over the same instance with adopt-or-create.</p>
+  <p>The highlighted kustomization line is new in this commit: the revision Argo CD tracked for the bake lists only the subnet group and the cache, so ACK cannot adopt the database before we do it live. After the push, refresh <code>hub-brownfield</code> in the Argo CD UI (Git is polled every 3 minutes) and wait for the DBInstance to report synced before the Terraform apply. Open the RDS console beside the terminal so the audience sees the instance never changes state.</p>
+ </aside>
+</section>
+
+<section class="slide" data-act="1 · Adopt" data-mode="baked" data-title="Same recipe, from the oven">
+ <h2>Same recipe, <span class="accent">from the oven</span></h2>
+ <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:30px">
+  <div class="card" data-step="1" style="border-color:var(--bad)"><div class="pill">rds · DBInstance</div><div class="mono" style="font-size:30px;margin:18px 0 10px">encabulator-pg</div><div style="font-size:24px;color:#ff9aa4">● adopted live</div></div>
+  <div class="card" data-step="2"><div class="pill">elasticache · ServerlessCache</div><div class="mono" style="font-size:30px;margin:18px 0 10px">encabulator-valkey</div><div style="font-size:24px;color:var(--ok)">✓ adopted</div></div>
+  <div class="card" data-step="2"><div class="pill">rds · DBSubnetGroup</div><div class="mono" style="font-size:30px;margin:18px 0 10px">encabulator</div><div style="font-size:24px;color:var(--ok)">✓ adopted</div></div>
+  <div class="card" data-step="3" style="border-color:var(--tf)"><div class="pill">ec2 · SecurityGroup</div><div class="mono" style="font-size:30px;margin:18px 0 10px">encabulator-db</div><div style="font-size:24px;color:#c9a8ff">stays with Terraform</div></div>
+  <div class="card" data-step="3" style="border-color:var(--tf)"><div class="pill">ec2 · VPC</div><div class="mono" style="font-size:30px;margin:18px 0 10px">encabulator-usw2</div><div style="font-size:24px;color:#c9a8ff">stays with Terraform</div></div>
+  <div class="card" data-step="3" style="opacity:.8"><div class="pill">StatefulSet</div><div class="mono" style="font-size:30px;margin:18px 0 10px">nats · influxdb</div><div style="font-size:24px;color:var(--muted)">unchanged, in-cluster</div></div>
+ </div>
+ <div class="tip" data-step="4" style="margin-top:36px">AWS resources unchanged. The stores moved from Terraform to Git.</div>
+ <aside class="notes">
+  <p>⏱ 24:00-26:00. The serverless cache and the DB subnet group went through the same recipe before the talk: Argo CD synced <code>valkey.yaml</code> and <code>subnet-group.yaml</code> with adopt-or-create, and the Terraform apply we just ran dropped all three stores from state. The VPC and the <code>encabulator-db</code> security group stay with Terraform, and so does the hub cluster: the stores keep referring to the group by id. That is fine. The point is one owner per resource.</p>
+  <p>The region started at 8:00 is building in the background. In a run of this demo the cell was ACTIVE about 20 minutes after the trigger, so it registers near 28:00, during the opening of Act 2. No need to look at it now; one glance at <code>kubectl get encabulatorcells -n encabulator-cells</code> shows the state if the room asks.</p>
+ </aside>
+</section>
+
+<!-- =============================================================== ACT 2 PACKAGE -->
+<section class="slide" data-act="2 · Package" data-mode="none" data-title="One API for the whole stack">
+ <h2>One API for the whole stack</h2>
+ <svg class="dia" viewBox="0 0 1700 720">
+  <g data-step="1">
+   <rect class="box k8s" x="20" y="220" width="440" height="280" rx="20"/>
+   <text class="sm" x="44" y="258">you write</text>
+   <g class="tmono"><text x="44" y="310" style="fill:#86b4ff">kind: Encabulator</text><text x="44" y="356">imageTag: 1.0.3</text><text x="44" y="402">dbInstanceClass: db.t4g…</text><text x="44" y="448">services: [15 names]</text></g>
+  </g>
+  <g data-step="2">
+   <path class="ar kro" d="M460 360 H534"/>
+   <rect class="box kro" x="540" y="170" width="330" height="380" rx="22"/>
+   <text class="lbl-s" x="705" y="320" text-anchor="middle">Resource Graph</text><text class="lbl-s" x="705" y="356" text-anchor="middle">Definition</text>
+   <text class="tmono" x="705" y="404" text-anchor="middle" style="fill:#3ddcb0">encabulator</text>
+  </g>
+  <g data-step="3">
+   <path class="ar aws" d="M870 280 C 910 250, 920 180, 955 170"/>
+   <rect fill="none" stroke="#ff9900" stroke-width="2" stroke-dasharray="10 8" x="960" y="20" width="720" height="300" rx="22"/>
+   <text class="sm" x="985" y="56">AWS · through ACK</text>
+   <rect class="box aws" x="985" y="80" width="320" height="96" rx="14"/><text class="lbl-s" x="1145" y="138" text-anchor="middle">DBSubnetGroup</text>
+   <rect class="box aws" x="1335" y="80" width="320" height="96" rx="14"/><text class="lbl-s" x="1495" y="138" text-anchor="middle">DBInstance</text>
+   <rect class="box aws" x="985" y="200" width="670" height="96" rx="14"/><text class="lbl-s" x="1320" y="258" text-anchor="middle">ServerlessCache</text>
+  </g>
+  <g data-step="4">
+   <path class="ar k8s" d="M870 440 C 910 470, 920 520, 955 530"/>
+   <rect fill="none" stroke="#5b8cff" stroke-width="2" stroke-dasharray="10 8" x="960" y="360" width="720" height="340" rx="22"/>
+   <text class="sm" x="985" y="396">Kubernetes</text>
+   <rect class="box k8s" x="985" y="420" width="320" height="96" rx="14"/><text class="lbl-s" x="1145" y="462" text-anchor="middle">ConfigMap</text><text class="tmono" x="1145" y="494" text-anchor="middle" style="font-size:19px;fill:#8a96b3">encabulator-aws</text>
+   <rect class="box k8s" x="1335" y="420" width="320" height="96" rx="14"/><text class="lbl-s" x="1495" y="478" text-anchor="middle">NATS · InfluxDB</text>
+   <rect class="box k8s" x="985" y="540" width="670" height="130" rx="14"/><text class="lbl-s" x="1320" y="598" text-anchor="middle">15 × EncabulatorService</text><text class="sm" x="1320" y="636" text-anchor="middle">ServiceAccount · Deployment · Service (+ HPA · PDB · Role)</text>
+  </g>
+  <g data-step="5">
+   <rect x="80" y="590" width="330" height="80" rx="12" fill="#2e2410" stroke="#ffb547" stroke-width="3"/>
+   <text x="245" y="642" text-anchor="middle" style="font-size:32px;font-weight:800;fill:#ffd389">No Helm chart</text>
+  </g>
+ </svg>
+ <aside class="notes">
+  <p>⏱ 26:00-28:00. The idea of the act. A platform team publishes one API, Encabulator. A developer (or Argo CD) creates one object. kro expands it into everything: the three AWS resources through ACK (DBSubnetGroup, DBInstance, ServerlessCache), and the Kubernetes objects: the <code>encabulator-aws</code> ConfigMap, NATS and InfluxDB StatefulSets and fifteen services. It also creates a StorageClass and two one-time Jobs: one generates the passwords and keys, one creates the three databases on RDS. The service itself is a second, smaller API (EncabulatorService); RGDs chain. Each service gets a ServiceAccount, a Deployment and a Service, plus an HPA, a PodDisruptionBudget or a Role where the chart gave it one.</p>
+ </aside>
+</section>
+
+<section class="slide" data-act="2 · Package" data-mode="live" data-title="The schema is the API">
+ <h2>The schema is the API</h2>
+ <div class="cols c64">
+  <pre class="code sm" data-file="gitops/app/rgds/encabulator.yaml" data-hl="9,11-16" data-steps="2:17-19">
+apiVersion: kro.run/v1alpha1
+kind: ResourceGraphDefinition
+metadata:
+  name: encabulator
+  # ...
+spec:
+  schema:
+    apiVersion: v1alpha1
+    kind: Encabulator
+    spec:
+      imageTag: string | default="1.0.3"
+      registry: string | default="ghcr.io/jlbutler/cloud-native-encabulator"
+      dbInstanceClass: string | default="db.t4g.medium"
+      subnetIDs: "[]string"
+      securityGroupID: string | required=true
+      services: "[]string"
+    status:
+      databaseHost: ${db.status.endpoint.address}
+      cacheHost: ${cache.status.endpoint.address}
+  </pre>
+  <div style="display:flex;flex-direction:column;gap:28px">
+   <pre class="code term xs" data-lang="sh" data-step="1" data-out="3-9">
+kubectl apply -f gitops/app/rgds/
+kubectl explain encabulator.spec
+FIELDS:
+  dbInstanceClass   &lt;string&gt;
+  imageTag          &lt;string&gt;
+  registry          &lt;string&gt;
+  securityGroupID   &lt;string&gt; -required-
+  services          &lt;[]string&gt;
+  subnetIDs         &lt;[]string&gt;
+   </pre>
+   <div class="tip" data-step="1">kro turns the schema into a real CRD: types, defaults, validation.</div>
+   <div class="tip" data-step="2">Status is computed from the resources it creates.</div>
+  </div>
+ </div>
+ <aside class="notes">
+  <p>⏱ 28:00-31:00. LIVE in the terminal. SimpleSchema: a type, then markers like default and required. Apply both RGDs (the Encabulator RGD stamps out EncabulatorService objects, so kro needs that API too) and kro generates the encabulators CRD; kubectl explain proves it is a real API. Images are <code>&lt;registry&gt;/&lt;service&gt;:&lt;imageTag&gt;</code>, like the chart's <code>global.registry</code>: <code>registry</code> defaults to the project's public registry, and a cell can point it at a mirror without a hostname in Git (next act). Build 2: the status block uses CEL references into resources we have not written yet; kro checks them against the real ACK schemas when you apply.</p>
+ </aside>
+</section>
+
+<section class="slide" data-act="2 · Package" data-mode="live" data-title="AWS dependencies are just resources">
+ <h2>AWS dependencies are just resources</h2>
+ <div class="cols c64">
+  <pre class="code xs" data-file="gitops/app/rgds/encabulator.yaml" data-hl="7-9,17,21-23">
+- id: dbSubnets
+  template:
+    apiVersion: rds.services.k8s.aws/v1alpha1
+    kind: DBSubnetGroup
+    metadata:
+      name: ${schema.metadata.name}
+      annotations: &amp;ackAnnotations
+        services.k8s.aws/adoption-policy: adopt-or-create
+        services.k8s.aws/deletion-policy: retain
+    # ...
+- id: db
+  template:
+    apiVersion: rds.services.k8s.aws/v1alpha1
+    kind: DBInstance
+    metadata:
+      name: ${schema.metadata.name}-pg
+      annotations: *ackAnnotations
+    spec:
+      dbInstanceIdentifier: ${schema.metadata.name}-pg
+      # ...
+      dbSubnetGroupName: ${dbSubnets.spec.name}
+      vpcSecurityGroupIDs:
+        - ${schema.spec.securityGroupID}
+      # ...
+  </pre>
+  <div>
+   <svg class="dia" viewBox="0 0 620 600">
+    <g data-step="1"><rect class="box kro" x="150" y="10" width="320" height="80" rx="14"/><text class="lbl-s" x="310" y="60" text-anchor="middle">schema.spec</text></g>
+    <g data-step="2"><path class="ar kro" d="M310 90 V136"/><rect class="box aws" x="150" y="140" width="320" height="80" rx="14"/><text class="lbl-s" x="310" y="190" text-anchor="middle">DBSubnetGroup</text></g>
+    <g data-step="3"><path class="ar aws" d="M310 220 V266"/><text class="tmono" x="330" y="252" style="font-size:17px;fill:#ffd389">${dbSubnets.spec.name}</text><rect class="box aws" x="150" y="270" width="320" height="80" rx="14"/><text class="lbl-s" x="310" y="320" text-anchor="middle">DBInstance</text></g>
+    <g data-step="4"><path class="ar k8s" d="M310 350 V396"/><text class="tmono" x="330" y="382" style="font-size:17px;fill:#ffd389">${db.status.endpoint…}</text><rect class="box k8s" x="150" y="400" width="320" height="80" rx="14"/><text class="lbl-s" x="310" y="450" text-anchor="middle">ConfigMap stores</text></g>
+    <g data-step="5"><text x="310" y="550" text-anchor="middle" style="font-size:26px;fill:#ffe2a8">A reference is a dependency.</text><text x="310" y="586" text-anchor="middle" style="font-size:22px;fill:#8a96b3">kro creates it after what it reads.</text></g>
+   </svg>
+  </div>
+ </div>
+ <aside class="notes">
+  <p>⏱ 31:00-34:00. The same adopt-or-create and retain annotations from Act 1, now inside the template. They are written once on the subnet group as the YAML anchor <code>&amp;ackAnnotations</code>; the database and the cache reuse them with <code>*ackAnnotations</code>. In a region where encabulator-pg already exists, ACK adopts it; in a new region it creates it. Each <code>${...}</code> that points at another resource is an edge in the graph: the DBInstance waits for the subnet group, and the ConfigMap waits until the database reports an endpoint.</p>
+  <p>The elided lines hold the same storage, engine and backup values as Act 1, the master password (read from a Secret a one-time Job generates, so the database also waits for it) and <code>readyWhen: dbInstanceStatus == available</code>. The ConfigMap that Terraform used to write is now produced by kro from the ACK status, under the same name, so the services do not change.</p>
+ </aside>
+</section>
+
+<section class="slide" data-act="2 · Package" data-mode="live" data-title="15 services, one definition">
+ <h2>15 services, one definition</h2>
+ <div class="cols c64">
+  <pre class="code xs" data-file="gitops/app/rgds/encabulator.yaml" data-hl="14-15,24" data-steps="1:1-12;2:13-24">
+- id: stores
+  template:
+    apiVersion: v1
+    kind: ConfigMap
+    metadata:
+      name: encabulator-aws
+      # ...
+    data:
+      POSTGRES_HOST: ${db.status.endpoint.address}
+      POSTGRES_PORT: ${string(db.status.endpoint.port)}
+      VALKEY_HOST: ${cache.status.endpoint.address}
+      VALKEY_PORT: ${string(cache.status.endpoint.port)}
+- id: services
+  forEach:
+    - svc: ${schema.spec.services}
+  template:
+    apiVersion: kro.run/v1alpha1
+    kind: EncabulatorService
+    metadata:
+      name: ${svc}
+    spec:
+      tag: ${schema.spec.imageTag}
+      registry: ${schema.spec.registry}
+      storesConfig: ${stores.metadata.name}
+  </pre>
+  <div data-step="3">
+   <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;font-family:var(--mono);font-size:14px">
+    <div class="pill" style="font-size:14px">console</div><div class="pill" style="font-size:14px">grammeter</div><div class="pill" style="font-size:14px">malaise</div>
+    <div class="pill" style="font-size:14px">orchestrator</div><div class="pill" style="font-size:14px">gateway</div><div class="pill" style="font-size:14px">processor</div>
+    <div class="pill" style="font-size:14px">quoter</div><div class="pill" style="font-size:14px">casing-line</div><div class="pill" style="font-size:14px">dispatch</div>
+    <div class="pill" style="font-size:14px">datastore</div><div class="pill" style="font-size:14px">depot</div><div class="pill" style="font-size:14px">recorder</div>
+    <div class="pill" style="font-size:14px">detractor</div><div class="pill" style="font-size:14px">girdlespring</div><div class="pill" style="font-size:14px">detector</div>
+   </div>
+   <div class="card" style="margin-top:26px;border-color:var(--kro)">
+    <div class="mono" style="color:var(--kro);font-size:24px">EncabulatorService</div>
+    <div style="font-size:24px;margin-top:10px;line-height:1.5">ServiceAccount · Deployment · Service</div>
+    <div style="font-size:21px;margin-top:4px;color:var(--muted)">+ HPA · PDB · Role where the service needs one</div>
+   </div>
+   <div class="tip" style="margin-top:26px">Add a name to the list → a new service. No chart.</div>
+  </div>
+ </div>
+ <aside class="notes">
+  <p>⏱ 34:00-37:00. Build 1: the stores ConfigMap, built from ACK status: the same <code>encabulator-aws</code> name and four keys Terraform writes on the hub. It also waits for the one-time Job that creates the three databases, so it is published only once they exist. Build 2: forEach turns one template into fifteen EncabulatorService instances, one per name in <code>spec.services</code>. Each one reads the ConfigMap, so no service starts before the endpoints are real, and each gets the instance's <code>imageTag</code> and <code>registry</code>, so its image is <code>&lt;registry&gt;/&lt;name&gt;:&lt;tag&gt;</code>. Build 3: what one EncabulatorService expands to: a ServiceAccount, a Deployment and a Service for every service; an HPA for the processor and the quoter, a PodDisruptionBudget for the eleven that run more than one replica, and a Role for the console and the malaise engine. Per-service settings (plane, replicas, resources, which stores, which services it calls) are lookup tables in <code>encabulator-service.yaml</code>, keyed by name and copied from the chart's values. A name with no entry gets the chart's defaults.</p>
+ </aside>
+</section>
+
+<section class="slide" data-act="2 · Package" data-mode="none" data-title="kro orders the graph">
+ <h2>kro orders the graph</h2>
+ <svg class="dia" viewBox="0 0 1700 700">
+  <g class="sm" style="font-size:22px"><text x="165" y="44" text-anchor="middle">first · in parallel</text><text x="505" y="44" text-anchor="middle">waits on its inputs</text><text x="845" y="44" text-anchor="middle">waits for available</text><text x="1185" y="44" text-anchor="middle">waits on endpoints</text><text x="1525" y="44" text-anchor="middle">waits on ConfigMap</text></g>
+  <g class="dim" data-cls="1:lit"><rect class="box aws" x="20" y="80" width="290" height="86" rx="14"/><text class="lbl-s" x="165" y="132" text-anchor="middle">DBSubnetGroup</text></g>
+  <g class="dim" data-cls="1:lit"><rect class="box k8s" x="20" y="220" width="290" height="86" rx="14"/><text class="lbl-s" x="165" y="272" text-anchor="middle">secret-init Job</text></g>
+  <g class="dim" data-cls="1:lit"><rect class="box aws" x="20" y="360" width="290" height="86" rx="14"/><text class="lbl-s" x="165" y="412" text-anchor="middle">ServerlessCache</text></g>
+  <g class="dim" data-cls="1:lit"><rect class="box k8s" x="20" y="500" width="290" height="86" rx="14"/><text class="lbl-s" x="165" y="552" text-anchor="middle">StorageClass</text></g>
+  <g class="dim" data-cls="2:lit">
+   <path class="ar aws" d="M310 115 H354"/><path class="ar k8s" d="M310 255 C 336 255, 330 145, 354 145"/>
+   <rect class="box aws" x="360" y="80" width="290" height="86" rx="14"/><text class="lbl-s" x="505" y="132" text-anchor="middle">DBInstance</text>
+  </g>
+  <g class="dim" data-cls="2:lit">
+   <path class="ar k8s" d="M310 543 H354"/><path class="ar k8s" d="M310 275 C 336 275, 330 525, 354 525"/>
+   <rect class="box k8s" x="360" y="500" width="290" height="86" rx="14"/><text class="lbl-s" x="505" y="552" text-anchor="middle">NATS · InfluxDB</text>
+  </g>
+  <g class="dim" data-cls="3:lit"><path class="ar k8s" d="M650 123 H694"/><rect class="box k8s" x="700" y="80" width="290" height="86" rx="14"/><text class="lbl-s" x="845" y="132" text-anchor="middle">db-init Job</text></g>
+  <g class="dim" data-cls="4:lit">
+   <path class="ar k8s" d="M990 123 H1034"/><path class="ar aws" d="M310 403 H1160 C 1185 403, 1185 390, 1185 172"/>
+   <rect class="box k8s" x="1040" y="80" width="290" height="86" rx="14"/><text class="lbl-s" x="1185" y="132" text-anchor="middle">ConfigMap stores</text>
+  </g>
+  <g class="dim" data-cls="5:lit">
+   <path class="ar kro" d="M1330 123 H1374"/>
+   <rect class="box kro" x="1400" y="64" width="280" height="120" rx="14"/><rect class="box kro" x="1390" y="72" width="280" height="120" rx="14"/><rect class="box kro" x="1380" y="80" width="280" height="120" rx="14"/>
+   <text class="lbl-s" x="1520" y="132" text-anchor="middle">15 ×</text><text class="lbl-s" x="1520" y="166" text-anchor="middle">EncabulatorService</text>
+  </g>
+  <text data-step="6" x="850" y="680" text-anchor="middle" style="font-size:30px;fill:#ffe2a8">Inside the graph: no sync waves, no hooks. The order comes from the references.</text>
+ </svg>
+ <aside class="notes">
+  <p>⏱ 37:00-38:00. Each build lights what kro can create next. kro derived this order from the CEL references alone. Build 1: what needs nothing (the secret-init Job after its own small RBAC). Build 2: the DBInstance needs the subnet group and the password Secret; NATS and InfluxDB need the StorageClass, and InfluxDB its token Secret. Build 3: <code>readyWhen</code> says when a resource counts as ready: the db-init Job starts once the DBInstance status is available. Build 4: the ConfigMap needs the database endpoint, the cache endpoint and the finished db-init. Build 5: then the fifteen services. Build 6: Argo CD sync waves only order the files in <code>gitops/app</code> (RBAC, then RGDs, then the instance); inside the graph, kro needs none.</p>
+ </aside>
+</section>
+
+<section class="slide" data-act="2 · Package" data-mode="ide" data-title="IDE: package">
+ <h2>In the IDE: package</h2>
+ <div class="cols c46">
+  <div class="card" style="font-family:var(--mono);font-size:24px;line-height:1.75">
+   <div style="color:var(--muted)">gitops/app/</div>
+   <div>&nbsp;&nbsp;kustomization.yaml</div>
+   <div>&nbsp;&nbsp;rbac/ · nodes/</div>
+   <div style="color:var(--brass)">&nbsp;&nbsp;rgds/encabulator.yaml ←</div>
+   <div style="color:var(--brass)">&nbsp;&nbsp;rgds/encabulator-service.yaml ←</div>
+   <div>&nbsp;&nbsp;instance/encabulator.yaml</div>
+  </div>
+  <pre class="code term sm" data-lang="sh">
+kubectl apply -f gitops/app/rgds/
+kubectl get rgd
+kubectl explain encabulator.spec
+kubectl get encabulatorservices -n encabulator
+kubectl get encabulator encabulator -n encabulator -o yaml | yq .status
+  </pre>
+ </div>
+ <aside class="notes">
+  <p>⏱ 38:00-40:00. Walk the full encabulator.yaml top to bottom: schema, the AWS resources, the generated Secrets and the db-init Job, the in-cluster stores, the ConfigMap, the forEach. Then encabulator-service.yaml: the lookup tables keyed by service name, the two Deployment variants (the autoscaled ones leave replicas to the HPA), the HPA, PDB and Role. <code>kustomization.yaml</code> is what Argo CD syncs to each cell: <code>rbac/</code> (kro's RBAC, bound to the group <code>encabulator:kro</code>) and <code>nodes/</code> (a tagged Auto Mode NodeClass and NodePool) first, then the RGDs, then the instance.</p>
+  <p>Apply the RGDs on the hub so the CRDs exist; the instance itself is what Argo CD will sync to the new region in Act 3. The hub has no Encabulator instance, so run the last two commands against the baked cell (add <code>--context use2</code>).</p>
+ </aside>
+</section>
+
+<!-- =============================================================== ACT 3 REPLICATE -->
+<section class="slide" data-act="3 · Replicate" data-mode="none" data-title="Hub and spoke">
+ <h2>Hub and spoke</h2>
+ <svg class="dia" viewBox="0 0 1700 740">
+  <rect class="box" x="650" y="10" width="400" height="90" rx="18"/><text class="lbl-s" x="850" y="52" text-anchor="middle">Git</text><text class="sm" x="850" y="84" text-anchor="middle">one repository</text>
+  <rect class="region" x="20" y="150" width="780" height="570" rx="24"/><text class="sm" x="44" y="186">us-west-2 · hub</text>
+  <rect class="box k8s" x="50" y="200" width="720" height="490" rx="20"/><text class="lbl-s" x="74" y="236">encabulator-usw2</text>
+  <rect class="box argo" x="80" y="260" width="200" height="60" rx="12"/><text class="lbl-s" x="180" y="299" text-anchor="middle">Argo CD</text>
+  <rect class="box aws" x="300" y="260" width="200" height="60" rx="12"/><text class="lbl-s" x="400" y="299" text-anchor="middle">ACK</text>
+  <rect class="box kro" x="520" y="260" width="200" height="60" rx="12"/><text class="lbl-s" x="620" y="299" text-anchor="middle">kro</text>
+  <rect class="box" x="80" y="360" width="660" height="90" rx="14"/><text class="lbl-s" x="410" y="414" text-anchor="middle">Encabulator app · adopted in Act 1</text>
+  <path class="ar argo flow" d="M690 100 C 560 140, 300 170, 190 254"/>
+  <g data-step="1"><rect class="box kro" x="80" y="490" width="660" height="90" rx="14"/><text class="lbl-s" x="410" y="532" text-anchor="middle">EncabulatorCell · use2</text><text class="sm" x="410" y="564" text-anchor="middle">cells/use2.yaml</text></g>
+  <g data-step="2">
+   <rect class="region" x="900" y="150" width="780" height="570" rx="24"/><text class="sm" x="924" y="186">us-east-2 · cell</text>
+   <rect class="box k8s" x="930" y="200" width="720" height="290" rx="20"/><text class="lbl-s" x="954" y="236">encabulator-use2</text>
+   <rect class="box aws" x="960" y="260" width="200" height="60" rx="12"/><text class="lbl-s" x="1060" y="299" text-anchor="middle">ACK</text>
+   <rect class="box kro" x="1180" y="260" width="200" height="60" rx="12"/><text class="lbl-s" x="1280" y="299" text-anchor="middle">kro</text>
+   <path class="ar aws dash" d="M740 535 C 830 535, 850 300, 924 300"/><text class="sm" x="850" y="740" text-anchor="middle">ACK on the hub builds the VPC, the cluster and its capabilities</text>
+  </g>
+  <g data-step="3">
+   <rect class="box kro" x="960" y="360" width="660" height="90" rx="14"/><text class="lbl-s" x="1290" y="414" text-anchor="middle">Encabulator</text>
+   <path class="ar argo flow" d="M280 275 C 520 120, 1000 130, 1150 352"/><text class="lbl-s" x="1100" y="128" style="fill:#ef7b4d">ApplicationSet</text>
+  </g>
+  <g data-step="4">
+   <path class="ar aws" d="M1120 450 V552"/><path class="ar aws" d="M1460 450 V552"/>
+   <path class="cyl" stroke="#ff9900" d="M960 576 V666 A160 20 0 0 0 1280 666 V576"/><ellipse class="cyl" stroke="#ff9900" cx="1120" cy="576" rx="160" ry="20"/><text class="lbl-s" x="1120" y="640" text-anchor="middle">RDS</text>
+   <path class="cyl" stroke="#ff9900" d="M1300 576 V666 A160 20 0 0 0 1620 666 V576"/><ellipse class="cyl" stroke="#ff9900" cx="1460" cy="576" rx="160" ry="20"/><text class="lbl-s" x="1460" y="640" text-anchor="middle">ElastiCache</text>
+  </g>
+ </svg>
+ <aside class="notes">
+  <p>⏱ 40:00-42:00. The hub runs all three capabilities. Build 1: one more kro API on the hub, EncabulatorCell: one object per region, in namespace <code>encabulator-cells</code>. Build 2: ACK on the hub builds the new region in us-east-2: a VPC with public and private subnets and one NAT gateway, the IAM roles, the EKS Auto Mode cluster, its access entries and its ACK and kro capabilities (the EKS controller has Cluster, Capability and AccessEntry kinds), and the <code>encabulator-db</code> security group. Build 3: kro also writes the Argo CD cluster Secret, so the ApplicationSet picks up the new cluster and syncs <code>gitops/app</code> to it, and a second ApplicationSet installs the observability platform from pinned charts. Build 4: ACK on the cell creates RDS and ElastiCache in its own region. Green field: the app has no Helm and no Terraform. The region we started at 8:00 is exactly this: the app there becomes Healthy near 42:00 and the first order is delivered near 43:00, so by the end of this act it is a live result, not a promise.</p>
+ </aside>
+</section>
+
+<section class="slide" data-act="3 · Replicate" data-mode="live" data-title="A cell is one object">
+ <h2>A new region is one object</h2>
+ <div class="cols">
+  <pre class="code xs" data-file="gitops/hub/rgds/encabulator-cell.yaml" data-hl="9,14,18,23" data-steps="1:1-15;2:16-25">
+- id: cluster
+  # ...
+  template:
+    apiVersion: eks.services.k8s.aws/v1alpha1
+    kind: Cluster
+    metadata:
+      name: ${schema.metadata.name}
+      annotations:
+        services.k8s.aws/region: ${schema.spec.region}
+    spec:
+      # ...
+      computeConfig:
+        enabled: true
+        nodePools: []
+      # ...
+- id: kroCapability
+  # ...
+    kind: Capability
+    # ...
+    spec:
+      name: ${schema.metadata.name}-kro
+      clusterName: ${cluster.spec.name}
+      type: KRO
+      roleARN: ${kroRole.status.ackResourceMetadata.arn}
+      deletePropagationPolicy: RETAIN
+  </pre>
+  <div style="display:flex;flex-direction:column;gap:26px">
+   <pre class="code xs" data-file="gitops/hub/rgds/encabulator-cell.yaml" data-step="3" data-hl="10,15">
+- id: register
+  template:
+    apiVersion: v1
+    kind: Secret
+    metadata:
+      name: ${schema.metadata.name}
+      namespace: argocd
+      labels:
+        argocd.argoproj.io/secret-type: cluster
+        encabulator.io/cell: "true"
+      # ... annotations: region, subnet, security group and capability ids
+    type: Opaque
+    stringData:
+      name: ${schema.metadata.name}
+      server: ${cluster.status.ackResourceMetadata.arn}
+      project: encabulator-cells
+   </pre>
+   <div class="tip" data-step="4">Argo CD addresses EKS clusters by ARN. kro reads the ARN from the ACK status.</div>
+  </div>
+ </div>
+ <aside class="notes">
+  <p>⏱ 42:00-45:00. Build 1: the EKS Cluster, created by the hub's ACK in the region named on the instance: every resource in this RGD carries the <code>services.k8s.aws/region</code> annotation. Auto Mode is on with no built-in node pools; the app ships a tagged NodeClass and NodePool instead. Build 2: an ACK Capability for kro on the new cluster (the ACK capability is the same block with type ACK). Access entries for the cell's ACK and kro roles and for the hub's Argo CD role are ACK AccessEntry resources, created before the capabilities so kro's entry carries the group <code>encabulator:kro</code>. The same RGD also builds the VPC, subnets, NAT gateway, route tables, IAM roles and the <code>encabulator-db</code> security group.</p>
+  <p>Build 3: the Argo CD cluster Secret. The EKS Argo CD capability takes the cluster ARN as server, and kro fills it in from the ACK status, so no account id is in Git. The annotations carry the region's private subnet ids, the <code>encabulator-db</code> group id and the cluster security group to the ApplicationSet. The Secret also references both capabilities and the Argo CD access entry, so it is written only once the cell can take a sync. Build 4: so registering a cluster is just another resource in the graph.</p>
+ </aside>
+</section>
+
+<section class="slide" data-act="3 · Replicate" data-mode="live" data-title="ApplicationSet">
+ <h2>Every cell gets the app</h2>
+ <div class="cols c46">
+  <pre class="code xs" data-file="gitops/hub/appset.yaml" data-hl="2,8,12,17">
+spec:
+  goTemplate: true
+  goTemplateOptions: ["missingkey=error"]
+  generators:
+    - clusters:
+        selector:
+          matchLabels:
+            encabulator.io/cell: "true"
+  # ...
+  template:
+    metadata:
+      name: '{{ .name }}'
+      # ...
+    spec:
+      # ...
+      destination:
+        server: '{{ .server }}'
+        namespace: encabulator
+  </pre>
+  <pre class="code xs" data-file="gitops/hub/appset.yaml" data-step="3" data-hl="5,10,13,15,17">
+path: gitops/app
+kustomize:
+  patches:
+    - target:
+        kind: Encabulator
+        name: encabulator
+        namespace: encabulator
+      patch: |-
+        - op: add
+          path: /spec/subnetIDs
+          # ...
+        - op: add
+          path: /spec/securityGroupID
+          # ...
+        {{- with index .metadata.annotations "encabulator.io/registry" }}
+        - op: add
+          path: /spec/registry
+          value: {{ . | quote }}
+        {{- end }}
+    # ... and the NodeClass subnets and security group
+  </pre>
+ </div>
+ <div style="display:grid;grid-template-columns:minmax(0,1fr) auto minmax(0,1fr) auto minmax(0,1fr);gap:18px;align-items:center;margin-top:24px">
+  <div class="card" data-step="1" style="border-color:var(--argo);text-align:center;padding:16px 20px"><div style="font-size:28px">cluster Secret</div><div class="mono" style="font-size:18px;color:var(--muted);margin-top:6px">encabulator.io/cell=true</div><div class="mono" style="font-size:18px;color:var(--muted)">subnet-ids · security-group-id</div></div>
+  <div data-step="2" style="font-size:40px;color:var(--argo)">→</div>
+  <div class="card" data-step="2" style="border-color:var(--argo);text-align:center;padding:16px 20px"><div style="font-size:28px">ApplicationSet</div><div class="mono" style="font-size:18px;color:var(--muted);margin-top:6px">encabulator</div><div class="mono" style="font-size:18px;color:var(--muted)">one Application per cell</div></div>
+  <div data-step="3" style="font-size:40px;color:var(--argo)">→</div>
+  <div class="card" data-step="3" style="border-color:var(--argo);text-align:center;padding:16px 20px"><div style="font-size:28px">Application</div><div class="mono" style="font-size:18px;color:var(--muted);margin-top:6px">encabulator-use2</div><div class="mono" style="font-size:18px;color:var(--muted)">subnetIDs · securityGroupID</div></div>
+ </div>
+ <aside class="notes">
+  <p>⏱ 45:00-47:00. The cluster generator watches Argo CD cluster Secrets. Label the Secret (kro already did) and an Application appears for that cluster. With <code>goTemplate</code>, <code>{{ .name }}</code> is the Secret's name, so the Application is called <code>encabulator-use2</code>, and <code>{{ .server }}</code> is the cluster ARN. It points at <code>gitops/app</code>: RBAC, the tagged NodeClass, the two RGDs and the Encabulator instance.</p>
+  <p>Build 3: region-specific values never enter Git. Two kustomize patches copy the Secret's annotations into the instance (<code>spec.subnetIDs</code>, <code>spec.securityGroupID</code>) and into the NodeClass. <code>missingkey=error</code> fails the render if an annotation is missing instead of rendering an empty value. The third patch is optional: when the Secret carries <code>encabulator.io/registry</code>, it sets <code>spec.registry</code> and every image comes from that registry (a mirror, for example); without it the RGD default applies. Automated sync with prune and self-heal: Git is the source. <code>preserveResourcesOnDeletion</code> keeps a running region if the ApplicationSet is deleted.</p>
+  <p>Presenter prep: until 1.0.3 is on GHCR and the dingle-arm-gateway package there is public, all 15 images come from the mirror. Annotate the cell's cluster Secret the moment kro creates it, before Argo CD's first sync: <code>kubectl -n argocd wait --for=create secret/encabulator-use2 --timeout=40m &amp;&amp; kubectl -n argocd annotate secret encabulator-use2 encabulator.io/registry=&lt;account&gt;.dkr.ecr.us-west-2.amazonaws.com/encabulator</code>. kro applies the Secret with server-side apply and does not own that annotation, so it keeps it.</p>
+ </aside>
+</section>
+
+<section class="slide" data-act="3 · Replicate" data-mode="live" data-title="One commit, a new region">
+ <h2>One commit, a new region</h2>
+ <svg class="dia" viewBox="0 0 1700 620">
+  <line x1="80" y1="300" x2="1620" y2="300" stroke="#2a3658" stroke-width="6"/>
+  <g style="font-size:26px;font-weight:700" text-anchor="middle">
+   <g data-step="1"><circle cx="80" cy="300" r="22" fill="#ffb547"/><text x="110" y="220" text-anchor="start">git push</text><text x="110" y="252" text-anchor="start" class="sm">cells/use2.yaml</text></g>
+   <g data-step="2"><line x1="102" y1="300" x2="278" y2="300" stroke="#3ddcb0" stroke-width="6"/><circle cx="300" cy="300" r="22" fill="#3ddcb0"/><text x="300" y="380">EncabulatorCell</text><text x="300" y="412" class="sm">kro · hub</text></g>
+   <g data-step="3"><line x1="322" y1="300" x2="498" y2="300" stroke="#ff9900" stroke-width="6"/><circle cx="520" cy="300" r="22" fill="#ff9900"/><text x="520" y="220">VPC + EKS cluster</text><text x="520" y="252" class="sm">ACK · hub</text></g>
+   <g data-step="4"><line x1="542" y1="300" x2="718" y2="300" stroke="#ff9900" stroke-width="6"/><circle cx="740" cy="300" r="22" fill="#ff9900"/><text x="740" y="380">ACK + kro capabilities</text><text x="740" y="412" class="sm">ACK · hub · on the new cluster</text></g>
+   <g data-step="5"><line x1="762" y1="300" x2="938" y2="300" stroke="#ef7b4d" stroke-width="6"/><circle cx="960" cy="300" r="22" fill="#ef7b4d"/><text x="960" y="220">Registered</text><text x="960" y="252" class="sm">Argo CD cluster Secret</text></g>
+   <g data-step="6"><line x1="982" y1="300" x2="1158" y2="300" stroke="#ef7b4d" stroke-width="6"/><circle cx="1180" cy="300" r="22" fill="#ef7b4d"/><text x="1180" y="380">App synced</text><text x="1180" y="412" class="sm">ApplicationSet → cell</text></g>
+   <g data-step="7"><line x1="1202" y1="300" x2="1378" y2="300" stroke="#ff9900" stroke-width="6"/><circle cx="1400" cy="300" r="22" fill="#ff9900"/><text x="1400" y="220">RDS + ElastiCache</text><text x="1400" y="252" class="sm">ACK · cell</text></g>
+   <g data-step="8"><line x1="1422" y1="300" x2="1598" y2="300" stroke="#3ddc97" stroke-width="6"/><circle cx="1620" cy="300" r="22" fill="#3ddc97"/><text x="1640" y="380" text-anchor="end">15 services Ready</text><text x="1640" y="412" text-anchor="end" class="sm">traffic flowing</text></g>
+  </g>
+  <g data-step="9"><rect x="430" y="490" width="840" height="84" rx="16" fill="#2e2410" stroke="#ffb547" stroke-width="2"/><text x="850" y="545" text-anchor="middle" style="font-size:30px;fill:#ffd389;font-weight:700">The waits are real: here's one we baked earlier</text></g>
+ </svg>
+ <aside class="notes">
+  <p>⏱ 47:00-50:00. The trigger was the push at 8:00; show it again (the last commit that touches <code>cells/use2.yaml</code>) and refresh <code>hub-cells</code> in the Argo CD UI, where the Application <code>encabulator-use2</code> has been Synced since about 28:00. Walk the builds as a replay of what already happened on the hub. Build 3: ACK on the hub created the VPC and the EKS Auto Mode cluster. Build 4: once the cluster was ACTIVE, the ACK and kro capabilities on it; kro is ready in a minute or two, ACK takes several more and is the step that gates the registration. In a run of this demo the cell was ACTIVE about 20 minutes after the trigger and the app Healthy about 14 minutes after that (next slide), which is near 28:00 and 42:00 on this clock. At build 9 switch to the live cell: Argo CD tree green, <code>kubectl --context use2 get encabulator -n encabulator</code> showing the status hosts, the console in us-east-2 with an order delivered near 43:00. If the live cell is not Healthy yet, switch to the baked cell and say so.</p>
+  <p>Presenter prep, how the trigger is staged (pushed at 8:00): the push is the trigger only if <code>hub-cells</code> is already applied and tracks a revision without <code>cells/use2.yaml</code> (run of show, open decisions 2 and 3). If use2.yaml is already on that revision, applying <code>hub-cells</code> starts the build instead.</p>
+  <p>First sync: the new cell's NodePool reads Degraded for about 10 seconds while its NodeClass validates, so Argo CD's first sync of <code>encabulator-use2</code> fails that wave and the UI shows "Retrying attempt #1". It heals on its own (backoff 30 s, factor 2, a few minutes in all); say so if it is on screen.</p>
+ </aside>
+</section>
+
+<section class="slide" data-act="3 · Replicate" data-mode="baked" data-title="Where the time goes">
+ <h2>Where the time goes</h2>
+ <svg class="dia" viewBox="0 0 1700 590">
+  <g class="sm" text-anchor="middle" style="font-size:20px">
+   <text x="430" y="26">0</text><text x="600" y="26">5</text><text x="770" y="26">10</text><text x="940" y="26">15</text>
+   <text x="1110" y="26">20</text><text x="1280" y="26">25</text><text x="1450" y="26">30</text><text x="1620" y="26">35 min</text>
+  </g>
+  <g stroke="#2a3658" stroke-width="2">
+   <line x1="600" y1="40" x2="600" y2="452"/><line x1="770" y1="40" x2="770" y2="452"/><line x1="940" y1="40" x2="940" y2="452"/>
+   <line x1="1110" y1="40" x2="1110" y2="452"/><line x1="1280" y1="40" x2="1280" y2="452"/><line x1="1450" y1="40" x2="1450" y2="452"/><line x1="1620" y1="40" x2="1620" y2="452"/>
+  </g>
+  <line x1="430" y1="40" x2="430" y2="540" stroke="#ffb547" stroke-width="4"/>
+  <text x="430" y="572" style="font-size:24px;font-weight:700;fill:#ffd389">git push</text>
+  <g data-step="1">
+   <text class="lbl-s" x="400" y="84" text-anchor="end">VPC and NAT gateway</text>
+   <rect x="439" y="56" width="93" height="40" rx="8" fill="#ff9900"/><text class="sm" x="546" y="84" style="font-size:22px;paint-order:stroke;stroke:#0a0f1e;stroke-width:10px;stroke-linejoin:round">≈ 3 min</text>
+   <text class="lbl-s" x="400" y="142" text-anchor="end">EKS Auto Mode cluster</text>
+   <rect x="443" y="114" width="384" height="40" rx="8" fill="#ff9900"/><text class="sm" x="841" y="142" style="font-size:22px;paint-order:stroke;stroke:#0a0f1e;stroke-width:10px;stroke-linejoin:round">≈ 11 min</text>
+  </g>
+  <g data-step="2">
+   <text class="lbl-s" x="400" y="200" text-anchor="end">kro capability</text>
+   <rect x="827" y="172" width="57" height="40" rx="8" fill="#3ddcb0"/><text class="sm" x="898" y="200" style="font-size:22px;paint-order:stroke;stroke:#0a0f1e;stroke-width:10px;stroke-linejoin:round">≈ 1.5 min</text>
+   <text class="lbl-s" x="400" y="258" text-anchor="end">ACK capability</text>
+   <rect x="827" y="230" width="266" height="40" rx="8" fill="#ff9900"/><text class="sm" x="1107" y="258" style="font-size:22px;paint-order:stroke;stroke:#0a0f1e;stroke-width:10px;stroke-linejoin:round">≈ 7.5 min</text>
+  </g>
+  <g data-step="3">
+   <line x1="1094" y1="40" x2="1094" y2="540" stroke="#ffb547" stroke-width="3" stroke-dasharray="10 8"/>
+   <text x="1094" y="572" text-anchor="middle" style="font-size:24px;font-weight:700;fill:#ffd389">cell ACTIVE ≈ 20 min</text>
+   <text class="lbl-s" x="400" y="316" text-anchor="end">Argo CD sync</text>
+   <rect x="1106" y="288" width="153" height="40" rx="8" fill="#ef7b4d"/><text class="sm" x="1273" y="316" style="font-size:22px;paint-order:stroke;stroke:#0a0f1e;stroke-width:10px;stroke-linejoin:round">≈ 4.5 min</text>
+  </g>
+  <g data-step="4">
+   <text class="lbl-s" x="400" y="374" text-anchor="end">ElastiCache Serverless</text>
+   <rect x="1260" y="346" width="53" height="40" rx="8" fill="#ff9900"/><text class="sm" x="1327" y="374" style="font-size:22px;paint-order:stroke;stroke:#0a0f1e;stroke-width:10px;stroke-linejoin:round">≈ 1.5 min</text>
+   <text class="lbl-s" x="400" y="432" text-anchor="end">RDS for PostgreSQL</text>
+   <rect x="1276" y="404" width="294" height="40" rx="8" fill="#ff9900"/><text class="sm" x="1584" y="432" style="font-size:22px;paint-order:stroke;stroke:#0a0f1e;stroke-width:10px;stroke-linejoin:round">≈ 8.5 min</text>
+  </g>
+  <g data-step="5">
+   <path d="M1094 466 V482 H1577 V466" fill="none" stroke="#3ddc97" stroke-width="3"/>
+   <text x="1335" y="514" text-anchor="middle" style="font-size:22px;fill:#3ddc97">app Healthy ≈ 14 min after the cell</text>
+   <line x1="1634" y1="452" x2="1634" y2="540" stroke="#3ddc97" stroke-width="3" stroke-dasharray="10 8"/>
+   <text x="1690" y="572" text-anchor="end" style="font-size:24px;font-weight:700;fill:#3ddc97">first order ≈ 35 min</text>
+  </g>
+ </svg>
+ <div class="tip" data-step="6" style="margin-top:18px">The cluster, the ACK capability and RDS set the pace: create a region before you need it.</div>
+ <div style="margin-top:12px;font-size:20px;color:var(--muted)">Captured from a run of this demo</div>
+ <aside class="notes">
+  <p>⏱ 50:00-51:00. Where the time went in a run of this demo, counted from the trigger. Build 1: ACK on the hub has the network (VPC, subnets, NAT gateway) in about 3 minutes and the EKS Auto Mode cluster in about 11. Build 2: then the capabilities on the new cluster: kro about 1.5 minutes after the cluster, ACK about 7.5. Build 3: about 20 minutes in, kro marks the cell ACTIVE and writes the cluster Secret; the Application appears the same second and Argo CD syncs the RGDs, the NodeClass and the instance. Build 4: ACK on the cell creates ElastiCache Serverless (about 1.5 minutes) and RDS (about 8.5 minutes). RDS takes less time than the cluster; it finishes last because it starts only after the cell and the first sync. Build 5: the app is Healthy about 14 minutes after the cell, and the first order through the cell's gateway is delivered at about 35 minutes. With the trigger at 8:00 on this talk's clock: ACTIVE near 28:00, Healthy near 42:00, first order near 43:00.</p>
+  <p>Presenter-only detail: the Argo CD bar includes the first sync's retries while the NodePool settles (previous slide's notes), about 4.5 minutes of the critical path. Do not promise these numbers as a guarantee: they are one run in us-east-2.</p>
+ </aside>
+</section>
+
+<section class="slide" data-act="3 · Replicate" data-mode="ide" data-title="IDE: replicate">
+ <h2>In the IDE: replicate</h2>
+ <div class="cols c64">
+  <pre class="code xs" data-file="gitops/hub/cells/use2.yaml" data-hl="10">
+# One object = one region. Commit this file and the hub builds us-east-2.
+apiVersion: kro.run/v1alpha1
+kind: EncabulatorCell
+metadata:
+  name: encabulator-use2
+  namespace: encabulator-cells
+  annotations:
+    argocd.argoproj.io/sync-options: SkipDryRunOnMissingResource=true
+spec:
+  region: us-east-2
+  vpcCIDR: 10.41.0.0/16
+  availabilityZones: [us-east-2a, us-east-2b, us-east-2c]
+  argoCDRoleName: encabulator-usw2-argocd
+  </pre>
+  <div class="card" style="font-family:var(--mono);font-size:24px;line-height:1.75">
+   <div style="color:var(--muted)">gitops/hub/</div>
+   <div style="color:var(--brass)">&nbsp;&nbsp;rgds/encabulator-cell.yaml ←</div>
+   <div style="color:var(--brass)">&nbsp;&nbsp;cells/use2.yaml ←</div>
+   <div style="color:var(--brass)">&nbsp;&nbsp;appset.yaml ←</div>
+   <div>&nbsp;&nbsp;rbac/ · bootstrap/</div>
+   <div style="color:var(--muted);margin-top:14px">gitops/app/</div>
+   <div>&nbsp;&nbsp;rgds/ · instance/</div>
+  </div>
+ </div>
+ <pre class="code term xs" data-lang="sh" style="margin-top:24px">
+git add gitops/hub/cells/use2.yaml
+git commit -s -m "Add the us-east-2 cell"; git push
+kubectl get encabulatorcells -n encabulator-cells -w
+kubectl get secrets -n argocd -l encabulator.io/cell=true
+kubectl get applications -n argocd
+aws eks update-kubeconfig --region us-east-2 --name encabulator-use2 --alias use2
+kubectl --context use2 get encabulator,dbinstances.rds,serverlesscaches -n encabulator
+ </pre>
+ <aside class="notes">
+  <p>Show cells/use2.yaml: 13 lines (name, region, VPC range, zones, the hub's Argo CD role). That file is the whole difference between one region and two. Then the full encabulator-cell.yaml and appset.yaml.</p>
+  <p>Presenter prep: the cell's cluster is created without creator admin permissions, so <code>--context use2</code> is refused until the cell has an access entry for your own role. Set <code>spec.adminRoleName</code> to your presenter role on the cell you will show (kro then creates the entry), or create an access entry for that role by hand, then run the <code>update-kubeconfig</code> line. Type <code>dbinstances.rds</code>: the bare <code>dbinstances</code> resolves to DocumentDB on the cell too. While it builds: <code>kubectl -n encabulator-cells get clusters.eks.services.k8s.aws,capabilities.eks.services.k8s.aws,accessentries.eks.services.k8s.aws</code> and <code>kubectl -n encabulator-cells get encabulatorcell encabulator-use2 -o jsonpath='{.status}'</code>. On the cell: <code>kubectl --context use2 -n encabulator get encabulator encabulator -o yaml | yq .status</code>.</p>
+ </aside>
+</section>
+
+<!-- =============================================================== CLOSE -->
+<section class="slide" data-act="Close" data-mode="live" data-title="Day 2: three reconcile loops">
+ <h2>Day 2: three reconcile loops</h2>
+ <svg class="dia" viewBox="0 0 1700 640">
+  <rect class="box" x="20" y="180" width="300" height="140" rx="18"/><text class="lbl" x="170" y="262" text-anchor="middle">Git</text>
+  <rect class="box k8s" x="470" y="180" width="300" height="140" rx="18"/><text class="lbl-s" x="620" y="244" text-anchor="middle">Encabulator</text><text class="sm" x="620" y="278" text-anchor="middle">instance + RGDs</text>
+  <rect class="box k8s" x="920" y="180" width="300" height="140" rx="18"/><text class="lbl-s" x="1070" y="244" text-anchor="middle">Kubernetes</text><text class="sm" x="1070" y="278" text-anchor="middle">objects + ACK CRs</text>
+  <rect class="box aws" x="1370" y="180" width="300" height="140" rx="18"/><text class="lbl" x="1520" y="262" text-anchor="middle">AWS</text>
+  <g data-step="1"><circle class="spin" cx="395" cy="120" r="44" fill="none" stroke="#ef7b4d" stroke-width="7" stroke-dasharray="200 80"/><text class="lbl-s" x="395" y="50" text-anchor="middle" style="fill:#ef7b4d">Argo CD</text><path class="ar argo" d="M320 250 H464"/></g>
+  <g data-step="1"><circle class="spin" cx="845" cy="120" r="44" fill="none" stroke="#3ddcb0" stroke-width="7" stroke-dasharray="200 80"/><text class="lbl-s" x="845" y="50" text-anchor="middle" style="fill:#3ddcb0">kro</text><path class="ar kro" d="M770 250 H914"/></g>
+  <g data-step="1"><circle class="spin" cx="1295" cy="120" r="44" fill="none" stroke="#ff9900" stroke-width="7" stroke-dasharray="200 80"/><text class="lbl-s" x="1295" y="50" text-anchor="middle" style="fill:#ff9900">ACK</text><path class="ar aws" d="M1220 250 H1364"/></g>
+  <g data-step="2"><rect class="box ok" x="470" y="400" width="750" height="90" rx="14"/><text class="lbl-s" x="845" y="455" text-anchor="middle">kubectl delete deployment → back in seconds</text></g>
+  <g data-step="3"><rect class="box ok" x="470" y="520" width="1200" height="90" rx="14"/><text class="lbl-s" x="1070" y="575" text-anchor="middle">dbInstanceClass changed in Git → ACK modifies RDS</text></g>
+ </svg>
+ <aside class="notes">
+  <p>⏱ 53:00-56:00. LIVE. Build 2: delete a Deployment in the cell (<code>kubectl --context use2 -n encabulator delete deployment ...</code>); kro owns it through its EncabulatorService and puts it back within seconds, and Argo CD above it keeps the instance itself in line with Git. Build 3: change <code>dbInstanceClass</code> in <code>gitops/app/instance/encabulator.yaml</code>, push, and the RDS instance moves to Modifying. That file is shared by every cell, so the change rolls out to all of them.</p>
+  <p>Presenter tip: because kro puts back every field it sets, the console's Malaise <code>scale</code> fault (for example scaling a service to zero) is reverted on a cell at kro's next reconcile, for every Deployment with a fixed replica count. On a cell, use the <code>pod-kill</code> or <code>partition</code> faults instead. <code>scale</code> still behaves as before on the hub, where the app is the Helm chart.</p>
+  <p>Changes made directly in AWS are corrected on ACK's resync period, which the EKS docs put at up to 10 hours, so do not try that one live.</p>
+ </aside>
+</section>
+
+<section class="slide" data-act="Close" data-mode="none" data-title="The recipe card">
+ <h2>The recipe card</h2>
+ <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:30px">
+  <div class="card" data-step="1"><div class="course" style="all:unset"><div style="font-size:60px;font-weight:800;color:var(--brass)">1</div></div><div style="font-size:32px;font-weight:700;margin:8px 0 12px">Adopt, then read</div><div style="font-size:24px;color:var(--muted)"><span class="mono">adopt</span> first; commit the spec ACK gives back.</div></div>
+  <div class="card" data-step="2"><div style="font-size:60px;font-weight:800;color:var(--brass)">2</div><div style="font-size:32px;font-weight:700;margin:8px 0 12px">One owner</div><div style="font-size:24px;color:var(--muted)">Terraform <span class="mono">removed {}</span> in the same change.</div></div>
+  <div class="card" data-step="3"><div style="font-size:60px;font-weight:800;color:var(--brass)">3</div><div style="font-size:32px;font-weight:700;margin:8px 0 12px">Retain the data</div><div style="font-size:24px;color:var(--muted)"><span class="mono">deletion-policy: retain</span> on stateful resources.</div></div>
+  <div class="card" data-step="4"><div style="font-size:60px;font-weight:800;color:var(--brass)">4</div><div style="font-size:32px;font-weight:700;margin:8px 0 12px">Portable by default</div><div style="font-size:24px;color:var(--muted)"><span class="mono">adopt-or-create</span> in the RGD template.</div></div>
+  <div class="card" data-step="5"><div style="font-size:60px;font-weight:800;color:var(--brass)">5</div><div style="font-size:32px;font-weight:700;margin:8px 0 12px">Least privilege</div><div style="font-size:24px;color:var(--muted)">Scope each capability role and kro's RBAC.</div></div>
+  <div class="card" data-step="6"><div style="font-size:60px;font-weight:800;color:var(--brass)">6</div><div style="font-size:32px;font-weight:700;margin:8px 0 12px">APIs, not charts</div><div style="font-size:24px;color:var(--muted)">Chain RGDs: cell → app → service.</div></div>
+ </div>
+ <aside class="notes">
+  <p>⏱ 56:00-57:30. The six things to take home. Capability roles: the ACK role only needs the AWS services your RGDs use; here it is limited to two regions and to the cell's own cluster and IAM roles, so it cannot change the hub or widen its own permissions. kro needs RBAC for the kinds its RGDs create, bound to a Kubernetes group on its access entry (<code>encabulator:kro</code>) so no role ARN or account id ends up in Git. Argo CD runs as cluster admin on the hub and the cells in this demo; scope it with namespaced access policies or RBAC for production (AmazonEKSClusterAdminPolicy is for getting started only).</p>
+ </aside>
+</section>
+
+<section class="slide" data-act="Close" data-mode="none" data-title="Take it home">
+ <h2>Take it home</h2>
+ <div class="cols c64">
+  <div style="font-size:32px;line-height:2">
+   <div><span style="color:var(--muted)">Repo</span> · <span class="mono">github.com/jlbutler/cloud-native-encabulator</span></div>
+   <div><span style="color:var(--muted)">kro</span> · <span class="mono">kro.run</span></div>
+   <div><span style="color:var(--muted)">ACK</span> · <span class="mono">aws-controllers-k8s.github.io</span></div>
+   <div><span style="color:var(--muted)">EKS Capabilities</span> · <span class="mono">docs.aws.amazon.com/eks</span></div>
+   <div style="margin-top:50px;font-size:44px;font-weight:750">Thank you · <span class="accent">Questions?</span></div>
+  </div>
+  <div style="border:3px dashed var(--line);border-radius:22px;height:420px;display:flex;align-items:center;justify-content:center;color:var(--muted);font-size:28px">QR · repo</div>
+ </div>
+ <aside class="notes"><p>⏱ 57:30-60:00. Q&amp;A. Put the repo QR code here before the talk.</p></aside>
+</section>
+
+<!-- SLIDES-END -->
+
+<div id="counter"></div>
+</div>
+<div id="bar"></div>
+<div id="notes"></div>
+<div id="ov"></div>
+
+<script>
+(() => {
+  const stage = document.getElementById('stage');
+  const slides = [...document.querySelectorAll('section.slide')];
+  const notesEl = document.getElementById('notes'), counter = document.getElementById('counter');
+  const bar = document.getElementById('bar'), ov = document.getElementById('ov');
+  const MODES = {live: ['live', 'Cooked live'], baked: ['baked', 'From the oven'], ide: ['ide', 'Switch to IDE']};
+  let i = 0, s = 0;
+  // The presenter view is this same file opened as ?presenter in a popup (key P in the slide window).
+  const PRESENTER = /[?&]presenter(?:[=&]|$)/.test(location.search);
+  let black = false;
+  // ---- code highlighting (YAML, HCL, shell) -------------------------------
+  const esc = t => t.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  function splitComment(line) {
+    let sq = false, dq = false;
+    for (let k = 0; k < line.length; k++) {
+      const ch = line[k];
+      if (ch === "'" && !dq) sq = !sq;
+      else if (ch === '"' && !sq) dq = !dq;
+      else if (ch === '#' && !sq && !dq && (k === 0 || /\s/.test(line[k - 1]))) return [line.slice(0, k), line.slice(k)];
+    }
+    return [line, ''];
+  }
+  function hl(code, lang) {
+    let h = esc(code);
+    if (lang === 'sh') return h;
+    h = h.replace(/("[^"]*"|'[^']*')/g, '<span class=s>$1</span>');
+    h = h.replace(/\$\{[^}]*\}/g, m => '<span class=cel>' + m + '</span>');
+    if (lang === 'hcl') h = h.replace(/^(\s*)([A-Za-z_][\w-]*)(?=\s*(=|\{|\s"))/, '$1<span class=k>$2</span>');
+    else h = h.replace(/^(\s*(?:-\s+)?)([A-Za-z_][\w.\/-]*)(:)(?=\s|$)/, '$1<span class=k>$2</span>$3');
+    return h;
+  }
+  function ranges(spec) {
+    const out = new Set();
+    (spec || '').split(',').filter(Boolean).forEach(r => {
+      const [a, b] = r.split('-').map(Number);
+      for (let n = a; n <= (b || a); n++) out.add(n);
+    });
+    return out;
+  }
+  document.querySelectorAll('pre.code').forEach(pre => {
+    const lang = pre.dataset.lang || 'yaml';
+    let lines = pre.textContent.replace(/^\n+|\s+$/g, '').split('\n');
+    const ind = Math.min(...lines.filter(l => l.trim()).map(l => l.match(/^ */)[0].length));
+    lines = lines.map(l => l.slice(ind));
+    const hls = ranges(pre.dataset.hl), outs = ranges(pre.dataset.out);
+    const stepOf = {};
+    (pre.dataset.steps || '').split(';').filter(Boolean).forEach(p => {
+      const [st, r] = p.split(':'); ranges(r).forEach(n => stepOf[n] = st);
+    });
+    pre.innerHTML = lines.map((l, k) => {
+      const n = k + 1, [code, com] = splitComment(l);
+      const cls = 'ln' + (hls.has(n) ? ' hl' : '') + (outs.has(n) ? ' out' : '');
+      const body = (outs.has(n) ? esc(l) : hl(code, lang) + (com ? '<span class=c>' + esc(com) + '</span>' : '')) || ' ';
+      return '<span class="' + cls + '"' + (stepOf[n] ? ' data-step="' + stepOf[n] + '"' : '') + '>' + body + '</span>';
+    }).join('');
+  });
+
+  // ---- chrome ----------------------------------------------------------------
+  slides.forEach(el => {
+    const m = MODES[el.dataset.mode];
+    const top = document.createElement('div');
+    top.className = 'top';
+    top.innerHTML = '<span>' + (el.dataset.act || '') + '</span>' + (m ? '<span class="badge ' + m[0] + '">' + m[1] + '</span>' : '<span></span>');
+    el.prepend(top);
+  });
+  const title = el => el.dataset.title || ((el.querySelector('h2,h1') || {}).textContent || '').trim();
+  ov.innerHTML = slides.map((el, k) => '<button data-k="' + k + '"><span class="a">' + (k + 1) + '</span>' + title(el) + '</button>').join('') +
+    '<div class="help"><kbd>P</kbd>presenter view in a second window<br><kbd>N</kbd>notes panel<br><kbd>B</kbd>blank the screen<br><kbd>F</kbd>fullscreen<br><kbd>Space</kbd>next build<br><kbd>Backspace</kbd>previous build</div>';
+  ov.addEventListener('click', e => { const b = e.target.closest('button'); if (b) { ov.classList.remove('open'); go(+b.dataset.k, 0); } });
+
+  const maxStep = el => {
+    let m = 0;
+    el.querySelectorAll('[data-step]').forEach(e => m = Math.max(m, +e.dataset.step));
+    el.querySelectorAll('[data-cls]').forEach(e => e.dataset.cls.split(/\s+/).forEach(p => m = Math.max(m, +p.split(':')[0])));
+    return m;
+  };
+  function applySteps(root, st) {
+    root.querySelectorAll('[data-step]').forEach(e => e.classList.toggle('shown', +e.dataset.step <= st));
+    root.querySelectorAll('[data-cls]').forEach(e => e.dataset.cls.split(/\s+/).forEach(p => {
+      const [n, c] = p.split(':'); e.classList.toggle(c, st >= +n);
+    }));
+  }
+  function render() {
+    if (PRESENTER) renderPresenter();
+    else {
+      slides.forEach((el, k) => el.classList.toggle('active', k === i));
+      const el = slides[i];
+      applySteps(el, s);
+      counter.textContent = (i + 1) + ' / ' + slides.length;
+      bar.style.width = ((i + 1) / slides.length * 100) + '%';
+      const n = el.querySelector('aside.notes');
+      notesEl.innerHTML = '<b>' + (i + 1) + '. ' + title(el) + '</b> · build ' + s + ' of ' + maxStep(el) + (n ? n.innerHTML : '');
+    }
+    history.replaceState(null, '', '#' + (i + 1) + '.' + s);
+    if (!PRESENTER) pushState();
+  }
+  // setPos moves this window only. go() is what a key or button calls: in the presenter window it
+  // also tells the slide window (absolute position, so a message delivered twice is harmless).
+  function setPos(k, st) {
+    i = Math.max(0, Math.min(slides.length - 1, k));
+    s = Math.max(0, Math.min(maxStep(slides[i]), st));
+    render();
+  }
+  function go(k, st) {
+    setPos(k, st);
+    if (PRESENTER) send({t: 'go', i, s});
+  }
+  const next = () => s < maxStep(slides[i]) ? go(i, s + 1) : go(i + 1, 0);
+  const prev = () => s > 0 ? go(i, s - 1) : (i > 0 ? go(i - 1, 99) : 0);
+  function setBlack(v) {
+    black = !!v;
+    document.body.classList.toggle(PRESENTER ? 'pblack' : 'black', black);
+    if (PRESENTER) $('pvbl').textContent = black ? 'Unblank' : 'Blank';
+    else pushState();
+  }
+
+  // ---- presenter view: a popup kept in step with the slide window -----------
+  // Two channels carry the same messages: postMessage between the popup and its opener (works from
+  // file://) and a BroadcastChannel (also covers a presenter tab opened by hand, or a reloaded slide
+  // window). Every message has an id, so one that arrives on both channels is applied once.
+  const bc = (() => { try { return new BroadcastChannel('opn315-deck'); } catch (_) { return null; } })();
+  const seen = new Set();
+  let pop = null, lastState = 0;
+  function send(m) {
+    m.src = 'opn315'; m.id = Math.random().toString(36).slice(2);
+    const peer = PRESENTER ? window.opener : pop;
+    try { if (peer && !peer.closed) peer.postMessage(m, '*'); } catch (_) {}
+    if (bc) bc.postMessage(m);
+  }
+  function pushState() { send({t: 'state', i, s, black}); }
+  function onMsg(m) {
+    if (!m || m.src !== 'opn315' || typeof m.id !== 'string' || seen.has(m.id)) return;
+    seen.add(m.id);
+    if (seen.size > 64) seen.delete(seen.values().next().value);
+    const pos = Number.isInteger(m.i) && Number.isInteger(m.s);
+    if (PRESENTER) {
+      if (m.t !== 'state' || !pos) return;
+      lastState = Date.now();
+      if (m.i !== i || m.s !== s) setPos(m.i, m.s);
+      if (!!m.black !== black) setBlack(m.black);
+      updateLink();
+    } else if (m.t === 'hello') pushState();
+    else if (m.t === 'go' && pos) setPos(m.i, m.s);
+    else if (m.t === 'black') setBlack(m.v);
+  }
+  addEventListener('message', e => {
+    if (!PRESENTER && !pop && e.source && e.source !== window) {
+      // a presenter window that this page did not open itself (the slide window was reloaded)
+      try { if (e.source.opener === window) pop = e.source; } catch (_) {}
+    }
+    if (e.source && e.source === (PRESENTER ? window.opener : pop)) onMsg(e.data);
+  });
+  if (bc) bc.onmessage = e => onMsg(e.data);
+
+  const toastEl = document.createElement('div');
+  toastEl.id = 'toast';
+  document.body.appendChild(toastEl);
+  function toast(text) {
+    toastEl.textContent = text;
+    toastEl.style.display = 'block';
+    clearTimeout(toast.t);
+    toast.t = setTimeout(() => { toastEl.style.display = 'none'; }, 4000);
+  }
+  function openPresenter() {
+    if (pop && !pop.closed) { pop.focus(); pushState(); return; }
+    const url = location.href.replace(/[?#].*$/, '') + '?presenter#' + (i + 1) + '.' + s;
+    pop = window.open(url, 'opn315-presenter', 'popup=yes,width=1440,height=900,left=60,top=40');
+    if (!pop) toast('Popup blocked. Allow popups for this page, then press P again.');
+  }
+
+  // Presenter window: current slide, what comes next, notes, a timer against the 60 minute plan.
+  const TOTAL = 60 * 60e3;
+  const $ = id => document.getElementById(id);
+  const fmt = ms => {
+    const t = Math.max(0, Math.round(ms / 1000)), h = Math.floor(t / 3600), m = Math.floor(t % 3600 / 60), sec = t % 60;
+    return (h ? h + ':' + String(m).padStart(2, '0') : m) + ':' + String(sec).padStart(2, '0');
+  };
+  const store = {
+    get(k) { try { return JSON.parse(localStorage.getItem('opn315.' + k)); } catch (_) { return null; } },
+    set(k, v) { try { localStorage.setItem('opn315.' + k, JSON.stringify(v)); } catch (_) {} }
+  };
+  let tm = {base: 0, since: 0}, nfs = 26, plan = null, prevAt = null;
+  const elapsed = () => tm.base + (tm.since ? Date.now() - tm.since : 0);
+  function toggleTm() {
+    if (tm.since) { tm.base = elapsed(); tm.since = 0; } else tm.since = Date.now();
+    store.set('timer', tm); tick();
+  }
+  function resetTm() { tm = {base: 0, since: 0}; store.set('timer', tm); tick(); }
+  function setFont(v) {
+    nfs = Math.max(16, Math.min(60, v));
+    $('pv').style.setProperty('--nfs', nfs + 'px');
+    store.set('nfs', nfs);
+  }
+  function updateLink() {
+    const on = Date.now() - lastState < 6000;
+    $('pvlink').classList.toggle('on', on);
+    $('pvlink').title = on ? 'Linked to the slide window' : 'Not linked: press P in the slide window';
+  }
+  function tick() {
+    const ms = elapsed(), rem = TOTAL - ms;
+    $('pvel').textContent = fmt(ms);
+    $('pvrem').textContent = rem >= 0 ? fmt(rem) + ' left' : fmt(-rem) + ' over';
+    $('pvrem').classList.toggle('over', rem < 0);
+    const pace = $('pvpace');
+    pace.className = '';
+    if (!plan) pace.textContent = '';
+    else if (!tm.since && !tm.base) pace.textContent = 'Plan ' + fmt(plan[0] * 1000) + '-' + fmt(plan[1] * 1000);
+    else {
+      const sec = ms / 1000, label = 'Plan ' + fmt(plan[0] * 1000) + '-' + fmt(plan[1] * 1000) + ' · ';
+      if (sec < plan[0] - 30) { pace.textContent = label + 'ahead ' + fmt((plan[0] - sec) * 1000); pace.className = 'ahead'; }
+      else if (sec > plan[1] + 30) { pace.textContent = label + 'behind ' + fmt((sec - plan[1]) * 1000); pace.className = 'behind'; }
+      else pace.textContent = label + 'on pace';
+    }
+    $('pvtm').textContent = tm.since ? 'Pause' : (tm.base ? 'Resume' : 'Start');
+    $('pvclock').textContent = new Date().toLocaleTimeString([], {hour: 'numeric', minute: '2-digit'});
+    updateLink();
+  }
+  function paint(viewId, k, st) {
+    const view = $(viewId), frame = view.firstElementChild;
+    frame.replaceChildren();
+    view.classList.toggle('empty', k === null);
+    if (k === null) return;
+    const c = slides[k].cloneNode(true);
+    c.classList.add('active');
+    applySteps(c, st);
+    frame.appendChild(c);
+  }
+  function fitViews() {
+    document.querySelectorAll('#pv .pv-view').forEach(v => {
+      const sc = Math.min(v.clientWidth / 1920, v.clientHeight / 1080);
+      v.firstElementChild.style.transform = 'translate(-50%,-50%) scale(' + sc + ')';
+    });
+  }
+  function renderPresenter() {
+    const el = slides[i], max = maxStep(el), n = el.querySelector('aside.notes');
+    paint('pvcur', i, s);
+    let ni = null, ns = 0, label = 'Next · end of talk';
+    if (s < max) { ni = i; ns = s + 1; label = 'Next · build ' + ns + ' of ' + max; }
+    else if (i < slides.length - 1) { ni = i + 1; label = 'Next · slide ' + (ni + 1) + ': ' + title(slides[ni]); }
+    paint('pvnxt', ni, ns);
+    $('pvnxtl').textContent = label;
+    $('pvpos').textContent = (i + 1) + ' / ' + slides.length + ' · build ' + s + ' of ' + max;
+    $('pvsel').value = i;
+    $('pvnh').textContent = (i + 1) + '. ' + title(el);
+    $('pvnb').innerHTML = n ? n.innerHTML : '<p class="muted">No speaker notes for this slide.</p>';
+    $('pvnb').scrollTop = 0;
+    const cue = n && n.textContent.match(/⏱\s*(\d+):(\d{2})\s*-\s*(\d+):(\d{2})/);
+    plan = cue ? [+cue[1] * 60 + +cue[2], +cue[3] * 60 + +cue[4]] : null;
+    // the timer starts by itself on the first move away from the title slide
+    if (prevAt && prevAt[0] === 0 && prevAt[1] === 0 && (i > 0 || s > 0) && !tm.since && !tm.base) toggleTm();
+    prevAt = [i, s];
+    fitViews();
+    tick();
+  }
+  function buildPresenter() {
+    document.body.classList.add('presenter');
+    document.title = 'Presenter · ' + document.title;
+    const pv = document.createElement('div');
+    pv.id = 'pv';
+    pv.innerHTML =
+      '<div class="hd">' +
+        '<div class="hl"><b>Presenter view</b><span id="pvpos"></span><span id="pvlink" class="dot"></span><span id="pvblank">Audience screen is blank</span></div>' +
+        '<div class="tmr"><span id="pvel">0:00</span><span id="pvrem"></span><span id="pvpace"></span></div>' +
+        '<div class="hr"><span id="pvclock"></span><button data-a="tm" id="pvtm">Start</button><button data-a="reset">Reset</button>' +
+          '<button data-a="blank" id="pvbl">Blank</button><button data-a="fm" title="Smaller notes">A-</button><button data-a="fp" title="Larger notes">A+</button></div>' +
+      '</div>' +
+      '<div class="left">' +
+        '<div class="pane"><h5>Now</h5><div class="pv-view" id="pvcur"><div class="frame"></div></div></div>' +
+        '<div class="pane"><h5 id="pvnxtl">Next</h5><div class="pv-view" id="pvnxt"><div class="frame"></div></div></div>' +
+      '</div>' +
+      '<div class="pane right">' +
+        '<div class="nav"><button data-a="prev">&#9664; Back</button><select id="pvsel"></select><button data-a="next">Next &#9654;</button></div>' +
+        '<div id="pvnh"></div><div id="pvnb"></div>' +
+      '</div>';
+    document.body.appendChild(pv);
+    const sel = $('pvsel');
+    slides.forEach((el, k) => {
+      const o = document.createElement('option');
+      o.value = k; o.textContent = (k + 1) + '. ' + title(el);
+      sel.appendChild(o);
+    });
+    sel.addEventListener('change', () => { go(+sel.value, 0); sel.blur(); });
+    pv.addEventListener('click', e => {
+      const b = e.target.closest('button');
+      if (!b) return;
+      const a = b.dataset.a;
+      if (a === 'next') next(); else if (a === 'prev') prev();
+      else if (a === 'tm') toggleTm(); else if (a === 'reset') resetTm();
+      else if (a === 'blank') requestBlank();
+      else if (a === 'fm') setFont(nfs - 2); else if (a === 'fp') setFont(nfs + 2);
+      b.blur();
+    });
+    const saved = store.get('timer');
+    if (saved && Number.isFinite(saved.base) && Number.isFinite(saved.since)) tm = saved;
+    if (elapsed() > 3 * 3600e3) tm = {base: 0, since: 0};   // a timer left running by an old rehearsal
+    const f = store.get('nfs');
+    setFont(Number.isFinite(f) ? f : nfs);
+    new ResizeObserver(fitViews).observe(pv);
+    setInterval(tick, 500);
+    // ask the slide window for its position until it answers, and again if it goes quiet
+    setInterval(() => { if (Date.now() - lastState > 5000) send({t: 'hello'}); }, 1500);
+    send({t: 'hello'});
+  }
+  function requestBlank() {
+    setBlack(!black);
+    send({t: 'black', v: black});
+  }
+
+  document.addEventListener('keydown', e => {
+    const k = e.key;
+    if (e.ctrlKey || e.metaKey || e.altKey) return;   // leave browser shortcuts (Ctrl+P prints) alone
+    if (e.target.matches && e.target.matches('select,input,textarea')) { if (k === 'Escape') e.target.blur(); return; }
+    if (['ArrowRight', 'PageDown', ' ', 'Enter'].includes(k)) { e.preventDefault(); next(); }
+    else if (['ArrowLeft', 'PageUp', 'Backspace'].includes(k)) { e.preventDefault(); prev(); }
+    else if (k === 'ArrowDown') { e.preventDefault(); go(i + 1, 0); }
+    else if (k === 'ArrowUp') { e.preventDefault(); go(i - 1, 99); }
+    else if (k === 'Home') go(0, 0);
+    else if (k === 'End') go(slides.length - 1, 99);
+    else if (k === 'b' || k === 'B') PRESENTER ? requestBlank() : setBlack(!black);
+    else if (k === 'f' || k === 'F') document.fullscreenElement ? document.exitFullscreen() : document.documentElement.requestFullscreen();
+    else if (PRESENTER) {
+      if (k === 't' || k === 'T') toggleTm();
+      else if (k === '+' || k === '=') setFont(nfs + 2);
+      else if (k === '-') setFont(nfs - 2);
+    } else if (k === 'p' || k === 'P') openPresenter();
+    else if (k === 'n' || k === 'N') notesEl.classList.toggle('open');
+    else if (k === 'o' || k === 'O') ov.classList.toggle('open');
+    else if (k === 'Escape') ov.classList.remove('open');
+  });
+
+  function fit() {
+    const sc = Math.min(innerWidth / 1920, innerHeight / 1080);
+    stage.style.transform = 'translate(-50%,-50%) scale(' + sc + ')';
+  }
+  addEventListener('resize', fit);
+  fit();
+  if (PRESENTER) buildPresenter();
+  else setInterval(pushState, 2000);   // a heartbeat, so the presenter window can tell the slide window is still there
+  const h = location.hash.slice(1).split('.');
+  setPos((+h[0] || 1) - 1, +h[1] || 0);
+})();
+</script>
+</body>
+</html>

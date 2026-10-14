@@ -292,6 +292,142 @@ describe('edges come only from the OTel service graph', () => {
   })
 })
 
+describe('messaging pairs are drawn through NATS', () => {
+  const MSG = 'messaging_system'
+  const edgesFor = () =>
+    assembleEdges({
+      rps: vector([
+        [{ client: 'logarithmic-casing-line', server: 'hydrocoptic-datastore', connection_type: MSG }, '4'],
+        [{ client: 'panametric-fam-processor', server: 'hydrocoptic-datastore', connection_type: MSG }, '2'],
+        // A plain HTTP call between the same two services as a messaging pair.
+        [{ client: 'panametric-fam-processor', server: 'hydrocoptic-datastore', connection_type: '' }, '1'],
+      ]),
+      failed: vector([
+        [{ client: 'panametric-fam-processor', server: 'hydrocoptic-datastore', connection_type: MSG }, '0.5'],
+      ]),
+      p50: NO_ROWS,
+      p99: vector([
+        [{ client: 'logarithmic-casing-line', server: 'hydrocoptic-datastore', connection_type: MSG }, '0.040'],
+        [{ client: 'panametric-fam-processor', server: 'hydrocoptic-datastore', connection_type: MSG }, '0.090'],
+        [{ client: 'panametric-fam-processor', server: 'hydrocoptic-datastore', connection_type: '' }, '0.020'],
+      ]),
+      clientP50: NO_ROWS,
+      clientP99: vector([
+        [{ client: 'logarithmic-casing-line', server: 'hydrocoptic-datastore', connection_type: MSG }, '0.003'],
+      ]),
+    }).edges
+
+  const find = (edges: ReturnType<typeof edgesFor>, source: string, target: string) =>
+    edges.find((e) => e.source === source && e.target === target)
+
+  it('routes a producer -> consumer pair as producer -> nats and nats -> consumer', () => {
+    const edges = edgesFor()
+    expect(find(edges, 'logarithmic-casing-line', 'hydrocoptic-datastore')).toBeUndefined()
+    expect(find(edges, 'logarithmic-casing-line', 'nats')).toMatchObject({ via: 'messaging', rps: 4 })
+    expect(find(edges, 'panametric-fam-processor', 'nats')).toMatchObject({ via: 'messaging', rps: 2 })
+  })
+
+  it('adds every pair that lands on the same leg, and keeps the worse latency', () => {
+    const delivery = find(edgesFor(), 'nats', 'hydrocoptic-datastore')!
+    expect(delivery.via).toBe('messaging')
+    expect(delivery.rps).toBe(6)
+    expect(delivery.p99Ms).toBeCloseTo(90)
+    expect(delivery.errorRatio).toBeCloseTo(0.5 / 6)
+  })
+
+  it('gives the publish leg the producer latency, not the consumer latency', () => {
+    expect(find(edgesFor(), 'logarithmic-casing-line', 'nats')?.p99Ms).toBeCloseTo(3)
+    // No producer histogram for this pair: no latency, never the consumer's.
+    expect(find(edgesFor(), 'panametric-fam-processor', 'nats')?.p99Ms).toBeNull()
+  })
+
+  it('leaves a plain HTTP call between the same services as a direct line', () => {
+    expect(find(edgesFor(), 'panametric-fam-processor', 'hydrocoptic-datastore')).toMatchObject({
+      via: 'http',
+      rps: 1,
+    })
+  })
+
+  it('reports an unmapped pair once, whatever connection types it carried', () => {
+    const { unmapped } = assembleEdges({
+      rps: vector([
+        [{ client: 'some-other-workload', server: 'panametric-fam-processor', connection_type: '' }, '3'],
+        [{ client: 'some-other-workload', server: 'panametric-fam-processor', connection_type: MSG }, '1'],
+      ]),
+      failed: NO_ROWS,
+      p50: NO_ROWS,
+      p99: NO_ROWS,
+    })
+    expect(unmapped).toEqual([
+      { client: 'some-other-workload', server: 'panametric-fam-processor', rps: 4 },
+    ])
+  })
+})
+
+describe('store plates are measured by the edges into them', () => {
+  const snapshot = assembleTopology({
+    cluster: buildClusterSnapshot({ pods: POD_LIST, deployments: DEPLOYMENT_LIST }),
+    pods: { rps: NO_ROWS, errors: NO_ROWS, p50: NO_ROWS, p99: NO_ROWS },
+    edges: {
+      rps: vector([
+        [{ client: 'hydrocoptic-datastore', server: 'postgresql', connection_type: 'database' }, '50'],
+        [{ client: 'unilateral-phase-detractor', server: 'postgresql', connection_type: 'database' }, '10'],
+        [{ client: 'logarithmic-casing-line', server: 'side-fumbling-detector', connection_type: 'messaging_system' }, '4'],
+      ]),
+      failed: vector([
+        [{ client: 'hydrocoptic-datastore', server: 'postgresql', connection_type: 'database' }, '0.3'],
+      ]),
+      p50: vector([
+        [{ client: 'hydrocoptic-datastore', server: 'postgresql', connection_type: 'database' }, '0.001'],
+        [{ client: 'unilateral-phase-detractor', server: 'postgresql', connection_type: 'database' }, '0.004'],
+      ]),
+      p99: vector([
+        [{ client: 'hydrocoptic-datastore', server: 'postgresql', connection_type: 'database' }, '0.004'],
+        [{ client: 'unilateral-phase-detractor', server: 'postgresql', connection_type: 'database' }, '0.012'],
+      ]),
+      clientP50: NO_ROWS,
+      clientP99: vector([
+        [{ client: 'logarithmic-casing-line', server: 'side-fumbling-detector', connection_type: 'messaging_system' }, '0.002'],
+      ]),
+    },
+  })
+  const node = (name: string) => snapshot.nodes.find((n) => n.name === name)!
+
+  it('sums the inbound rates and takes the worst inbound p99', () => {
+    const postgres = node('postgres')
+    expect(postgres.pods).toEqual([])
+    expect(postgres.rps).toBe(60)
+    expect(postgres.p99Ms).toBeCloseTo(12)
+    expect(postgres.health).toBe('healthy')
+  })
+
+  it('weights the p50 by inbound rate and divides summed failures by summed rate', () => {
+    const postgres = node('postgres')
+    // (1ms * 50 + 4ms * 10) / 60
+    expect(postgres.p50Ms).toBeCloseTo(1.5)
+    expect(postgres.errorRatio).toBeCloseTo(0.3 / 60)
+  })
+
+  it('measures NATS by the publishes into it, not the deliveries out of it', () => {
+    const nats = node('nats')
+    expect(nats.rps).toBe(4)
+    expect(nats.p99Ms).toBeCloseTo(2)
+    expect(nats.health).toBe('healthy')
+  })
+
+  it('keeps a store with no inbound edge at no data, even when it has pods', () => {
+    const valkey = node('valkey')
+    expect(valkey.pods).toHaveLength(1)
+    expect(valkey.rps).toBeNull()
+    expect(valkey.p99Ms).toBeNull()
+    expect(valkey.health).toBe('nodata')
+  })
+
+  it('still measures a service by its own pods, not by the edges into it', () => {
+    expect(node('side-fumbling-detector').rps).toBeNull()
+  })
+})
+
 describe('health colouring', () => {
   it('follows the design: green under 100ms and 1%, yellow under 500ms, red beyond', () => {
     expect(classifyHealth(40, 0.001, 10)).toBe('healthy')

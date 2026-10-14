@@ -1,0 +1,84 @@
+# Cell overlay for kube-prometheus-stack. Layered AFTER ../kube-prometheus-stack.values.yaml:
+#
+#   helm template prometheus-stack prometheus-community/kube-prometheus-stack --version 91.8.2 \
+#     -n encabulator-observability \
+#     -f platform/kube-prometheus-stack.values.yaml -f platform/cell/kube-prometheus-stack.values.yaml
+#
+# Argo CD on the hub installs it this way on every cell (gitops/hub/appset.yaml, ApplicationSet
+# encabulator-platform). The hub itself is installed by scripts/platform.sh with the common
+# file only, so nothing here changes the hub.
+#
+# Requests follow the measured working set of the same pods on the hub (maximum over 6 hours at
+# steady traffic), so the scheduler and EKS Auto Mode size the cell's nodes for what these pods
+# really use. Limits leave headroom above that.
+prometheus:
+  prometheusSpec:
+    resources:
+      requests:
+        cpu: 250m
+        memory: 1280Mi     # hub: 1128 MiB working set at about 260k head series
+      limits:
+        cpu: 2000m
+        memory: 3Gi
+
+grafana:
+  resources:
+    requests:
+      cpu: 50m
+      memory: 320Mi        # hub: 281 MiB for the grafana container
+    limits:
+      cpu: 500m
+      memory: 640Mi
+  sidecar:
+    resources:             # two sidecars (dashboards, datasources), about 72 MiB each on the hub
+      requests:
+        cpu: 10m
+        memory: 96Mi
+      limits:
+        cpu: 200m
+        memory: 256Mi
+
+prometheusOperator:
+  prometheusConfigReloader:
+    resources:             # 11 to 13 MiB on the hub; the chart sets none
+      requests:
+        cpu: 10m
+        memory: 32Mi
+      limits:
+        cpu: 200m
+        memory: 128Mi
+
+kube-state-metrics:
+  resources:               # 28 MiB on the hub; the chart sets none
+    requests:
+      cpu: 10m
+      memory: 64Mi
+    limits:
+      cpu: 200m
+      memory: 256Mi
+
+prometheus-node-exporter:
+  resources:               # 10 to 17 MiB per node on the hub; the chart sets none
+    requests:
+      cpu: 10m
+      memory: 32Mi
+    limits:
+      cpu: 200m
+      memory: 128Mi
+
+# Not sizing: the chart's five control-plane Services live in kube-system (coredns,
+# kube-controller-manager, kube-etcd, kube-proxy, kube-scheduler). On EKS Auto Mode they select
+# no pod and give Prometheus zero targets, so a cell leaves them out and the chart creates
+# nothing in kube-system. defaultRules in the common file already turns off their alerts. The
+# kubelet Service in kube-system is created by the operator, not by these keys, and stays: it is
+# where the cAdvisor and kubelet metrics come from.
+coreDns:
+  enabled: false
+kubeControllerManager:
+  enabled: false
+kubeEtcd:
+  enabled: false
+kubeScheduler:
+  enabled: false
+kubeProxy:
+  enabled: false

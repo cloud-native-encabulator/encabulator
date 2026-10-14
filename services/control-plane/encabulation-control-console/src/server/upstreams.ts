@@ -318,6 +318,8 @@ export interface RunNarration {
   currentStep: string | null
   stepIndex: Measure
   stepCount: Measure
+  /** Why a failed run stopped, verbatim from the orchestrator. */
+  error: string | null
   items: FeedItem[]
 }
 
@@ -344,13 +346,23 @@ export function readRunNarration(body: unknown): RunNarration {
     })
     .filter((item): item is FeedItem => item !== null)
 
+  // The orchestrator reports `currentStep` and `totalSteps` as numbers; a text
+  // step name is accepted too. A numeric step becomes "24 of 50" for the panel.
+  const stepIndex = pickNumber(body, ['stepIndex', 'currentStepIndex', 'currentStep'])
+  const stepCount = pickNumber(body, ['stepCount', 'totalSteps', 'steps'])
+  const stepName = pickString(body, ['currentStep', 'current_step'])
+  const currentStep =
+    stepName ??
+    (stepIndex === null ? null : stepCount === null ? String(stepIndex) : `${stepIndex} of ${stepCount}`)
+
   return {
     runId,
     scenarioId: pickString(body, ['scenarioId', 'scenario', 'scenario_id']),
     status: pickString(body, ['status', 'state']),
-    currentStep: pickString(body, ['currentStep', 'current_step']),
-    stepIndex: pickNumber(body, ['stepIndex', 'currentStepIndex']),
-    stepCount: pickNumber(body, ['stepCount', 'steps']),
+    currentStep,
+    stepIndex,
+    stepCount,
+    error: pickString(body, ['error']),
     items,
   }
 }

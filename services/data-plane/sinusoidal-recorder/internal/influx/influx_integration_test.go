@@ -2,12 +2,20 @@ package influx_test
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"math"
+	"net/http"
+	"net/url"
+	"strconv"
+	"strings"
 	"testing"
 	"time"
 
 	"github.com/testcontainers/testcontainers-go/wait"
+	sdktrace "go.opentelemetry.io/otel/sdk/trace"
+	"go.opentelemetry.io/otel/sdk/trace/tracetest"
+	"go.opentelemetry.io/otel/trace"
 
 	"github.com/jlbutler/cloud-native-encabulator/libs/go/kit/testsupport"
 
@@ -18,26 +26,42 @@ import (
 // in-memory object store, then returns a client pointed at it.
 func newClient(t *testing.T) *influx.Client {
 	t.Helper()
+	return newClientWith(t, nil)
+}
+
+// newClientWith is newClient with the client spans going to tp (nil: the global provider).
+func newClientWith(t *testing.T, tp trace.TracerProvider) *influx.Client {
+	t.Helper()
+	c, _ := newClientWithServerArgs(t, tp)
+	return c
+}
+
+// newClientWithServerArgs is newClientWith with extra `influxdb3 serve` arguments. It also
+// returns the server's base URL.
+func newClientWithServerArgs(t *testing.T, tp trace.TracerProvider, serverArgs ...string) (*influx.Client, string) {
+	t.Helper()
 	port := testsupport.StartContainer(t, testsupport.ContainerSpec{
 		Image: "influxdb:3-core",
-		Cmd: []string{
+		Cmd: append([]string{
 			"influxdb3", "serve",
 			"--node-id=recorder-test",
 			"--object-store=memory",
 			"--without-auth",
 			"--http-bind=0.0.0.0:8181",
-		},
+		}, serverArgs...),
 		Port: 8181,
 		// The server logs its startup time on the line after it binds.
 		Wait: wait.ForHTTP("/health").WithPort("8181/tcp").WithStartupTimeout(3 * time.Minute),
 	})
+	base := fmt.Sprintf("http://127.0.0.1:%d", port)
 
 	// The token is deliberately empty: --without-auth accepts no credentials, and
 	// the recorder must cope with INFLUXDB_TOKEN being unset.
 	c, err := influx.New(influx.Config{
-		URL:      fmt.Sprintf("http://127.0.0.1:%d", port),
-		Token:    "",
-		Database: "sinusoidal",
+		URL:            base,
+		Token:          "",
+		Database:       "sinusoidal",
+		TracerProvider: tp,
 	})
 	if err != nil {
 		t.Fatalf("client: %v", err)
@@ -58,7 +82,7 @@ func newClient(t *testing.T) *influx.Client {
 	if err := c.EnsureTable(ctx); err != nil {
 		t.Fatalf("ensure table: %v", err)
 	}
-	return c
+	return c, base
 }
 
 func TestHealthAndEnsureDatabaseAreIdempotent(t *testing.T) {
@@ -320,6 +344,57 @@ func TestWriteEmptyBatchIsANoOp(t *testing.T) {
 	}
 }
 
+// Against a real InfluxDB 3 Core: a write and both reads each leave one CLIENT
+// span with db.system.name=influxdb and no error, which is what draws the
+// recorder -> influxdb line on the console.
+func TestRealCallsLeaveInfluxDBClientSpans(t *testing.T) {
+	recorder := tracetest.NewSpanRecorder()
+	tp := sdktrace.NewTracerProvider(sdktrace.WithSpanProcessor(recorder))
+	t.Cleanup(func() { _ = tp.Shutdown(context.Background()) })
+	c := newClientWith(t, tp)
+	ctx := testsupport.Context(t)
+
+	before := len(recorder.Ended())
+	r := influx.Reading{Serial: "ENC-TRACE", OrderID: "ord_t", Model: "turbo", Stage: "base-plate",
+		Metric: "repleneration", Value: 2, Time: time.Now().UTC()}
+	if err := c.Write(ctx, []influx.Reading{r}); err != nil {
+		t.Fatalf("write: %v", err)
+	}
+	waitForReadings(t, c, "ENC-TRACE", 1)
+	if _, err := c.Summary(ctx, time.Hour); err != nil {
+		t.Fatalf("summary: %v", err)
+	}
+
+	var write, read int
+	for _, span := range recorder.Ended()[before:] {
+		system := ""
+		op := ""
+		for _, kv := range span.Attributes() {
+			switch kv.Key {
+			case "db.system.name":
+				system = kv.Value.AsString()
+			case "db.operation.name":
+				op = kv.Value.AsString()
+			}
+		}
+		if span.SpanKind() != trace.SpanKindClient || system != "influxdb" {
+			t.Errorf("span %q: kind=%v db.system.name=%q", span.Name(), span.SpanKind(), system)
+		}
+		if span.Status().Code.String() == "Error" {
+			t.Errorf("span %q failed against a real server: %v", span.Name(), span.Status())
+		}
+		switch op {
+		case "write":
+			write++
+		case "SELECT":
+			read++
+		}
+	}
+	if write != 1 || read < 2 {
+		t.Fatalf("want 1 write span and at least 2 query spans, got %d and %d", write, read)
+	}
+}
+
 func TestHealthFailsAgainstADeadServer(t *testing.T) {
 	c, err := influx.New(influx.Config{URL: "http://127.0.0.1:1", Database: "sinusoidal"})
 	if err != nil {
@@ -331,6 +406,91 @@ func TestHealthFailsAgainstADeadServer(t *testing.T) {
 	if err := c.Health(ctx); err == nil {
 		t.Error("Health against a dead server returned nil")
 	}
+}
+
+// TestReadOfAUnitTouchesOnlyItsOwnFiles holds InfluxDB to a query file limit of 4 and leaves
+// more Parquet files than that in the table, one per minute of older data. A read with no time
+// bound plans every file and fails ("exceeding the file limit"); the read of a unit is bounded by
+// the time in its serial, so it touches only the newest files and succeeds.
+func TestReadOfAUnitTouchesOnlyItsOwnFiles(t *testing.T) {
+	c, base := newClientWithServerArgs(t, nil,
+		"--gen1-duration=1m",
+		"--query-file-limit=4",
+		"--wal-flush-interval=10ms",
+		"--wal-files-per-snapshot=1",
+	)
+	ctx := testsupport.Context(t)
+
+	// Eight older units, each in its own minute 20 to 40 minutes ago: one gen1 file each.
+	now := time.Now().UTC()
+	for i := range 8 {
+		at := now.Add(-time.Duration(20+2*i) * time.Minute)
+		if err := c.Write(ctx, []influx.Reading{{
+			Serial: casingLineSerial(at, i), OrderID: "ord_old", Model: "turbo", Stage: "prelaminate-base-plate",
+			Metric: "repleneration", Value: 1, Time: at,
+		}}); err != nil {
+			t.Fatalf("write old unit %d: %v", i, err)
+		}
+	}
+	files := waitForParquetFiles(t, base, 6)
+	t.Logf("%d parquet files before the read", files)
+
+	// A unit minted now. One reading is stamped a minute before the mint time, as after a clock
+	// adjustment on the casing line; the slack keeps it.
+	minted := time.Now().UTC().Truncate(time.Millisecond)
+	serial := casingLineSerial(minted, 99)
+	readings := []influx.Reading{{Serial: serial, OrderID: "ord_new", Model: "turbo", Stage: "fit-marzlevanes",
+		Metric: "repleneration", Value: 0.9, Time: minted.Add(-time.Minute)}}
+	for i := range 19 {
+		readings = append(readings, influx.Reading{Serial: serial, OrderID: "ord_new", Model: "turbo",
+			Stage: "fit-marzlevanes", Metric: "repleneration", Value: 1, Time: minted.Add(time.Duration(i) * 10 * time.Millisecond)})
+	}
+	if err := c.Write(ctx, readings); err != nil {
+		t.Fatalf("write new unit: %v", err)
+	}
+	got := waitForReadings(t, c, serial, 20)
+	if len(got) != 20 {
+		t.Fatalf("read %d readings of the new unit, want 20", len(got))
+	}
+	if !got[0].Time.Equal(minted.Add(-time.Minute)) {
+		t.Errorf("first reading at %v, want the one a minute before the mint time", got[0].Time)
+	}
+}
+
+// casingLineSerial builds a serial the way the casing line mints one.
+func casingLineSerial(at time.Time, n int) string {
+	return fmt.Sprintf("ENC-turbo-%s-%04X", strings.ToUpper(strconv.FormatInt(at.UnixMilli(), 36)), n)
+}
+
+// waitForParquetFiles polls the server's own catalog until the readings table has at least want
+// Parquet files, and returns the count.
+func waitForParquetFiles(t *testing.T, base string, want int) int {
+	t.Helper()
+	q := url.Values{
+		"db":     {"sinusoidal"},
+		"format": {"json"},
+		"q":      {"SELECT count(*) AS files FROM system.parquet_files WHERE table_name = 'readings'"},
+	}
+	deadline := time.Now().Add(90 * time.Second)
+	files := 0
+	for time.Now().Before(deadline) {
+		resp, err := http.Get(base + "/api/v3/query_sql?" + q.Encode())
+		if err == nil {
+			var rows []struct {
+				Files int `json:"files"`
+			}
+			if resp.StatusCode == http.StatusOK && json.NewDecoder(resp.Body).Decode(&rows) == nil && len(rows) == 1 {
+				files = rows[0].Files
+			}
+			resp.Body.Close()
+		}
+		if files >= want {
+			return files
+		}
+		time.Sleep(500 * time.Millisecond)
+	}
+	t.Fatalf("only %d of %d parquet files were persisted within 90s", files, want)
+	return 0
 }
 
 // waitForReadings polls until the expected number of rows is queryable. Writes

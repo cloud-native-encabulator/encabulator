@@ -24,12 +24,31 @@ htmlcov/
 # Helm
 charts/*/charts/*.tgz
 
+# Terraform (terraform/brownfield). .terraform.lock.hcl is committed.
+.terraform/
+*.tfstate
+*.tfstate.*
+.terraform.tfstate.lock.info
+*.tfplan
+*.auto.tfvars
+crash.log
+
 # Local state
 .env
 .env.*
 !.env.example
 *.kubeconfig
 tmp/
+
+# re:Invent speaker deck (Bento). A built deck embeds Amazon Ember Modern, which is
+# internal and embargoed until 2026-11-30, so it must never land in this public repo.
+# It is built outside the repo and published to Alcove instead.
+*.bento.html
+*.prev.bento.html
+*.woff
+*.woff2
+*.ttf
+*.otf
 
 # Editors / OS
 .idea/

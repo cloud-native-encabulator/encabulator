@@ -1,0 +1,62 @@
+# hub-brownfield: syncs gitops/hub/brownfield (the ACK CRs adopted from Terraform) to the hub.
+#
+# It is a one-cluster ApplicationSet instead of a plain Application so that the environment ids
+# never enter Git. register-hub.sh writes them as annotations on the hub's cluster Secret; the
+# cluster generator reads that Secret and the template patches them into the DB subnet group and
+# the serverless cache. The generated Application is named hub-brownfield.
+apiVersion: argoproj.io/v1alpha1
+kind: ApplicationSet
+metadata:
+  name: hub-brownfield
+  namespace: argocd
+spec:
+  goTemplate: true
+  goTemplateOptions: ["missingkey=error"]
+  generators:
+    - clusters:
+        selector:
+          matchLabels:
+            encabulator.io/hub: "true"
+  template:
+    metadata:
+      name: hub-brownfield
+    spec:
+      project: encabulator-hub
+      source:
+        repoURL: https://github.com/jlbutler/cloud-native-encabulator
+        targetRevision: carrlos
+        path: gitops/hub/brownfield
+        kustomize:
+          patches:
+            - target:
+                group: rds.services.k8s.aws
+                kind: DBSubnetGroup
+                name: encabulator
+              patch: |-
+                - op: replace
+                  path: /spec/subnetIDs
+                  value: {{ index .metadata.annotations "encabulator.io/subnet-ids" | splitList "," | toJson }}
+            - target:
+                group: elasticache.services.k8s.aws
+                kind: ServerlessCache
+                name: encabulator-valkey
+              patch: |-
+                - op: replace
+                  path: /spec/subnetIDs
+                  value: {{ index .metadata.annotations "encabulator.io/subnet-ids" | splitList "," | toJson }}
+                - op: replace
+                  path: /spec/securityGroupIDs
+                  value: [{{ index .metadata.annotations "encabulator.io/security-group-id" | toJson }}]
+      destination:
+        name: '{{ .name }}'
+        namespace: encabulator
+      syncPolicy:
+        automated:
+          prune: true
+          selfHeal: true
+        retry:
+          limit: 10
+          backoff:
+            duration: 10s
+            factor: 2
+            maxDuration: 5m

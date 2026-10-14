@@ -170,9 +170,16 @@ config:
         - db.name
         - db.namespace
       virtual_node_extra_label: true
+      # A client span carrying one of these is a database call: the connector completes the
+      # edge at once (connection_type=database, client latency as the edge latency) and names
+      # the server after the attribute's value. The console has one node per database
+      # *system* (postgres, valkey), so name the server after the system, not after the
+      # database: db.namespace / db.name would give "hydrocoptic", "detractor",
+      # "girdlespring" and the Redis index "0", which the console cannot map to a store.
+      # Do not just delete this key: an empty list falls back to [db.name] in 0.161.0.
       database_name_attributes:
-        - db.namespace
-        - db.name
+        - db.system.name
+        - db.system
       store:
         ttl: 10s
         max_items: 20000

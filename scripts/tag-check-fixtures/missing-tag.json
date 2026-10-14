@@ -1,0 +1,76 @@
+{
+ "base": "tagged.json",
+ "calls": {
+  "ec2 describe-security-groups --region us-east-2 --filters Name=vpc-id,Values=vpc-010000000000000001": {
+   "SecurityGroups": [
+    {
+     "Description": "default VPC security group",
+     "GroupId": "sg-01000000000000001",
+     "GroupName": "default",
+     "OwnerId": "111122223333",
+     "Tags": [],
+     "VpcId": "vpc-010000000000000001"
+    },
+    {
+     "Description": "EKS created security group applied to ENI that is attached to the EKS control plane, as well as any managed workloads.",
+     "GroupId": "sg-01000000000000002",
+     "GroupName": "eks-cluster-sg-encabulator-use2-1234567890",
+     "OwnerId": "111122223333",
+     "Tags": [
+      {
+       "Key": "aws:eks:cluster-name",
+       "Value": "encabulator-use2"
+      },
+      {
+       "Key": "kubernetes.io/cluster/encabulator-use2",
+       "Value": "owned"
+      },
+      {
+       "Key": "Name",
+       "Value": "eks-cluster-sg-encabulator-use2-1234567890"
+      },
+      {
+       "Key": "auto-delete",
+       "Value": "no"
+      },
+      {
+       "Key": "project",
+       "Value": "encabulator"
+      },
+      {
+       "Key": "talk",
+       "Value": "opn315"
+      }
+     ],
+     "VpcId": "vpc-010000000000000001"
+    },
+    {
+     "Description": "Encabulator stores: PostgreSQL and Valkey from the EKS cluster security group",
+     "GroupId": "sg-01000000000000003",
+     "GroupName": "encabulator-db",
+     "OwnerId": "111122223333",
+     "Tags": [
+      {
+       "Key": "Name",
+       "Value": "encabulator-db"
+      },
+      {
+       "Key": "auto-delete",
+       "Value": "no"
+      },
+      {
+       "Key": "project",
+       "Value": "encabulator"
+      },
+      {
+       "Key": "talk",
+       "Value": "opn315"
+      }
+     ],
+     "VpcId": "vpc-010000000000000001"
+    }
+   ]
+  }
+ },
+ "comment": "tagged.json with one change: the cell's default security group has no tags, as EC2 creates it and as it stays without the hub's tagger CronJob. tag-check.py must exit 1 and name it."
+}

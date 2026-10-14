@@ -17,8 +17,12 @@ from sqlalchemy.ext.asyncio import (
 
 log = logging.getLogger(__name__)
 
-#: sslmode is a libpq option; asyncpg wants a bool. Map the values we might be handed.
-_SSLMODE_OFF = frozenset({"disable", "allow"})
+#: libpq sslmode values. asyncpg takes the same names with the same meaning, so pass them
+#: through: ``require`` encrypts without verifying the server certificate (the libpq and pgx
+#: behaviour the other services get), ``verify-full`` verifies it against the system roots.
+#: Mapping ``require`` to ``ssl=True`` would verify too, and the Amazon RDS CA is not in the
+#: system trust store, so the detractor could not reach RDS while every other service could.
+_SSLMODES = frozenset({"disable", "allow", "prefer", "require", "verify-ca", "verify-full"})
 
 
 def async_database_url(raw: str) -> tuple[URL, dict[str, Any]]:
@@ -33,7 +37,10 @@ def async_database_url(raw: str) -> tuple[URL, dict[str, Any]]:
     connect_args: dict[str, Any] = {}
     sslmode = query.pop("sslmode", None)
     if sslmode is not None and url.drivername.endswith("asyncpg"):
-        connect_args["ssl"] = str(sslmode) not in _SSLMODE_OFF
+        mode = str(sslmode)
+        if mode not in _SSLMODES:
+            raise ValueError(f"unsupported sslmode {mode!r}")
+        connect_args["ssl"] = mode
     return url.set(query=query), connect_args
 
 

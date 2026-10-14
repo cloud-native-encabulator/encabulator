@@ -156,8 +156,8 @@ func TestStoreAgainstRealValkey(t *testing.T) {
 		t.Fatalf("KEYS: %v", err)
 	}
 	for _, key := range keys {
-		if len(key) < len("malaise:") || key[:len("malaise:")] != "malaise:" {
-			t.Errorf("key %q is outside the malaise:* namespace", key)
+		if len(key) < len("{malaise}:") || key[:len("{malaise}:")] != "{malaise}:" {
+			t.Errorf("key %q is outside the {malaise}:* namespace", key)
 		}
 	}
 }

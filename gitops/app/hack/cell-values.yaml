@@ -1,0 +1,30 @@
+# Helm values that make charts/encabulator render what a cell runs: PostgreSQL on RDS,
+# Valkey on ElastiCache Serverless (TLS, no password), the gp3 StorageClass, release name
+# and namespace "encabulator". parity.py renders the chart with these and fills the two
+# hosts from the live encabulator-aws ConfigMap, then compares against what kro created.
+storageClass:
+  create: true
+  # The cell's StorageClass tags every PVC volume, like values-brownfield.yaml on the hub.
+  parameters:
+    type: gp3
+    encrypted: "true"
+    tagSpecification_1: "auto-delete=no"
+    tagSpecification_2: "project=encabulator"
+    tagSpecification_3: "talk=opn315"
+postgres:
+  external:
+    enabled: true
+    host: set-by-parity-py
+    port: 5432
+    sslmode: require
+    existingSecret: encabulator-db
+valkey:
+  # Same as values-brownfield.yaml: no user, so VALKEY_URL is rediss://:@<host>:6379/0 and no
+  # client sends AUTH to ElastiCache Serverless.
+  user: ""
+  external:
+    enabled: true
+    host: set-by-parity-py
+    port: 6379
+    tls: true
+    existingSecret: encabulator-valkey

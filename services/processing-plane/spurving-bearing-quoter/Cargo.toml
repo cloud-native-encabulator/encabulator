@@ -21,8 +21,11 @@ opentelemetry-otlp = { version = "0.33.0", default-features = false, features = 
 opentelemetry-semantic-conventions = { version = "0.33.0", features = ["semconv_experimental"] }
 opentelemetry_sdk = { version = "0.33.0", features = ["trace", "rt-tokio"] }
 prometheus = { version = "0.14.0", default-features = false, features = ["process"] }
-redis = { version = "1.7.1", default-features = false, features = ["tokio-comp", "connection-manager", "acl", "script"] }
+redis = { version = "1.7.1", default-features = false, features = ["tokio-comp", "tokio-rustls-comp", "connection-manager", "acl", "script"] }
 reqwest = { version = "0.13.5", default-features = false, features = ["json", "charset"] }
+# Not used directly: selects the crypto provider for redis's rustls, so rediss:// works
+# (ElastiCache Serverless only accepts TLS). Roots come from the system store.
+rustls = { version = "0.23.45", default-features = false, features = ["ring", "std", "tls12"] }
 serde = { version = "1.0.229", features = ["derive"] }
 serde_json = "1.0.151"
 tokio = { version = "1.53.1", features = ["macros", "rt-multi-thread", "net", "signal", "sync", "time"] }

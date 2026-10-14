@@ -94,6 +94,103 @@ for entry in "${cases[@]}"; do
   rm -f "$rendered"
 done
 
+# volumeClaimTemplates are immutable: a release that renders them differently cannot upgrade an
+# existing StatefulSet. Render two image tags and require byte-identical templates.
+vct() {
+  # shellcheck disable=SC2086
+  $HELM template encabulator "$chart" --namespace encabulator "$@" \
+    | awk '/^kind: StatefulSet/{s=1} /^---/{s=0; v=0} s && /^  volumeClaimTemplates:/{v=1} v'
+}
+if a="$(vct --set global.imageTag=0.0.1)" && b="$(vct --set global.imageTag=9.9.9)"; then
+  if [ -z "$a" ]; then
+    fail "volumeClaimTemplates: none rendered"
+  elif [ "$a" != "$b" ]; then
+    fail "volumeClaimTemplates change with the image tag (StatefulSet upgrades would fail)"
+    diff <(printf '%s\n' "$a") <(printf '%s\n' "$b") >&2 || true
+  elif grep -q 'helm.sh/chart\|app.kubernetes.io/version' <<<"$a"; then
+    fail "volumeClaimTemplates carry a release label (helm.sh/chart or app.kubernetes.io/version)"
+  else
+    log "ok  [volumeClaimTemplates stable across releases]"
+  fi
+else
+  fail "template [volumeClaimTemplates]"
+fi
+
+# InfluxDB's WAL flush interval decides how long every recorder write waits. The default must
+# render as INFLUXDB3_WAL_FLUSH_INTERVAL=50ms, an empty value must leave InfluxDB's own default,
+# and an external InfluxDB must not render the StatefulSet at all.
+influx_env() {
+  # shellcheck disable=SC2086
+  $HELM template encabulator "$chart" --namespace encabulator "$@" \
+    | awk '/^kind: StatefulSet/{s=1} /^---/{s=0} s' \
+    | awk '/^  name: influxdb$/{f=1} f' \
+    | grep -A1 'name: INFLUXDB3_WAL_FLUSH_INTERVAL' | grep 'value:' | tr -d ' "' || true
+}
+if [ "$(influx_env)" != "value:50ms" ]; then
+  fail "influxdb: INFLUXDB3_WAL_FLUSH_INTERVAL is not 50ms by default (got '$(influx_env)')"
+elif [ -n "$(influx_env --set influxdb.walFlushInterval=)" ]; then
+  fail "influxdb: an empty walFlushInterval still renders INFLUXDB3_WAL_FLUSH_INTERVAL"
+elif [ "$(influx_env --set influxdb.walFlushInterval=250ms)" != "value:250ms" ]; then
+  fail "influxdb: walFlushInterval=250ms does not reach the StatefulSet"
+else
+  log "ok  [influxdb WAL flush interval: 50ms default, empty omits it, override applied]"
+fi
+
+# InfluxDB 3 Core refuses a query that would scan more Parquet files than its limit (432 by
+# default, 7.2 hours of data at the chart's 1m gen1). The chart default must render as
+# INFLUXDB3_QUERY_FILE_LIMIT=4320, an empty value must leave InfluxDB's own default.
+influx_file_limit() {
+  # shellcheck disable=SC2086
+  $HELM template encabulator "$chart" --namespace encabulator "$@" \
+    | awk '/^kind: StatefulSet/{s=1} /^---/{s=0} s' \
+    | awk '/^  name: influxdb$/{f=1} f' \
+    | grep -A1 'name: INFLUXDB3_QUERY_FILE_LIMIT' | grep 'value:' | tr -d ' "' || true
+}
+if [ "$(influx_file_limit)" != "value:4320" ]; then
+  fail "influxdb: INFLUXDB3_QUERY_FILE_LIMIT is not 4320 by default (got '$(influx_file_limit)')"
+elif [ -n "$(influx_file_limit --set influxdb.queryFileLimit=)" ]; then
+  fail "influxdb: an empty queryFileLimit still renders INFLUXDB3_QUERY_FILE_LIMIT"
+elif [ "$(influx_file_limit --set-string influxdb.queryFileLimit=1000)" != "value:1000" ]; then
+  fail "influxdb: queryFileLimit=1000 does not reach the StatefulSet"
+else
+  log "ok  [influxdb query file limit: 4320 default, empty omits it, override applied]"
+fi
+
+# KEDA scales the casing line. Its operator polls NATS from the keda namespace, so the endpoint
+# must carry the release namespace (a bare "nats" resolves to nats.keda). And the Deployment must
+# leave `replicas` out, or the next helm upgrade fights the HPA KEDA owns.
+rendered_object() {
+  local kind="$1" name="$2" ns="$3"
+  shift 3
+  # shellcheck disable=SC2086
+  $HELM template encabulator "$chart" --namespace "$ns" "$@" \
+    | awk -v kind="kind: $kind" -v name="  name: $name" '
+        function flush() { if (k && n) printf "%s", doc; doc = ""; k = 0; n = 0 }
+        /^---/ { flush(); next }
+        { doc = doc $0 "\n" }
+        $0 == kind { k = 1 }
+        $0 == name { n = 1 }
+        END { flush() }'
+}
+keda_endpoint() {
+  rendered_object ScaledObject logarithmic-casing-line "$1" --set keda.enabled=true \
+    | grep 'natsServerMonitoringEndpoint:' | tr -d ' "' || true
+}
+casing_replicas() {
+  rendered_object Deployment logarithmic-casing-line encabulator "$@" | grep -c '^  replicas:' || true
+}
+if [ "$(keda_endpoint encabulator)" != "natsServerMonitoringEndpoint:nats.encabulator.svc:8222" ]; then
+  fail "keda: ScaledObject NATS endpoint is not nats.encabulator.svc:8222 (got '$(keda_endpoint encabulator)')"
+elif [ "$(keda_endpoint factory)" != "natsServerMonitoringEndpoint:nats.factory.svc:8222" ]; then
+  fail "keda: ScaledObject NATS endpoint does not follow the release namespace (got '$(keda_endpoint factory)')"
+elif [ "$(casing_replicas --set keda.enabled=true)" != "0" ]; then
+  fail "keda: the casing-line Deployment renders replicas while KEDA owns them"
+elif [ "$(casing_replicas --set keda.enabled=false)" != "1" ]; then
+  fail "keda: the casing-line Deployment does not render replicas when KEDA is off"
+else
+  log "ok  [keda: NATS endpoint carries the release namespace, casing line leaves replicas to KEDA]"
+fi
+
 if [ "$failures" -ne 0 ]; then
   printf '\033[31m==> %d check(s) failed\033[0m\n' "$failures" >&2
   exit 1

@@ -19,6 +19,8 @@ export interface ScenarioProgress {
   currentStep: string | null
   stepIndex: number | null
   stepCount: number | null
+  /** Why a failed run stopped, verbatim from the orchestrator. Absent from older BFFs. */
+  error?: string | null
   items: FeedItem[]
 }
 

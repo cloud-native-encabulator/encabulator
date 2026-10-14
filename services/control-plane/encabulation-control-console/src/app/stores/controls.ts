@@ -11,6 +11,7 @@
 import { computed, ref } from 'vue'
 import { defineStore } from 'pinia'
 import { api } from '@/api/client'
+import { isRunActive } from '@/lib/runs'
 import { attempt, createResource } from './resource'
 
 // ── Grammeters ───────────────────────────────────────────────────────────────
@@ -261,10 +262,23 @@ export const useScenarioStore = defineStore('scenarios', () => {
 
   async function cancel(runId: string) {
     busy.value = true
-    const result = await attempt(() => api.post(`/runs/${encodeURIComponent(runId)}/cancel`))
+    notice.value = null
+    const reply: { run: Run | null } = { run: null }
+    const result = await attempt(async () => {
+      reply.run = await api.post<Run>(`/runs/${encodeURIComponent(runId)}/cancel`)
+    })
     busy.value = false
-    if (!result.ok) notice.value = result.message
-    else await runs.reload()
+    if (!result.ok) {
+      notice.value = `The run was not cancelled: ${result.message}`
+    } else {
+      // The orchestrator answers a cancel for a run that is already over with
+      // that run, unchanged. Say so rather than letting the click do nothing.
+      const status = reply.run?.status ?? null
+      if (status !== null && status !== 'cancelled' && !isRunActive(status)) {
+        notice.value = `That run had already ended (${status}); there was nothing to cancel.`
+      }
+      await runs.reload()
+    }
     return result
   }
 

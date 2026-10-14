@@ -34,6 +34,40 @@ The order is not arbitrary:
 4. **KEDA**, in its own namespace, bringing the `ScaledObject` CRD that
    `charts/encabulator --set keda.enabled=true` needs.
 
+## On a cell
+
+`scripts/platform.sh` installs the hub. A cell gets the same charts from Git instead: the
+`encabulator-platform` ApplicationSet in [`gitops/hub/appset.yaml`](../gitops/hub/appset.yaml)
+has Argo CD on the hub install them on every cell, with the same versions, release names and
+namespace. KEDA is not part of a cell yet. What a cell adds:
+
+| File | What it changes on a cell |
+|---|---|
+| [`cell/kube-prometheus-stack.values.yaml`](cell/kube-prometheus-stack.values.yaml) | requests and limits from the hub's measured use; the chart's five control-plane Services left out (they find no pod on EKS Auto Mode) |
+| [`cell/jaeger.values.yaml`](cell/jaeger.values.yaml) | requests and limits for the capped in-memory store |
+| [`cell/opentelemetry-collector.values.yaml`](cell/opentelemetry-collector.values.yaml) | requests and limits from the hub's measured use |
+| [`kustomization.yaml`](kustomization.yaml) | the three dashboards (the same ConfigMaps `scripts/platform.sh dashboards` creates) and [`cell/servicemonitor-encabulator-services.yaml`](cell/servicemonitor-encabulator-services.yaml), which scrapes the fifteen services |
+
+Each overlay is layered after the common file (`-f <chart>.values.yaml -f cell/<chart>.values.yaml`),
+so the hub's values stay as they are and a change to a common file reaches the hub and every
+cell. The overlays size requests to what the pods use rather than to round numbers, so EKS Auto
+Mode provisions nodes for the real footprint.
+
+On the hub, `charts/encabulator` renders one ServiceMonitor per service. On a cell the app comes
+from kro definitions, and kro accepts a definition only when every kind in it already exists, so
+the scrape config ships with the platform as one ServiceMonitor with the same endpoint, interval
+and relabelings. The app never waits for the platform, and a cell without the platform has
+neither.
+
+To see what a cell gets, and to check that its pins match `versions.env`:
+
+```bash
+./scripts/platform.sh template-cell > /dev/null
+```
+
+CI runs it next to `template`. A cell opts out of the platform with `observability: false` in
+its cell file ([`gitops/hub/rgds/README.md`](../gitops/hub/rgds/README.md#the-platform-applicationset)).
+
 ## How Prometheus finds the Encabulator
 
 One decision shapes these files: Prometheus selects `ServiceMonitor` and `PodMonitor` objects
@@ -81,15 +115,28 @@ Both are scraped by the chart's `ServiceMonitor`.
 ### Virtual nodes are how the stores appear at all
 
 Nothing instruments PostgreSQL, Valkey, NATS or InfluxDB. They only ever exist as the far end of a
-client span. The `service_graph` connector's `virtual_node_peer_attributes` turns such a span into
-a *virtual* server node, so the values list every attribute a service kit might set:
+client span. Two settings of the `service_graph` connector turn such a span into a server node:
 
 ```yaml
+database_name_attributes: [db.system.name, db.system]
 virtual_node_peer_attributes:
   [peer.service, db.system, db.system.name, server.address,
    messaging.destination.name, db.name, db.namespace]
 virtual_node_extra_label: true
 ```
+
+- A client span carrying `db.system.name` or `db.system` is a database call. The connector does not
+  wait for a server span: it emits the edge at once with `connection_type="database"`, uses the
+  client span's duration as the edge latency, and names the server after the attribute's value
+  (`postgresql`, `valkey`, `redis`), which the console maps to its `postgres` and `valkey` nodes.
+  The console has one node per database *system*, so the server must not be named after the
+  database: `db.namespace`/`db.name` would give `hydrocoptic`, `detractor`, `girdlespring` and the
+  Redis index `0`, none of which is a node. Do not simply delete the key either: collector 0.161.0
+  falls back to `[db.name]` when the list is empty.
+- Any other client span that finds no server span within the store TTL becomes a *virtual* server
+  node named after the first attribute in `virtual_node_peer_attributes` it carries, or `unknown`.
+- Producer and consumer spans are paired into `connection_type="messaging_system"` edges between the
+  publishing and the consuming service. An unpaired producer span never becomes a virtual node.
 
 If a store is missing from the topology, the span is missing one of these. Design section 7
 requires `peer.service` or `server.address` on outbound client spans and `db.system` plus
@@ -139,6 +186,11 @@ Prometheus keeps 6 hours on an `emptyDir` and Jaeger keeps traces in memory. Thi
 interesting window is the last few minutes, and a pod restart losing history is cheaper than
 provisioning volumes. The commented-out `storageSpec` in the Prometheus values is the switch if
 you disagree.
+
+Jaeger's in-memory store is capped at 15,000 traces (`jaeger.args` in the values) with a 1 GiB
+memory limit. Its built-in default of 100,000 traces grew it to 1.7 GB on a 4 GB node, which
+starved every pod there of page cache until liveness probes failed across the node. At roughly
+1.3 KB per span the cap still holds the last several minutes of a busy run.
 
 ## Bumping a version
 

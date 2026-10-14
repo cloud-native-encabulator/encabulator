@@ -1,14 +1,18 @@
-// Package store keeps malaise records in Valkey, under the malaise:* keys this
+// Package store keeps malaise records in Valkey, under the {malaise}:* keys this
 // service owns.
 //
 // Three keys carry the whole state:
 //
-//	malaise:record:<id>  the JSON record, with a generous TTL so recent history
-//	                     survives long enough to be looked at
-//	malaise:active       a sorted set of ids scored by expiry, so the reconcile
-//	                     loop can ask "what is due?" in one round trip
-//	malaise:history      a sorted set of ids scored by creation, trimmed, so the
-//	                     console can list what has happened lately
+//	{malaise}:record:<id>  the JSON record, with a generous TTL so recent history
+//	                       survives long enough to be looked at
+//	{malaise}:active       a sorted set of ids scored by expiry, so the reconcile
+//	                       loop can ask "what is due?" in one round trip
+//	{malaise}:history      a sorted set of ids scored by creation, trimmed, so the
+//	                       console can list what has happened lately
+//
+// {malaise} is a hash tag: all three hash to the same slot, so the MULTI in Put and the
+// MGET in the listings also work on a cluster-mode server such as ElastiCache Serverless,
+// which refuses a command or transaction whose keys span slots (CROSSSLOT).
 package store
 
 import (
@@ -25,9 +29,9 @@ import (
 
 // Key prefixes and names.
 const (
-	recordPrefix = "malaise:record:"
-	activeKey    = "malaise:active"
-	historyKey   = "malaise:history"
+	recordPrefix = "{malaise}:record:"
+	activeKey    = "{malaise}:active"
+	historyKey   = "{malaise}:history"
 )
 
 // HistoryTTL is how long a finished malaise stays readable.
@@ -92,7 +96,7 @@ func (s *Store) recordTTL(m malaise.Malaise) time.Duration {
 }
 
 // Put writes a record and updates the indexes. An active record joins
-// malaise:active; a terminal one leaves it.
+// {malaise}:active; a terminal one leaves it.
 func (s *Store) Put(ctx context.Context, m malaise.Malaise) error {
 	encoded, err := json.Marshal(m)
 	if err != nil {

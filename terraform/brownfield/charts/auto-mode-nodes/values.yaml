@@ -1,0 +1,11 @@
+# Filled in by terraform/brownfield/nodes.tf. Placeholders only.
+name: encabulator
+nodeRole: ""
+subnetIds: []
+securityGroupIds: []
+tags: {}
+instanceCategories: ["c", "m", "r"]
+# NodePool requirement eks.amazonaws.com/instance-generation Gt this value.
+instanceGeneration: 4
+architectures: ["amd64"]
+cpuLimit: 64

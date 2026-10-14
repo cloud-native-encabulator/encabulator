@@ -10,15 +10,28 @@ import (
 	"log/slog"
 	"math"
 	"net/http"
+	"net/url"
 	"strconv"
 	"strings"
 	"time"
 
 	"github.com/InfluxCommunity/influxdb3-go/v2/influxdb3"
+	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/codes"
+	"go.opentelemetry.io/otel/trace"
 )
 
 // Table is the InfluxDB table (measurement) every reading lands in.
 const Table = "readings"
+
+// tracerName names the instrumentation scope of the InfluxDB client spans.
+const tracerName = "github.com/jlbutler/cloud-native-encabulator/services/data-plane/sinusoidal-recorder/internal/influx"
+
+// DBSystem is the db.system.name on every InfluxDB client span. The collector's
+// service_graph connector names the server of a database edge after it, which is
+// the console's `influxdb` node.
+const DBSystem = "influxdb"
 
 // Limits on the read path.
 const (
@@ -84,6 +97,9 @@ type Config struct {
 	Logger *slog.Logger
 	// HTTPClient overrides the client used for the health and admin endpoints.
 	HTTPClient *http.Client
+	// TracerProvider records the InfluxDB client spans. Defaults to the global
+	// provider, which kit.Bootstrap configures.
+	TracerProvider trace.TracerProvider
 }
 
 // Client talks to InfluxDB 3 Core. Writes use the HTTP line-protocol API and
@@ -95,6 +111,10 @@ type Client struct {
 	token    string
 	database string
 	log      *slog.Logger
+	tracer   trace.Tracer
+	// server.address and server.port of the InfluxDB endpoint, for the spans.
+	host string
+	port int
 }
 
 // New builds a client. It does not touch the network.
@@ -137,6 +157,12 @@ func New(cfg Config) (*Client, error) {
 		return nil, fmt.Errorf("influx: client: %w", err)
 	}
 
+	tp := cfg.TracerProvider
+	if tp == nil {
+		tp = otel.GetTracerProvider()
+	}
+	host, port := hostPort(base)
+
 	return &Client{
 		influx:   client,
 		http:     httpClient,
@@ -144,7 +170,61 @@ func New(cfg Config) (*Client, error) {
 		token:    cfg.Token,
 		database: database,
 		log:      log,
+		tracer:   tp.Tracer(tracerName),
+		host:     host,
+		port:     port,
 	}, nil
+}
+
+// hostPort splits the InfluxDB URL into server.address and server.port.
+func hostPort(base string) (string, int) {
+	u, err := url.Parse(base)
+	if err != nil {
+		return "", 0
+	}
+	port, err := strconv.Atoi(u.Port())
+	if err != nil {
+		switch u.Scheme {
+		case "https":
+			port = 443
+		case "http":
+			port = 80
+		}
+	}
+	return u.Hostname(), port
+}
+
+// startSpan opens the CLIENT span for one InfluxDB call. Nothing instruments
+// InfluxDB itself, so this span is the only evidence of the recorder -> influxdb
+// edge: the collector's service_graph connector turns a client span carrying
+// db.system.name into a database edge named after it. The health check is not
+// traced (design section 7: no spans for readiness).
+func (c *Client) startSpan(ctx context.Context, operation string) (context.Context, trace.Span) {
+	attrs := []attribute.KeyValue{
+		attribute.String("db.system.name", DBSystem),
+		attribute.String("db.namespace", c.database),
+		attribute.String("db.collection.name", Table),
+		attribute.String("db.operation.name", operation),
+	}
+	if c.host != "" {
+		attrs = append(attrs, attribute.String("server.address", c.host))
+	}
+	if c.port > 0 {
+		attrs = append(attrs, attribute.Int("server.port", c.port))
+	}
+	return c.tracer.Start(ctx, operation+" "+Table,
+		trace.WithSpanKind(trace.SpanKindClient),
+		trace.WithAttributes(attrs...),
+	)
+}
+
+// endSpan records err, if any, as the span's outcome and ends it.
+func endSpan(span trace.Span, err error) {
+	if err != nil {
+		span.RecordError(err)
+		span.SetStatus(codes.Error, err.Error())
+	}
+	span.End()
 }
 
 // Database returns the configured database name.
@@ -265,10 +345,14 @@ func (c *Client) authorize(req *http.Request) {
 
 // Write stores a batch of readings. Tags are serial, order_id, model, stage and
 // metric; the single field is value.
-func (c *Client) Write(ctx context.Context, readings []Reading) error {
+func (c *Client) Write(ctx context.Context, readings []Reading) (err error) {
 	if len(readings) == 0 {
 		return nil
 	}
+	ctx, span := c.startSpan(ctx, "write")
+	span.SetAttributes(attribute.Int("db.operation.batch.size", len(readings)))
+	defer func() { endSpan(span, err) }()
+
 	points := make([]*influxdb3.Point, 0, len(readings))
 	for _, r := range readings {
 		at := r.Time
@@ -290,30 +374,89 @@ func (c *Client) Write(ctx context.Context, readings []Reading) error {
 	return nil
 }
 
-// readingsSQL is a fixed query; only the serial is bound, as a parameter.
+// readingsSQL is a fixed query; the serial and the time lower bound are bound
+// as parameters. The time bound is what keeps the read cheap: InfluxDB 3 Core
+// keeps one Parquet file per gen1 block and never compacts them, so a query with
+// no time bound opens every file the table has ever had, and Core refuses one
+// that would scan more than its file limit (432 by default).
 const readingsSQL = `
 SELECT time, serial, order_id, model, stage, metric, value
   FROM ` + Table + `
  WHERE serial = $serial
+   AND time >= CAST($since AS TIMESTAMP)
  ORDER BY time
  LIMIT `
 
+// Time bounds of the per-serial read.
+const (
+	// SerialClockSlack is how far before the time in a serial the read starts.
+	// The casing line mints the serial before the unit's first stage and stamps
+	// every reading with the same clock afterwards, so the slack only has to
+	// cover a clock adjustment on that pod.
+	SerialClockSlack = 5 * time.Minute
+	// FallbackLookback is how far back the read goes for a serial that does not
+	// carry the casing line's time.
+	FallbackLookback = 6 * time.Hour
+)
+
+// serialEpoch is the earliest time a serial can plausibly carry.
+var serialEpoch = time.Date(2020, 1, 1, 0, 0, 0, 0, time.UTC)
+
+// SerialTime returns the time the casing line minted a serial, from its
+// ENC-<model>-<base36 ms>-<4 hex> form (design section 4.2). ok is false for
+// any other form, and for a time before 2020 or more than an hour after now.
+func SerialTime(serial string, now time.Time) (t time.Time, ok bool) {
+	parts := strings.Split(serial, "-")
+	n := len(parts)
+	if n < 4 || parts[0] != "ENC" || len(parts[n-1]) != 4 || parts[n-2] == "" || len(parts[n-2]) > 12 {
+		return time.Time{}, false
+	}
+	if _, err := strconv.ParseUint(parts[n-1], 16, 16); err != nil {
+		return time.Time{}, false
+	}
+	ms, err := strconv.ParseInt(parts[n-2], 36, 64)
+	if err != nil {
+		return time.Time{}, false
+	}
+	t = time.UnixMilli(ms).UTC()
+	if t.Before(serialEpoch) || t.After(now.Add(time.Hour)) {
+		return time.Time{}, false
+	}
+	return t, true
+}
+
+// ReadingsSince is the lower time bound of the read for one serial: the time in
+// the serial minus SerialClockSlack, or FallbackLookback before now when the
+// serial does not carry a time.
+func ReadingsSince(serial string, now time.Time) time.Time {
+	if t, ok := SerialTime(serial, now); ok {
+		return t.Add(-SerialClockSlack)
+	}
+	return now.Add(-FallbackLookback)
+}
+
 // ReadingsBySerial returns every reading for one unit, oldest first.
 //
-// The serial is bound as a query parameter and never interpolated. The limit is
-// interpolated, but only after being clamped to an integer in a fixed range, so
-// no caller-supplied text reaches the query.
-func (c *Client) ReadingsBySerial(ctx context.Context, serial string, limit int) ([]Reading, error) {
+// The serial and the time bound are bound as query parameters and never
+// interpolated. The limit is interpolated, but only after being clamped to an
+// integer in a fixed range, so no caller-supplied text reaches the query.
+func (c *Client) ReadingsBySerial(ctx context.Context, serial string, limit int) (_ []Reading, err error) {
 	if limit <= 0 {
 		limit = DefaultReadLimit
 	}
 	if limit > MaxReadLimit {
 		limit = MaxReadLimit
 	}
+	since := ReadingsSince(serial, time.Now().UTC())
+	ctx, span := c.startSpan(ctx, "SELECT")
+	defer func() { endSpan(span, err) }()
 
 	it, err := c.influx.QueryWithParameters(ctx,
 		readingsSQL+strconv.Itoa(limit),
-		influxdb3.QueryParameters{"serial": serial},
+		influxdb3.QueryParameters{
+			"serial": serial,
+			"since":  since.Format("2006-01-02 15:04:05.000000"),
+		},
 	)
 	if isTableMissing(err) {
 		return []Reading{}, nil
@@ -356,8 +499,10 @@ SELECT metric,
  ORDER BY metric`
 
 // Summary returns per-metric aggregates across the whole factory over window.
-func (c *Client) Summary(ctx context.Context, window time.Duration) ([]MetricSummary, error) {
+func (c *Client) Summary(ctx context.Context, window time.Duration) (_ []MetricSummary, err error) {
 	since := time.Now().UTC().Add(-window)
+	ctx, span := c.startSpan(ctx, "SELECT")
+	defer func() { endSpan(span, err) }()
 
 	it, err := c.influx.QueryWithParameters(ctx, summarySQL,
 		influxdb3.QueryParameters{"since": since.Format("2006-01-02 15:04:05.000000")},

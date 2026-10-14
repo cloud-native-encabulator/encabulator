@@ -1,0 +1,26 @@
+# The DB subnet group Terraform built, now owned by Git.
+#
+# subnetIDs is a placeholder. The rds-controller does not late-initialize it, so it must be in
+# the spec; the real ids live on the hub's Argo CD cluster Secret (written by
+# gitops/hub/bootstrap/register-hub.sh) and the hub-brownfield ApplicationSet patches them in at
+# sync time. Do not `kubectl apply` this file directly.
+apiVersion: rds.services.k8s.aws/v1alpha1
+kind: DBSubnetGroup
+metadata:
+  name: encabulator
+  namespace: encabulator
+  annotations:
+    services.k8s.aws/adoption-policy: adopt-or-create
+    services.k8s.aws/deletion-policy: retain
+spec:
+  name: encabulator
+  description: Encabulator databases
+  subnetIDs:
+    - subnet-placeholder        # replaced from annotation encabulator.io/subnet-ids
+  tags:
+    - key: auto-delete
+      value: "no"
+    - key: project
+      value: encabulator
+    - key: talk
+      value: opn315

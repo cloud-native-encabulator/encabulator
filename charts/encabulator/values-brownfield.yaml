@@ -1,0 +1,52 @@
+# Overlay for the OPN315 brownfield hub (terraform/brownfield): PostgreSQL on Amazon RDS and
+# Valkey on Amazon ElastiCache serverless instead of in-cluster StatefulSets. NATS and
+# InfluxDB stay in the cluster.
+#
+# Use it together with values-eks-auto-mode.yaml. The store hosts come from the ConfigMap
+# encabulator-aws that Terraform writes, so they are not in this file:
+#
+#   terraform/brownfield/deploy-app.sh
+#
+# which runs, in effect:
+#
+#   make deploy HELM_ARGS="-f charts/encabulator/values-eks-auto-mode.yaml \
+#     -f charts/encabulator/values-brownfield.yaml \
+#     --set postgres.external.host=<POSTGRES_HOST> --set valkey.external.host=<VALKEY_HOST>"
+
+# The StorageClass from values-eks-auto-mode.yaml, with the three tags every AWS resource
+# of the talk carries (needs the custom-tags policy on the cluster role, which
+# terraform/brownfield sets). Used by the NATS and InfluxDB volumes.
+storageClass:
+  create: true
+  parameters:
+    type: gp3
+    encrypted: "true"
+    tagSpecification_1: "auto-delete=no"
+    tagSpecification_2: "project=encabulator"
+    tagSpecification_3: "talk=opn315"
+
+postgres:
+  external:
+    enabled: true
+    # POSTGRES_HOST from the ConfigMap encabulator-aws.
+    host: ""
+    port: 5432
+    sslmode: require
+    # Written by Terraform: postgres-password plus <database>-password for hydrocoptic,
+    # detractor and girdlespring (the chart's default key names).
+    existingSecret: encabulator-db
+
+valkey:
+  # ElastiCache serverless without a user group accepts connections without AUTH. An empty
+  # user and the empty password in encabulator-valkey render rediss://:@<host>:6379/0, so
+  # the clients send no AUTH command at all.
+  user: ""
+  external:
+    enabled: true
+    # VALKEY_HOST from the ConfigMap encabulator-aws.
+    host: ""
+    port: 6379
+    # Written by Terraform with an empty valkey-password key.
+    existingSecret: encabulator-valkey
+    # Serverless caches only accept TLS: rediss://.
+    tls: true

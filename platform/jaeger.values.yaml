@@ -20,6 +20,15 @@ jaeger:
     - name: OTEL_TRACES_SAMPLER
       value: always_on
 
+  # The built-in All-in-One config keeps up to 100,000 traces in memory, which on the hub
+  # grew Jaeger to 1.7 GB on a 4 GB node and starved every pod on it: the node re-read evicted
+  # pages until its data volume hit the EBS IOPS limit, and liveness probes failed node-wide
+  # (the collector restarted 5 times, resetting the topology). Cap the store instead: about
+  # 1.3 KB per span, so 15,000 traces stays in the low hundreds of MB and still holds the
+  # last several minutes of a busy demo. `--set` overrides one key of the built-in config.
+  args:
+    - --set=extensions.jaeger_storage.backends.some_storage.memory.max_traces=15000
+
   podSecurityContext:
     runAsNonRoot: true
     runAsUser: 10001
@@ -34,13 +43,15 @@ jaeger:
     capabilities:
       drop: ["ALL"]
 
+  # Sized for the capped store above. The limit keeps a runaway Jaeger from taking its node
+  # down with it: if it ever outgrows this, Jaeger alone is restarted.
   resources:
     requests:
       cpu: 200m
       memory: 768Mi
     limits:
       cpu: 2000m
-      memory: 2Gi
+      memory: 1Gi
 
   serviceAccount:
     automountServiceAccountToken: false

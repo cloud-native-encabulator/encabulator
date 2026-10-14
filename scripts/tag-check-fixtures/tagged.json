@@ -1,0 +1,3398 @@
+{
+ "calls": {
+  "ec2 describe-addresses --region us-east-2": {
+   "Addresses": [
+    {
+     "AllocationId": "eipalloc-0100000000000001",
+     "Domain": "vpc",
+     "NetworkInterfaceId": "eni-01000000000000003",
+     "PublicIp": "198.51.100.2",
+     "Tags": [
+      {
+       "Key": "Name",
+       "Value": "encabulator-use2-nat"
+      },
+      {
+       "Key": "auto-delete",
+       "Value": "no"
+      },
+      {
+       "Key": "project",
+       "Value": "encabulator"
+      },
+      {
+       "Key": "talk",
+       "Value": "opn315"
+      }
+     ]
+    },
+    {
+     "AllocationId": "eipalloc-010000000000ffff",
+     "Domain": "vpc",
+     "PublicIp": "203.0.113.9",
+     "Tags": []
+    }
+   ]
+  },
+  "ec2 describe-addresses --region us-west-2": {
+   "Addresses": [
+    {
+     "AllocationId": "eipalloc-0000000000000001",
+     "Domain": "vpc",
+     "NetworkInterfaceId": "eni-00000000000000003",
+     "PublicIp": "198.51.100.1",
+     "Tags": [
+      {
+       "Key": "Name",
+       "Value": "encabulator-usw2-nat"
+      },
+      {
+       "Key": "auto-delete",
+       "Value": "no"
+      },
+      {
+       "Key": "project",
+       "Value": "encabulator"
+      },
+      {
+       "Key": "talk",
+       "Value": "opn315"
+      }
+     ]
+    },
+    {
+     "AllocationId": "eipalloc-000000000000ffff",
+     "Domain": "vpc",
+     "PublicIp": "203.0.113.9",
+     "Tags": []
+    }
+   ]
+  },
+  "ec2 describe-instances --region us-east-2 --include-managed-resources --filters Name=vpc-id,Values=vpc-010000000000000001 Name=instance-state-name,Values=pending,running,stopping,stopped": {
+   "Reservations": [
+    {
+     "Instances": [
+      {
+       "InstanceId": "i-01000000000000001",
+       "InstanceType": "m6a.large",
+       "State": {
+        "Name": "running"
+       },
+       "Tags": [
+        {
+         "Key": "eks:eks-cluster-name",
+         "Value": "encabulator-use2"
+        },
+        {
+         "Key": "eks:kubernetes-node-class-name",
+         "Value": "encabulator"
+        },
+        {
+         "Key": "eks:kubernetes-node-pool-name",
+         "Value": "encabulator"
+        },
+        {
+         "Key": "auto-delete",
+         "Value": "no"
+        },
+        {
+         "Key": "project",
+         "Value": "encabulator"
+        },
+        {
+         "Key": "talk",
+         "Value": "opn315"
+        }
+       ],
+       "VpcId": "vpc-010000000000000001"
+      }
+     ],
+     "OwnerId": "111122223333"
+    },
+    {
+     "Instances": [
+      {
+       "InstanceId": "i-01000000000000002",
+       "InstanceType": "m6a.large",
+       "State": {
+        "Name": "running"
+       },
+       "Tags": [
+        {
+         "Key": "eks:eks-cluster-name",
+         "Value": "encabulator-use2"
+        },
+        {
+         "Key": "eks:kubernetes-node-class-name",
+         "Value": "encabulator"
+        },
+        {
+         "Key": "eks:kubernetes-node-pool-name",
+         "Value": "encabulator"
+        },
+        {
+         "Key": "auto-delete",
+         "Value": "no"
+        },
+        {
+         "Key": "project",
+         "Value": "encabulator"
+        },
+        {
+         "Key": "talk",
+         "Value": "opn315"
+        }
+       ],
+       "VpcId": "vpc-010000000000000001"
+      }
+     ],
+     "OwnerId": "111122223333"
+    }
+   ]
+  },
+  "ec2 describe-instances --region us-west-2 --include-managed-resources --filters Name=vpc-id,Values=vpc-000000000000000001 Name=instance-state-name,Values=pending,running,stopping,stopped": {
+   "Reservations": [
+    {
+     "Instances": [
+      {
+       "InstanceId": "i-00000000000000001",
+       "InstanceType": "m6a.large",
+       "State": {
+        "Name": "running"
+       },
+       "Tags": [
+        {
+         "Key": "eks:eks-cluster-name",
+         "Value": "encabulator-usw2"
+        },
+        {
+         "Key": "eks:kubernetes-node-class-name",
+         "Value": "encabulator"
+        },
+        {
+         "Key": "eks:kubernetes-node-pool-name",
+         "Value": "encabulator"
+        },
+        {
+         "Key": "auto-delete",
+         "Value": "no"
+        },
+        {
+         "Key": "project",
+         "Value": "encabulator"
+        },
+        {
+         "Key": "talk",
+         "Value": "opn315"
+        }
+       ],
+       "VpcId": "vpc-000000000000000001"
+      }
+     ],
+     "OwnerId": "111122223333"
+    },
+    {
+     "Instances": [
+      {
+       "InstanceId": "i-00000000000000002",
+       "InstanceType": "m6a.large",
+       "State": {
+        "Name": "running"
+       },
+       "Tags": [
+        {
+         "Key": "eks:eks-cluster-name",
+         "Value": "encabulator-usw2"
+        },
+        {
+         "Key": "eks:kubernetes-node-class-name",
+         "Value": "encabulator"
+        },
+        {
+         "Key": "eks:kubernetes-node-pool-name",
+         "Value": "encabulator"
+        },
+        {
+         "Key": "auto-delete",
+         "Value": "no"
+        },
+        {
+         "Key": "project",
+         "Value": "encabulator"
+        },
+        {
+         "Key": "talk",
+         "Value": "opn315"
+        }
+       ],
+       "VpcId": "vpc-000000000000000001"
+      }
+     ],
+     "OwnerId": "111122223333"
+    }
+   ]
+  },
+  "ec2 describe-internet-gateways --region us-east-2 --filters Name=attachment.vpc-id,Values=vpc-010000000000000001": {
+   "InternetGateways": [
+    {
+     "Attachments": [
+      {
+       "State": "available",
+       "VpcId": "vpc-010000000000000001"
+      }
+     ],
+     "InternetGatewayId": "igw-01000000000000001",
+     "OwnerId": "111122223333",
+     "Tags": [
+      {
+       "Key": "Name",
+       "Value": "encabulator-use2"
+      },
+      {
+       "Key": "auto-delete",
+       "Value": "no"
+      },
+      {
+       "Key": "project",
+       "Value": "encabulator"
+      },
+      {
+       "Key": "talk",
+       "Value": "opn315"
+      }
+     ]
+    }
+   ]
+  },
+  "ec2 describe-internet-gateways --region us-west-2 --filters Name=attachment.vpc-id,Values=vpc-000000000000000001": {
+   "InternetGateways": [
+    {
+     "Attachments": [
+      {
+       "State": "available",
+       "VpcId": "vpc-000000000000000001"
+      }
+     ],
+     "InternetGatewayId": "igw-00000000000000001",
+     "OwnerId": "111122223333",
+     "Tags": [
+      {
+       "Key": "Name",
+       "Value": "encabulator-usw2"
+      },
+      {
+       "Key": "auto-delete",
+       "Value": "no"
+      },
+      {
+       "Key": "project",
+       "Value": "encabulator"
+      },
+      {
+       "Key": "talk",
+       "Value": "opn315"
+      }
+     ]
+    }
+   ]
+  },
+  "ec2 describe-launch-templates --region us-east-2 --include-managed-resources --filters Name=tag:eks:eks-cluster-name,Values=encabulator-use2": {
+   "LaunchTemplates": [
+    {
+     "LaunchTemplateId": "lt-01000000000000001",
+     "LaunchTemplateName": "eks-encabulator-use2-encabulator-abc",
+     "Tags": [
+      {
+       "Key": "eks:eks-cluster-name",
+       "Value": "encabulator-use2"
+      },
+      {
+       "Key": "eks:kubernetes-node-class-name",
+       "Value": "encabulator"
+      },
+      {
+       "Key": "auto-delete",
+       "Value": "no"
+      },
+      {
+       "Key": "project",
+       "Value": "encabulator"
+      },
+      {
+       "Key": "talk",
+       "Value": "opn315"
+      }
+     ]
+    }
+   ]
+  },
+  "ec2 describe-launch-templates --region us-west-2 --include-managed-resources --filters Name=tag:eks:eks-cluster-name,Values=encabulator-usw2": {
+   "LaunchTemplates": [
+    {
+     "LaunchTemplateId": "lt-00000000000000001",
+     "LaunchTemplateName": "eks-encabulator-usw2-encabulator-abc",
+     "Tags": [
+      {
+       "Key": "eks:eks-cluster-name",
+       "Value": "encabulator-usw2"
+      },
+      {
+       "Key": "eks:kubernetes-node-class-name",
+       "Value": "encabulator"
+      },
+      {
+       "Key": "auto-delete",
+       "Value": "no"
+      },
+      {
+       "Key": "project",
+       "Value": "encabulator"
+      },
+      {
+       "Key": "talk",
+       "Value": "opn315"
+      }
+     ]
+    }
+   ]
+  },
+  "ec2 describe-nat-gateways --region us-east-2 --filter Name=vpc-id,Values=vpc-010000000000000001": {
+   "NatGateways": [
+    {
+     "NatGatewayAddresses": [
+      {
+       "AllocationId": "eipalloc-0100000000000001",
+       "NetworkInterfaceId": "eni-01000000000000003",
+       "PublicIp": "198.51.100.2"
+      }
+     ],
+     "NatGatewayId": "nat-01000000000000001",
+     "State": "available",
+     "SubnetId": "subnet-01300000000000001",
+     "Tags": [
+      {
+       "Key": "Name",
+       "Value": "encabulator-use2"
+      },
+      {
+       "Key": "auto-delete",
+       "Value": "no"
+      },
+      {
+       "Key": "project",
+       "Value": "encabulator"
+      },
+      {
+       "Key": "talk",
+       "Value": "opn315"
+      }
+     ],
+     "VpcId": "vpc-010000000000000001"
+    },
+    {
+     "NatGatewayAddresses": [],
+     "NatGatewayId": "nat-0100000000000dead",
+     "State": "deleted",
+     "Tags": [],
+     "VpcId": "vpc-010000000000000001"
+    }
+   ]
+  },
+  "ec2 describe-nat-gateways --region us-west-2 --filter Name=vpc-id,Values=vpc-000000000000000001": {
+   "NatGateways": [
+    {
+     "NatGatewayAddresses": [
+      {
+       "AllocationId": "eipalloc-0000000000000001",
+       "NetworkInterfaceId": "eni-00000000000000003",
+       "PublicIp": "198.51.100.1"
+      }
+     ],
+     "NatGatewayId": "nat-00000000000000001",
+     "State": "available",
+     "SubnetId": "subnet-00300000000000001",
+     "Tags": [
+      {
+       "Key": "Name",
+       "Value": "encabulator-usw2"
+      },
+      {
+       "Key": "auto-delete",
+       "Value": "no"
+      },
+      {
+       "Key": "project",
+       "Value": "encabulator"
+      },
+      {
+       "Key": "talk",
+       "Value": "opn315"
+      }
+     ],
+     "VpcId": "vpc-000000000000000001"
+    },
+    {
+     "NatGatewayAddresses": [],
+     "NatGatewayId": "nat-0000000000000dead",
+     "State": "deleted",
+     "Tags": [],
+     "VpcId": "vpc-000000000000000001"
+    }
+   ]
+  },
+  "ec2 describe-network-acls --region us-east-2 --filters Name=vpc-id,Values=vpc-010000000000000001": {
+   "NetworkAcls": [
+    {
+     "IsDefault": true,
+     "NetworkAclId": "acl-01000000000000001",
+     "OwnerId": "111122223333",
+     "Tags": [
+      {
+       "Key": "Name",
+       "Value": "encabulator-use2-default"
+      },
+      {
+       "Key": "auto-delete",
+       "Value": "no"
+      },
+      {
+       "Key": "project",
+       "Value": "encabulator"
+      },
+      {
+       "Key": "talk",
+       "Value": "opn315"
+      }
+     ],
+     "VpcId": "vpc-010000000000000001"
+    }
+   ]
+  },
+  "ec2 describe-network-acls --region us-west-2 --filters Name=vpc-id,Values=vpc-000000000000000001": {
+   "NetworkAcls": [
+    {
+     "IsDefault": true,
+     "NetworkAclId": "acl-00000000000000001",
+     "OwnerId": "111122223333",
+     "Tags": [
+      {
+       "Key": "Name",
+       "Value": "encabulator-usw2-default"
+      },
+      {
+       "Key": "auto-delete",
+       "Value": "no"
+      },
+      {
+       "Key": "project",
+       "Value": "encabulator"
+      },
+      {
+       "Key": "talk",
+       "Value": "opn315"
+      }
+     ],
+     "VpcId": "vpc-000000000000000001"
+    }
+   ]
+  },
+  "ec2 describe-network-interfaces --region us-east-2 --include-managed-resources --filters Name=vpc-id,Values=vpc-010000000000000001": {
+   "NetworkInterfaces": [
+    {
+     "Description": "Amazon EKS encabulator-use2",
+     "NetworkInterfaceId": "eni-01000000000000001",
+     "OwnerId": "111122223333",
+     "RequesterManaged": true,
+     "Status": "in-use",
+     "TagSet": [
+      {
+       "Key": "auto-delete",
+       "Value": "no"
+      },
+      {
+       "Key": "project",
+       "Value": "encabulator"
+      },
+      {
+       "Key": "talk",
+       "Value": "opn315"
+      }
+     ],
+     "VpcId": "vpc-010000000000000001"
+    },
+    {
+     "Description": "Amazon EKS encabulator-use2",
+     "NetworkInterfaceId": "eni-01000000000000002",
+     "OwnerId": "111122223333",
+     "RequesterManaged": true,
+     "Status": "in-use",
+     "TagSet": [
+      {
+       "Key": "auto-delete",
+       "Value": "no"
+      },
+      {
+       "Key": "project",
+       "Value": "encabulator"
+      },
+      {
+       "Key": "talk",
+       "Value": "opn315"
+      }
+     ],
+     "VpcId": "vpc-010000000000000001"
+    },
+    {
+     "Description": "Interface for NAT Gateway nat-01000000000000001",
+     "NetworkInterfaceId": "eni-01000000000000003",
+     "OwnerId": "111122223333",
+     "RequesterManaged": true,
+     "Status": "in-use",
+     "TagSet": [
+      {
+       "Key": "auto-delete",
+       "Value": "no"
+      },
+      {
+       "Key": "project",
+       "Value": "encabulator"
+      },
+      {
+       "Key": "talk",
+       "Value": "opn315"
+      }
+     ],
+     "VpcId": "vpc-010000000000000001"
+    },
+    {
+     "Description": "RDSNetworkInterface",
+     "NetworkInterfaceId": "eni-01000000000000004",
+     "OwnerId": "111122223333",
+     "RequesterManaged": true,
+     "Status": "in-use",
+     "TagSet": [
+      {
+       "Key": "auto-delete",
+       "Value": "no"
+      },
+      {
+       "Key": "project",
+       "Value": "encabulator"
+      },
+      {
+       "Key": "talk",
+       "Value": "opn315"
+      }
+     ],
+     "VpcId": "vpc-010000000000000001"
+    },
+    {
+     "Description": "ElastiCache Serverless encabulator-valkey",
+     "NetworkInterfaceId": "eni-01000000000000005",
+     "OwnerId": "111122223333",
+     "RequesterManaged": true,
+     "Status": "in-use",
+     "TagSet": [
+      {
+       "Key": "auto-delete",
+       "Value": "no"
+      },
+      {
+       "Key": "project",
+       "Value": "encabulator"
+      },
+      {
+       "Key": "talk",
+       "Value": "opn315"
+      }
+     ],
+     "VpcId": "vpc-010000000000000001"
+    },
+    {
+     "Description": "ElastiCache Serverless encabulator-valkey",
+     "NetworkInterfaceId": "eni-01000000000000006",
+     "OwnerId": "111122223333",
+     "RequesterManaged": true,
+     "Status": "in-use",
+     "TagSet": [
+      {
+       "Key": "auto-delete",
+       "Value": "no"
+      },
+      {
+       "Key": "project",
+       "Value": "encabulator"
+      },
+      {
+       "Key": "talk",
+       "Value": "opn315"
+      }
+     ],
+     "VpcId": "vpc-010000000000000001"
+    },
+    {
+     "Description": "",
+     "NetworkInterfaceId": "eni-01000000000000007",
+     "OwnerId": "111122223333",
+     "RequesterManaged": false,
+     "Status": "in-use",
+     "TagSet": [
+      {
+       "Key": "eks:eks-cluster-name",
+       "Value": "encabulator-use2"
+      },
+      {
+       "Key": "eks:kubernetes-cni-node-name",
+       "Value": "i-01000000000000001"
+      },
+      {
+       "Key": "auto-delete",
+       "Value": "no"
+      },
+      {
+       "Key": "project",
+       "Value": "encabulator"
+      },
+      {
+       "Key": "talk",
+       "Value": "opn315"
+      }
+     ],
+     "VpcId": "vpc-010000000000000001"
+    },
+    {
+     "Description": "",
+     "NetworkInterfaceId": "eni-01000000000000008",
+     "OwnerId": "111122223333",
+     "RequesterManaged": false,
+     "Status": "in-use",
+     "TagSet": [
+      {
+       "Key": "eks:eks-cluster-name",
+       "Value": "encabulator-use2"
+      },
+      {
+       "Key": "eks:kubernetes-cni-node-name",
+       "Value": "i-01000000000000002"
+      },
+      {
+       "Key": "auto-delete",
+       "Value": "no"
+      },
+      {
+       "Key": "project",
+       "Value": "encabulator"
+      },
+      {
+       "Key": "talk",
+       "Value": "opn315"
+      }
+     ],
+     "VpcId": "vpc-010000000000000001"
+    }
+   ]
+  },
+  "ec2 describe-network-interfaces --region us-west-2 --include-managed-resources --filters Name=vpc-id,Values=vpc-000000000000000001": {
+   "NetworkInterfaces": [
+    {
+     "Description": "Amazon EKS encabulator-usw2",
+     "NetworkInterfaceId": "eni-00000000000000001",
+     "OwnerId": "111122223333",
+     "RequesterManaged": true,
+     "Status": "in-use",
+     "TagSet": [
+      {
+       "Key": "auto-delete",
+       "Value": "no"
+      },
+      {
+       "Key": "project",
+       "Value": "encabulator"
+      },
+      {
+       "Key": "talk",
+       "Value": "opn315"
+      }
+     ],
+     "VpcId": "vpc-000000000000000001"
+    },
+    {
+     "Description": "Amazon EKS encabulator-usw2",
+     "NetworkInterfaceId": "eni-00000000000000002",
+     "OwnerId": "111122223333",
+     "RequesterManaged": true,
+     "Status": "in-use",
+     "TagSet": [
+      {
+       "Key": "auto-delete",
+       "Value": "no"
+      },
+      {
+       "Key": "project",
+       "Value": "encabulator"
+      },
+      {
+       "Key": "talk",
+       "Value": "opn315"
+      }
+     ],
+     "VpcId": "vpc-000000000000000001"
+    },
+    {
+     "Description": "Interface for NAT Gateway nat-00000000000000001",
+     "NetworkInterfaceId": "eni-00000000000000003",
+     "OwnerId": "111122223333",
+     "RequesterManaged": true,
+     "Status": "in-use",
+     "TagSet": [
+      {
+       "Key": "auto-delete",
+       "Value": "no"
+      },
+      {
+       "Key": "project",
+       "Value": "encabulator"
+      },
+      {
+       "Key": "talk",
+       "Value": "opn315"
+      }
+     ],
+     "VpcId": "vpc-000000000000000001"
+    },
+    {
+     "Description": "RDSNetworkInterface",
+     "NetworkInterfaceId": "eni-00000000000000004",
+     "OwnerId": "111122223333",
+     "RequesterManaged": true,
+     "Status": "in-use",
+     "TagSet": [
+      {
+       "Key": "auto-delete",
+       "Value": "no"
+      },
+      {
+       "Key": "project",
+       "Value": "encabulator"
+      },
+      {
+       "Key": "talk",
+       "Value": "opn315"
+      }
+     ],
+     "VpcId": "vpc-000000000000000001"
+    },
+    {
+     "Description": "ElastiCache Serverless encabulator-valkey",
+     "NetworkInterfaceId": "eni-00000000000000005",
+     "OwnerId": "111122223333",
+     "RequesterManaged": true,
+     "Status": "in-use",
+     "TagSet": [
+      {
+       "Key": "auto-delete",
+       "Value": "no"
+      },
+      {
+       "Key": "project",
+       "Value": "encabulator"
+      },
+      {
+       "Key": "talk",
+       "Value": "opn315"
+      }
+     ],
+     "VpcId": "vpc-000000000000000001"
+    },
+    {
+     "Description": "ElastiCache Serverless encabulator-valkey",
+     "NetworkInterfaceId": "eni-00000000000000006",
+     "OwnerId": "111122223333",
+     "RequesterManaged": true,
+     "Status": "in-use",
+     "TagSet": [
+      {
+       "Key": "auto-delete",
+       "Value": "no"
+      },
+      {
+       "Key": "project",
+       "Value": "encabulator"
+      },
+      {
+       "Key": "talk",
+       "Value": "opn315"
+      }
+     ],
+     "VpcId": "vpc-000000000000000001"
+    },
+    {
+     "Description": "",
+     "NetworkInterfaceId": "eni-00000000000000007",
+     "OwnerId": "111122223333",
+     "RequesterManaged": false,
+     "Status": "in-use",
+     "TagSet": [
+      {
+       "Key": "eks:eks-cluster-name",
+       "Value": "encabulator-usw2"
+      },
+      {
+       "Key": "eks:kubernetes-cni-node-name",
+       "Value": "i-00000000000000001"
+      },
+      {
+       "Key": "auto-delete",
+       "Value": "no"
+      },
+      {
+       "Key": "project",
+       "Value": "encabulator"
+      },
+      {
+       "Key": "talk",
+       "Value": "opn315"
+      }
+     ],
+     "VpcId": "vpc-000000000000000001"
+    },
+    {
+     "Description": "",
+     "NetworkInterfaceId": "eni-00000000000000008",
+     "OwnerId": "111122223333",
+     "RequesterManaged": false,
+     "Status": "in-use",
+     "TagSet": [
+      {
+       "Key": "eks:eks-cluster-name",
+       "Value": "encabulator-usw2"
+      },
+      {
+       "Key": "eks:kubernetes-cni-node-name",
+       "Value": "i-00000000000000002"
+      },
+      {
+       "Key": "auto-delete",
+       "Value": "no"
+      },
+      {
+       "Key": "project",
+       "Value": "encabulator"
+      },
+      {
+       "Key": "talk",
+       "Value": "opn315"
+      }
+     ],
+     "VpcId": "vpc-000000000000000001"
+    }
+   ]
+  },
+  "ec2 describe-route-tables --region us-east-2 --filters Name=vpc-id,Values=vpc-010000000000000001": {
+   "RouteTables": [
+    {
+     "Associations": [
+      {
+       "Main": true,
+       "RouteTableAssociationId": "rtbassoc-0100000000000001"
+      }
+     ],
+     "OwnerId": "111122223333",
+     "RouteTableId": "rtb-01000000000000001",
+     "Routes": [
+      {
+       "DestinationCidrBlock": "10.41.0.0/16",
+       "GatewayId": "local"
+      }
+     ],
+     "Tags": [
+      {
+       "Key": "Name",
+       "Value": "encabulator-use2-default"
+      },
+      {
+       "Key": "auto-delete",
+       "Value": "no"
+      },
+      {
+       "Key": "project",
+       "Value": "encabulator"
+      },
+      {
+       "Key": "talk",
+       "Value": "opn315"
+      }
+     ],
+     "VpcId": "vpc-010000000000000001"
+    },
+    {
+     "Associations": [],
+     "OwnerId": "111122223333",
+     "RouteTableId": "rtb-01000000000000002",
+     "Tags": [
+      {
+       "Key": "Name",
+       "Value": "encabulator-use2-public"
+      },
+      {
+       "Key": "auto-delete",
+       "Value": "no"
+      },
+      {
+       "Key": "project",
+       "Value": "encabulator"
+      },
+      {
+       "Key": "talk",
+       "Value": "opn315"
+      }
+     ],
+     "VpcId": "vpc-010000000000000001"
+    },
+    {
+     "Associations": [],
+     "OwnerId": "111122223333",
+     "RouteTableId": "rtb-01000000000000003",
+     "Tags": [
+      {
+       "Key": "Name",
+       "Value": "encabulator-use2-private"
+      },
+      {
+       "Key": "auto-delete",
+       "Value": "no"
+      },
+      {
+       "Key": "project",
+       "Value": "encabulator"
+      },
+      {
+       "Key": "talk",
+       "Value": "opn315"
+      }
+     ],
+     "VpcId": "vpc-010000000000000001"
+    }
+   ]
+  },
+  "ec2 describe-route-tables --region us-west-2 --filters Name=vpc-id,Values=vpc-000000000000000001": {
+   "RouteTables": [
+    {
+     "Associations": [
+      {
+       "Main": true,
+       "RouteTableAssociationId": "rtbassoc-0000000000000001"
+      }
+     ],
+     "OwnerId": "111122223333",
+     "RouteTableId": "rtb-00000000000000001",
+     "Routes": [
+      {
+       "DestinationCidrBlock": "10.40.0.0/16",
+       "GatewayId": "local"
+      }
+     ],
+     "Tags": [
+      {
+       "Key": "Name",
+       "Value": "encabulator-usw2-default"
+      },
+      {
+       "Key": "auto-delete",
+       "Value": "no"
+      },
+      {
+       "Key": "project",
+       "Value": "encabulator"
+      },
+      {
+       "Key": "talk",
+       "Value": "opn315"
+      }
+     ],
+     "VpcId": "vpc-000000000000000001"
+    },
+    {
+     "Associations": [],
+     "OwnerId": "111122223333",
+     "RouteTableId": "rtb-00000000000000002",
+     "Tags": [
+      {
+       "Key": "Name",
+       "Value": "encabulator-usw2-public"
+      },
+      {
+       "Key": "auto-delete",
+       "Value": "no"
+      },
+      {
+       "Key": "project",
+       "Value": "encabulator"
+      },
+      {
+       "Key": "talk",
+       "Value": "opn315"
+      }
+     ],
+     "VpcId": "vpc-000000000000000001"
+    },
+    {
+     "Associations": [],
+     "OwnerId": "111122223333",
+     "RouteTableId": "rtb-00000000000000003",
+     "Tags": [
+      {
+       "Key": "Name",
+       "Value": "encabulator-usw2-private"
+      },
+      {
+       "Key": "auto-delete",
+       "Value": "no"
+      },
+      {
+       "Key": "project",
+       "Value": "encabulator"
+      },
+      {
+       "Key": "talk",
+       "Value": "opn315"
+      }
+     ],
+     "VpcId": "vpc-000000000000000001"
+    }
+   ]
+  },
+  "ec2 describe-security-groups --region us-east-2 --filters Name=vpc-id,Values=vpc-010000000000000001": {
+   "SecurityGroups": [
+    {
+     "Description": "default VPC security group",
+     "GroupId": "sg-01000000000000001",
+     "GroupName": "default",
+     "OwnerId": "111122223333",
+     "Tags": [
+      {
+       "Key": "Name",
+       "Value": "encabulator-use2-default"
+      },
+      {
+       "Key": "auto-delete",
+       "Value": "no"
+      },
+      {
+       "Key": "project",
+       "Value": "encabulator"
+      },
+      {
+       "Key": "talk",
+       "Value": "opn315"
+      }
+     ],
+     "VpcId": "vpc-010000000000000001"
+    },
+    {
+     "Description": "EKS created security group applied to ENI that is attached to the EKS control plane, as well as any managed workloads.",
+     "GroupId": "sg-01000000000000002",
+     "GroupName": "eks-cluster-sg-encabulator-use2-1234567890",
+     "OwnerId": "111122223333",
+     "Tags": [
+      {
+       "Key": "aws:eks:cluster-name",
+       "Value": "encabulator-use2"
+      },
+      {
+       "Key": "kubernetes.io/cluster/encabulator-use2",
+       "Value": "owned"
+      },
+      {
+       "Key": "Name",
+       "Value": "eks-cluster-sg-encabulator-use2-1234567890"
+      },
+      {
+       "Key": "auto-delete",
+       "Value": "no"
+      },
+      {
+       "Key": "project",
+       "Value": "encabulator"
+      },
+      {
+       "Key": "talk",
+       "Value": "opn315"
+      }
+     ],
+     "VpcId": "vpc-010000000000000001"
+    },
+    {
+     "Description": "Encabulator stores: PostgreSQL and Valkey from the EKS cluster security group",
+     "GroupId": "sg-01000000000000003",
+     "GroupName": "encabulator-db",
+     "OwnerId": "111122223333",
+     "Tags": [
+      {
+       "Key": "Name",
+       "Value": "encabulator-db"
+      },
+      {
+       "Key": "auto-delete",
+       "Value": "no"
+      },
+      {
+       "Key": "project",
+       "Value": "encabulator"
+      },
+      {
+       "Key": "talk",
+       "Value": "opn315"
+      }
+     ],
+     "VpcId": "vpc-010000000000000001"
+    }
+   ]
+  },
+  "ec2 describe-security-groups --region us-west-2 --filters Name=vpc-id,Values=vpc-000000000000000001": {
+   "SecurityGroups": [
+    {
+     "Description": "default VPC security group",
+     "GroupId": "sg-00000000000000001",
+     "GroupName": "default",
+     "OwnerId": "111122223333",
+     "Tags": [
+      {
+       "Key": "Name",
+       "Value": "encabulator-usw2-default"
+      },
+      {
+       "Key": "auto-delete",
+       "Value": "no"
+      },
+      {
+       "Key": "project",
+       "Value": "encabulator"
+      },
+      {
+       "Key": "talk",
+       "Value": "opn315"
+      }
+     ],
+     "VpcId": "vpc-000000000000000001"
+    },
+    {
+     "Description": "EKS created security group applied to ENI that is attached to the EKS control plane, as well as any managed workloads.",
+     "GroupId": "sg-00000000000000002",
+     "GroupName": "eks-cluster-sg-encabulator-usw2-1234567890",
+     "OwnerId": "111122223333",
+     "Tags": [
+      {
+       "Key": "aws:eks:cluster-name",
+       "Value": "encabulator-usw2"
+      },
+      {
+       "Key": "kubernetes.io/cluster/encabulator-usw2",
+       "Value": "owned"
+      },
+      {
+       "Key": "Name",
+       "Value": "eks-cluster-sg-encabulator-usw2-1234567890"
+      },
+      {
+       "Key": "auto-delete",
+       "Value": "no"
+      },
+      {
+       "Key": "project",
+       "Value": "encabulator"
+      },
+      {
+       "Key": "talk",
+       "Value": "opn315"
+      }
+     ],
+     "VpcId": "vpc-000000000000000001"
+    },
+    {
+     "Description": "Encabulator stores: PostgreSQL and Valkey from the EKS cluster security group",
+     "GroupId": "sg-00000000000000003",
+     "GroupName": "encabulator-db",
+     "OwnerId": "111122223333",
+     "Tags": [
+      {
+       "Key": "Name",
+       "Value": "encabulator-db"
+      },
+      {
+       "Key": "auto-delete",
+       "Value": "no"
+      },
+      {
+       "Key": "project",
+       "Value": "encabulator"
+      },
+      {
+       "Key": "talk",
+       "Value": "opn315"
+      }
+     ],
+     "VpcId": "vpc-000000000000000001"
+    }
+   ]
+  },
+  "ec2 describe-subnets --region us-east-2 --filters Name=vpc-id,Values=vpc-010000000000000001": {
+   "Subnets": [
+    {
+     "AvailabilityZone": "us-east-2a",
+     "CidrBlock": "10.41.0.0/19",
+     "OwnerId": "111122223333",
+     "SubnetId": "subnet-01000000000000001",
+     "Tags": [
+      {
+       "Key": "Name",
+       "Value": "encabulator-use2-private-us-east-2a"
+      },
+      {
+       "Key": "kubernetes.io/role/internal-elb",
+       "Value": "1"
+      },
+      {
+       "Key": "auto-delete",
+       "Value": "no"
+      },
+      {
+       "Key": "project",
+       "Value": "encabulator"
+      },
+      {
+       "Key": "talk",
+       "Value": "opn315"
+      }
+     ],
+     "VpcId": "vpc-010000000000000001"
+    },
+    {
+     "AvailabilityZone": "us-east-2b",
+     "CidrBlock": "10.41.32.0/19",
+     "OwnerId": "111122223333",
+     "SubnetId": "subnet-01100000000000001",
+     "Tags": [
+      {
+       "Key": "Name",
+       "Value": "encabulator-use2-private-us-east-2b"
+      },
+      {
+       "Key": "kubernetes.io/role/internal-elb",
+       "Value": "1"
+      },
+      {
+       "Key": "auto-delete",
+       "Value": "no"
+      },
+      {
+       "Key": "project",
+       "Value": "encabulator"
+      },
+      {
+       "Key": "talk",
+       "Value": "opn315"
+      }
+     ],
+     "VpcId": "vpc-010000000000000001"
+    },
+    {
+     "AvailabilityZone": "us-east-2c",
+     "CidrBlock": "10.41.64.0/19",
+     "OwnerId": "111122223333",
+     "SubnetId": "subnet-01200000000000001",
+     "Tags": [
+      {
+       "Key": "Name",
+       "Value": "encabulator-use2-private-us-east-2c"
+      },
+      {
+       "Key": "kubernetes.io/role/internal-elb",
+       "Value": "1"
+      },
+      {
+       "Key": "auto-delete",
+       "Value": "no"
+      },
+      {
+       "Key": "project",
+       "Value": "encabulator"
+      },
+      {
+       "Key": "talk",
+       "Value": "opn315"
+      }
+     ],
+     "VpcId": "vpc-010000000000000001"
+    },
+    {
+     "AvailabilityZone": "us-east-2a",
+     "CidrBlock": "10.41.200.0/24",
+     "OwnerId": "111122223333",
+     "SubnetId": "subnet-01300000000000001",
+     "Tags": [
+      {
+       "Key": "Name",
+       "Value": "encabulator-use2-public-us-east-2a"
+      },
+      {
+       "Key": "kubernetes.io/role/elb",
+       "Value": "1"
+      },
+      {
+       "Key": "auto-delete",
+       "Value": "no"
+      },
+      {
+       "Key": "project",
+       "Value": "encabulator"
+      },
+      {
+       "Key": "talk",
+       "Value": "opn315"
+      }
+     ],
+     "VpcId": "vpc-010000000000000001"
+    },
+    {
+     "AvailabilityZone": "us-east-2b",
+     "CidrBlock": "10.41.201.0/24",
+     "OwnerId": "111122223333",
+     "SubnetId": "subnet-01400000000000001",
+     "Tags": [
+      {
+       "Key": "Name",
+       "Value": "encabulator-use2-public-us-east-2b"
+      },
+      {
+       "Key": "kubernetes.io/role/elb",
+       "Value": "1"
+      },
+      {
+       "Key": "auto-delete",
+       "Value": "no"
+      },
+      {
+       "Key": "project",
+       "Value": "encabulator"
+      },
+      {
+       "Key": "talk",
+       "Value": "opn315"
+      }
+     ],
+     "VpcId": "vpc-010000000000000001"
+    },
+    {
+     "AvailabilityZone": "us-east-2c",
+     "CidrBlock": "10.41.202.0/24",
+     "OwnerId": "111122223333",
+     "SubnetId": "subnet-01500000000000001",
+     "Tags": [
+      {
+       "Key": "Name",
+       "Value": "encabulator-use2-public-us-east-2c"
+      },
+      {
+       "Key": "kubernetes.io/role/elb",
+       "Value": "1"
+      },
+      {
+       "Key": "auto-delete",
+       "Value": "no"
+      },
+      {
+       "Key": "project",
+       "Value": "encabulator"
+      },
+      {
+       "Key": "talk",
+       "Value": "opn315"
+      }
+     ],
+     "VpcId": "vpc-010000000000000001"
+    }
+   ]
+  },
+  "ec2 describe-subnets --region us-west-2 --filters Name=vpc-id,Values=vpc-000000000000000001": {
+   "Subnets": [
+    {
+     "AvailabilityZone": "us-west-2a",
+     "CidrBlock": "10.40.0.0/19",
+     "OwnerId": "111122223333",
+     "SubnetId": "subnet-00000000000000001",
+     "Tags": [
+      {
+       "Key": "Name",
+       "Value": "encabulator-usw2-private-us-west-2a"
+      },
+      {
+       "Key": "kubernetes.io/role/internal-elb",
+       "Value": "1"
+      },
+      {
+       "Key": "auto-delete",
+       "Value": "no"
+      },
+      {
+       "Key": "project",
+       "Value": "encabulator"
+      },
+      {
+       "Key": "talk",
+       "Value": "opn315"
+      }
+     ],
+     "VpcId": "vpc-000000000000000001"
+    },
+    {
+     "AvailabilityZone": "us-west-2b",
+     "CidrBlock": "10.40.32.0/19",
+     "OwnerId": "111122223333",
+     "SubnetId": "subnet-00100000000000001",
+     "Tags": [
+      {
+       "Key": "Name",
+       "Value": "encabulator-usw2-private-us-west-2b"
+      },
+      {
+       "Key": "kubernetes.io/role/internal-elb",
+       "Value": "1"
+      },
+      {
+       "Key": "auto-delete",
+       "Value": "no"
+      },
+      {
+       "Key": "project",
+       "Value": "encabulator"
+      },
+      {
+       "Key": "talk",
+       "Value": "opn315"
+      }
+     ],
+     "VpcId": "vpc-000000000000000001"
+    },
+    {
+     "AvailabilityZone": "us-west-2c",
+     "CidrBlock": "10.40.64.0/19",
+     "OwnerId": "111122223333",
+     "SubnetId": "subnet-00200000000000001",
+     "Tags": [
+      {
+       "Key": "Name",
+       "Value": "encabulator-usw2-private-us-west-2c"
+      },
+      {
+       "Key": "kubernetes.io/role/internal-elb",
+       "Value": "1"
+      },
+      {
+       "Key": "auto-delete",
+       "Value": "no"
+      },
+      {
+       "Key": "project",
+       "Value": "encabulator"
+      },
+      {
+       "Key": "talk",
+       "Value": "opn315"
+      }
+     ],
+     "VpcId": "vpc-000000000000000001"
+    },
+    {
+     "AvailabilityZone": "us-west-2a",
+     "CidrBlock": "10.40.200.0/24",
+     "OwnerId": "111122223333",
+     "SubnetId": "subnet-00300000000000001",
+     "Tags": [
+      {
+       "Key": "Name",
+       "Value": "encabulator-usw2-public-us-west-2a"
+      },
+      {
+       "Key": "kubernetes.io/role/elb",
+       "Value": "1"
+      },
+      {
+       "Key": "auto-delete",
+       "Value": "no"
+      },
+      {
+       "Key": "project",
+       "Value": "encabulator"
+      },
+      {
+       "Key": "talk",
+       "Value": "opn315"
+      }
+     ],
+     "VpcId": "vpc-000000000000000001"
+    },
+    {
+     "AvailabilityZone": "us-west-2b",
+     "CidrBlock": "10.40.201.0/24",
+     "OwnerId": "111122223333",
+     "SubnetId": "subnet-00400000000000001",
+     "Tags": [
+      {
+       "Key": "Name",
+       "Value": "encabulator-usw2-public-us-west-2b"
+      },
+      {
+       "Key": "kubernetes.io/role/elb",
+       "Value": "1"
+      },
+      {
+       "Key": "auto-delete",
+       "Value": "no"
+      },
+      {
+       "Key": "project",
+       "Value": "encabulator"
+      },
+      {
+       "Key": "talk",
+       "Value": "opn315"
+      }
+     ],
+     "VpcId": "vpc-000000000000000001"
+    },
+    {
+     "AvailabilityZone": "us-west-2c",
+     "CidrBlock": "10.40.202.0/24",
+     "OwnerId": "111122223333",
+     "SubnetId": "subnet-00500000000000001",
+     "Tags": [
+      {
+       "Key": "Name",
+       "Value": "encabulator-usw2-public-us-west-2c"
+      },
+      {
+       "Key": "kubernetes.io/role/elb",
+       "Value": "1"
+      },
+      {
+       "Key": "auto-delete",
+       "Value": "no"
+      },
+      {
+       "Key": "project",
+       "Value": "encabulator"
+      },
+      {
+       "Key": "talk",
+       "Value": "opn315"
+      }
+     ],
+     "VpcId": "vpc-000000000000000001"
+    }
+   ]
+  },
+  "ec2 describe-volumes --region us-east-2 --include-managed-resources --filters Name=attachment.instance-id,Values=i-01000000000000001,i-01000000000000002": {
+   "Volumes": [
+    {
+     "Attachments": [
+      {
+       "InstanceId": "i-01000000000000001",
+       "State": "attached"
+      }
+     ],
+     "Size": 20,
+     "State": "in-use",
+     "Tags": [
+      {
+       "Key": "eks:eks-cluster-name",
+       "Value": "encabulator-use2"
+      },
+      {
+       "Key": "eks:kubernetes-node-class-name",
+       "Value": "encabulator"
+      },
+      {
+       "Key": "auto-delete",
+       "Value": "no"
+      },
+      {
+       "Key": "project",
+       "Value": "encabulator"
+      },
+      {
+       "Key": "talk",
+       "Value": "opn315"
+      }
+     ],
+     "VolumeId": "vol-01000000000000001"
+    },
+    {
+     "Attachments": [
+      {
+       "InstanceId": "i-01000000000000002",
+       "State": "attached"
+      }
+     ],
+     "Size": 20,
+     "State": "in-use",
+     "Tags": [
+      {
+       "Key": "eks:eks-cluster-name",
+       "Value": "encabulator-use2"
+      },
+      {
+       "Key": "eks:kubernetes-node-class-name",
+       "Value": "encabulator"
+      },
+      {
+       "Key": "auto-delete",
+       "Value": "no"
+      },
+      {
+       "Key": "project",
+       "Value": "encabulator"
+      },
+      {
+       "Key": "talk",
+       "Value": "opn315"
+      }
+     ],
+     "VolumeId": "vol-01000000000000002"
+    },
+    {
+     "Attachments": [
+      {
+       "InstanceId": "i-01000000000000001",
+       "State": "attached"
+      }
+     ],
+     "Size": 8,
+     "State": "in-use",
+     "Tags": [
+      {
+       "Key": "eks:eks-cluster-name",
+       "Value": "encabulator-use2"
+      },
+      {
+       "Key": "kubernetes.io/created-for/pvc/name",
+       "Value": "data-nats-0"
+      },
+      {
+       "Key": "auto-delete",
+       "Value": "no"
+      },
+      {
+       "Key": "project",
+       "Value": "encabulator"
+      },
+      {
+       "Key": "talk",
+       "Value": "opn315"
+      }
+     ],
+     "VolumeId": "vol-0100000000000000a"
+    },
+    {
+     "Attachments": [
+      {
+       "InstanceId": "i-01000000000000002",
+       "State": "attached"
+      }
+     ],
+     "Size": 16,
+     "State": "in-use",
+     "Tags": [
+      {
+       "Key": "eks:eks-cluster-name",
+       "Value": "encabulator-use2"
+      },
+      {
+       "Key": "kubernetes.io/created-for/pvc/name",
+       "Value": "data-influxdb-0"
+      },
+      {
+       "Key": "auto-delete",
+       "Value": "no"
+      },
+      {
+       "Key": "project",
+       "Value": "encabulator"
+      },
+      {
+       "Key": "talk",
+       "Value": "opn315"
+      }
+     ],
+     "VolumeId": "vol-0100000000000001a"
+    }
+   ]
+  },
+  "ec2 describe-volumes --region us-east-2 --include-managed-resources --filters Name=tag:eks:eks-cluster-name,Values=encabulator-use2": {
+   "Volumes": [
+    {
+     "Attachments": [
+      {
+       "InstanceId": "i-01000000000000001",
+       "State": "attached"
+      }
+     ],
+     "Size": 20,
+     "State": "in-use",
+     "Tags": [
+      {
+       "Key": "eks:eks-cluster-name",
+       "Value": "encabulator-use2"
+      },
+      {
+       "Key": "eks:kubernetes-node-class-name",
+       "Value": "encabulator"
+      },
+      {
+       "Key": "auto-delete",
+       "Value": "no"
+      },
+      {
+       "Key": "project",
+       "Value": "encabulator"
+      },
+      {
+       "Key": "talk",
+       "Value": "opn315"
+      }
+     ],
+     "VolumeId": "vol-01000000000000001"
+    },
+    {
+     "Attachments": [
+      {
+       "InstanceId": "i-01000000000000002",
+       "State": "attached"
+      }
+     ],
+     "Size": 20,
+     "State": "in-use",
+     "Tags": [
+      {
+       "Key": "eks:eks-cluster-name",
+       "Value": "encabulator-use2"
+      },
+      {
+       "Key": "eks:kubernetes-node-class-name",
+       "Value": "encabulator"
+      },
+      {
+       "Key": "auto-delete",
+       "Value": "no"
+      },
+      {
+       "Key": "project",
+       "Value": "encabulator"
+      },
+      {
+       "Key": "talk",
+       "Value": "opn315"
+      }
+     ],
+     "VolumeId": "vol-01000000000000002"
+    },
+    {
+     "Attachments": [
+      {
+       "InstanceId": "i-01000000000000001",
+       "State": "attached"
+      }
+     ],
+     "Size": 8,
+     "State": "in-use",
+     "Tags": [
+      {
+       "Key": "eks:eks-cluster-name",
+       "Value": "encabulator-use2"
+      },
+      {
+       "Key": "kubernetes.io/created-for/pvc/name",
+       "Value": "data-nats-0"
+      },
+      {
+       "Key": "auto-delete",
+       "Value": "no"
+      },
+      {
+       "Key": "project",
+       "Value": "encabulator"
+      },
+      {
+       "Key": "talk",
+       "Value": "opn315"
+      }
+     ],
+     "VolumeId": "vol-0100000000000000a"
+    },
+    {
+     "Attachments": [
+      {
+       "InstanceId": "i-01000000000000002",
+       "State": "attached"
+      }
+     ],
+     "Size": 16,
+     "State": "in-use",
+     "Tags": [
+      {
+       "Key": "eks:eks-cluster-name",
+       "Value": "encabulator-use2"
+      },
+      {
+       "Key": "kubernetes.io/created-for/pvc/name",
+       "Value": "data-influxdb-0"
+      },
+      {
+       "Key": "auto-delete",
+       "Value": "no"
+      },
+      {
+       "Key": "project",
+       "Value": "encabulator"
+      },
+      {
+       "Key": "talk",
+       "Value": "opn315"
+      }
+     ],
+     "VolumeId": "vol-0100000000000001a"
+    },
+    {
+     "Attachments": [],
+     "Size": 8,
+     "State": "available",
+     "Tags": [
+      {
+       "Key": "eks:eks-cluster-name",
+       "Value": "encabulator-use2"
+      },
+      {
+       "Key": "kubernetes.io/created-for/pvc/name",
+       "Value": "data-nats-1"
+      },
+      {
+       "Key": "auto-delete",
+       "Value": "no"
+      },
+      {
+       "Key": "project",
+       "Value": "encabulator"
+      },
+      {
+       "Key": "talk",
+       "Value": "opn315"
+      }
+     ],
+     "VolumeId": "vol-010000000000000ff"
+    }
+   ]
+  },
+  "ec2 describe-volumes --region us-west-2 --include-managed-resources --filters Name=attachment.instance-id,Values=i-00000000000000001,i-00000000000000002": {
+   "Volumes": [
+    {
+     "Attachments": [
+      {
+       "InstanceId": "i-00000000000000001",
+       "State": "attached"
+      }
+     ],
+     "Size": 20,
+     "State": "in-use",
+     "Tags": [
+      {
+       "Key": "eks:eks-cluster-name",
+       "Value": "encabulator-usw2"
+      },
+      {
+       "Key": "eks:kubernetes-node-class-name",
+       "Value": "encabulator"
+      },
+      {
+       "Key": "auto-delete",
+       "Value": "no"
+      },
+      {
+       "Key": "project",
+       "Value": "encabulator"
+      },
+      {
+       "Key": "talk",
+       "Value": "opn315"
+      }
+     ],
+     "VolumeId": "vol-00000000000000001"
+    },
+    {
+     "Attachments": [
+      {
+       "InstanceId": "i-00000000000000002",
+       "State": "attached"
+      }
+     ],
+     "Size": 20,
+     "State": "in-use",
+     "Tags": [
+      {
+       "Key": "eks:eks-cluster-name",
+       "Value": "encabulator-usw2"
+      },
+      {
+       "Key": "eks:kubernetes-node-class-name",
+       "Value": "encabulator"
+      },
+      {
+       "Key": "auto-delete",
+       "Value": "no"
+      },
+      {
+       "Key": "project",
+       "Value": "encabulator"
+      },
+      {
+       "Key": "talk",
+       "Value": "opn315"
+      }
+     ],
+     "VolumeId": "vol-00000000000000002"
+    },
+    {
+     "Attachments": [
+      {
+       "InstanceId": "i-00000000000000001",
+       "State": "attached"
+      }
+     ],
+     "Size": 8,
+     "State": "in-use",
+     "Tags": [
+      {
+       "Key": "eks:eks-cluster-name",
+       "Value": "encabulator-usw2"
+      },
+      {
+       "Key": "kubernetes.io/created-for/pvc/name",
+       "Value": "data-nats-0"
+      },
+      {
+       "Key": "auto-delete",
+       "Value": "no"
+      },
+      {
+       "Key": "project",
+       "Value": "encabulator"
+      },
+      {
+       "Key": "talk",
+       "Value": "opn315"
+      }
+     ],
+     "VolumeId": "vol-0000000000000000a"
+    },
+    {
+     "Attachments": [
+      {
+       "InstanceId": "i-00000000000000002",
+       "State": "attached"
+      }
+     ],
+     "Size": 16,
+     "State": "in-use",
+     "Tags": [
+      {
+       "Key": "eks:eks-cluster-name",
+       "Value": "encabulator-usw2"
+      },
+      {
+       "Key": "kubernetes.io/created-for/pvc/name",
+       "Value": "data-influxdb-0"
+      },
+      {
+       "Key": "auto-delete",
+       "Value": "no"
+      },
+      {
+       "Key": "project",
+       "Value": "encabulator"
+      },
+      {
+       "Key": "talk",
+       "Value": "opn315"
+      }
+     ],
+     "VolumeId": "vol-0000000000000001a"
+    }
+   ]
+  },
+  "ec2 describe-volumes --region us-west-2 --include-managed-resources --filters Name=tag:eks:eks-cluster-name,Values=encabulator-usw2": {
+   "Volumes": [
+    {
+     "Attachments": [
+      {
+       "InstanceId": "i-00000000000000001",
+       "State": "attached"
+      }
+     ],
+     "Size": 20,
+     "State": "in-use",
+     "Tags": [
+      {
+       "Key": "eks:eks-cluster-name",
+       "Value": "encabulator-usw2"
+      },
+      {
+       "Key": "eks:kubernetes-node-class-name",
+       "Value": "encabulator"
+      },
+      {
+       "Key": "auto-delete",
+       "Value": "no"
+      },
+      {
+       "Key": "project",
+       "Value": "encabulator"
+      },
+      {
+       "Key": "talk",
+       "Value": "opn315"
+      }
+     ],
+     "VolumeId": "vol-00000000000000001"
+    },
+    {
+     "Attachments": [
+      {
+       "InstanceId": "i-00000000000000002",
+       "State": "attached"
+      }
+     ],
+     "Size": 20,
+     "State": "in-use",
+     "Tags": [
+      {
+       "Key": "eks:eks-cluster-name",
+       "Value": "encabulator-usw2"
+      },
+      {
+       "Key": "eks:kubernetes-node-class-name",
+       "Value": "encabulator"
+      },
+      {
+       "Key": "auto-delete",
+       "Value": "no"
+      },
+      {
+       "Key": "project",
+       "Value": "encabulator"
+      },
+      {
+       "Key": "talk",
+       "Value": "opn315"
+      }
+     ],
+     "VolumeId": "vol-00000000000000002"
+    },
+    {
+     "Attachments": [
+      {
+       "InstanceId": "i-00000000000000001",
+       "State": "attached"
+      }
+     ],
+     "Size": 8,
+     "State": "in-use",
+     "Tags": [
+      {
+       "Key": "eks:eks-cluster-name",
+       "Value": "encabulator-usw2"
+      },
+      {
+       "Key": "kubernetes.io/created-for/pvc/name",
+       "Value": "data-nats-0"
+      },
+      {
+       "Key": "auto-delete",
+       "Value": "no"
+      },
+      {
+       "Key": "project",
+       "Value": "encabulator"
+      },
+      {
+       "Key": "talk",
+       "Value": "opn315"
+      }
+     ],
+     "VolumeId": "vol-0000000000000000a"
+    },
+    {
+     "Attachments": [
+      {
+       "InstanceId": "i-00000000000000002",
+       "State": "attached"
+      }
+     ],
+     "Size": 16,
+     "State": "in-use",
+     "Tags": [
+      {
+       "Key": "eks:eks-cluster-name",
+       "Value": "encabulator-usw2"
+      },
+      {
+       "Key": "kubernetes.io/created-for/pvc/name",
+       "Value": "data-influxdb-0"
+      },
+      {
+       "Key": "auto-delete",
+       "Value": "no"
+      },
+      {
+       "Key": "project",
+       "Value": "encabulator"
+      },
+      {
+       "Key": "talk",
+       "Value": "opn315"
+      }
+     ],
+     "VolumeId": "vol-0000000000000001a"
+    },
+    {
+     "Attachments": [],
+     "Size": 8,
+     "State": "available",
+     "Tags": [
+      {
+       "Key": "eks:eks-cluster-name",
+       "Value": "encabulator-usw2"
+      },
+      {
+       "Key": "kubernetes.io/created-for/pvc/name",
+       "Value": "data-nats-1"
+      },
+      {
+       "Key": "auto-delete",
+       "Value": "no"
+      },
+      {
+       "Key": "project",
+       "Value": "encabulator"
+      },
+      {
+       "Key": "talk",
+       "Value": "opn315"
+      }
+     ],
+     "VolumeId": "vol-000000000000000ff"
+    }
+   ]
+  },
+  "ec2 describe-vpc-endpoints --region us-east-2 --filters Name=vpc-id,Values=vpc-010000000000000001": {
+   "VpcEndpoints": [
+    {
+     "VpcEndpointId": "vpce-01000000000000001",
+     "VpcEndpointType": "Interface",
+     "VpcId": "vpc-010000000000000001",
+     "State": "available",
+     "ServiceName": "com.amazonaws.elasticache.serverless.us-east-2.vpce-svc-0use20000000000001",
+     "RequesterManaged": true,
+     "Tags": [
+      {
+       "Key": "AmazonElastiCacheManaged",
+       "Value": "true"
+      },
+      {
+       "Key": "auto-delete",
+       "Value": "no"
+      },
+      {
+       "Key": "project",
+       "Value": "encabulator"
+      },
+      {
+       "Key": "talk",
+       "Value": "opn315"
+      }
+     ]
+    },
+    {
+     "VpcEndpointId": "vpce-010000000000000dd",
+     "VpcEndpointType": "Interface",
+     "VpcId": "vpc-010000000000000001",
+     "State": "deleted",
+     "ServiceName": "com.amazonaws.elasticache.serverless.us-east-2.vpce-svc-0use200000000000dd",
+     "RequesterManaged": true,
+     "Tags": [
+      {
+       "Key": "AmazonElastiCacheManaged",
+       "Value": "true"
+      }
+     ]
+    }
+   ]
+  },
+  "ec2 describe-vpc-endpoints --region us-west-2 --filters Name=vpc-id,Values=vpc-000000000000000001": {
+   "VpcEndpoints": [
+    {
+     "VpcEndpointId": "vpce-00000000000000001",
+     "VpcEndpointType": "Interface",
+     "VpcId": "vpc-000000000000000001",
+     "State": "available",
+     "ServiceName": "com.amazonaws.elasticache.serverless.us-west-2.vpce-svc-0usw20000000000001",
+     "RequesterManaged": true,
+     "Tags": [
+      {
+       "Key": "AmazonElastiCacheManaged",
+       "Value": "true"
+      },
+      {
+       "Key": "auto-delete",
+       "Value": "no"
+      },
+      {
+       "Key": "project",
+       "Value": "encabulator"
+      },
+      {
+       "Key": "talk",
+       "Value": "opn315"
+      }
+     ]
+    },
+    {
+     "VpcEndpointId": "vpce-000000000000000dd",
+     "VpcEndpointType": "Interface",
+     "VpcId": "vpc-000000000000000001",
+     "State": "deleted",
+     "ServiceName": "com.amazonaws.elasticache.serverless.us-west-2.vpce-svc-0usw200000000000dd",
+     "RequesterManaged": true,
+     "Tags": [
+      {
+       "Key": "AmazonElastiCacheManaged",
+       "Value": "true"
+      }
+     ]
+    }
+   ]
+  },
+  "ec2 describe-vpcs --region us-east-2 --filters Name=tag:Name,Values=encabulator-use2": {
+   "Vpcs": [
+    {
+     "CidrBlock": "10.41.0.0/16",
+     "DhcpOptionsId": "dopt-0000000000000000a",
+     "IsDefault": false,
+     "OwnerId": "111122223333",
+     "State": "available",
+     "Tags": [
+      {
+       "Key": "Name",
+       "Value": "encabulator-use2"
+      },
+      {
+       "Key": "auto-delete",
+       "Value": "no"
+      },
+      {
+       "Key": "project",
+       "Value": "encabulator"
+      },
+      {
+       "Key": "talk",
+       "Value": "opn315"
+      }
+     ],
+     "VpcId": "vpc-010000000000000001"
+    }
+   ]
+  },
+  "ec2 describe-vpcs --region us-west-2 --filters Name=tag:Name,Values=encabulator-usw2": {
+   "Vpcs": [
+    {
+     "CidrBlock": "10.40.0.0/16",
+     "DhcpOptionsId": "dopt-0000000000000000a",
+     "IsDefault": false,
+     "OwnerId": "111122223333",
+     "State": "available",
+     "Tags": [
+      {
+       "Key": "Name",
+       "Value": "encabulator-usw2"
+      },
+      {
+       "Key": "auto-delete",
+       "Value": "no"
+      },
+      {
+       "Key": "project",
+       "Value": "encabulator"
+      },
+      {
+       "Key": "talk",
+       "Value": "opn315"
+      }
+     ],
+     "VpcId": "vpc-000000000000000001"
+    }
+   ]
+  },
+  "ecr describe-repositories --region us-east-2": {
+   "repositories": []
+  },
+  "ecr describe-repositories --region us-west-2": {
+   "repositories": [
+    {
+     "encryptionConfiguration": {
+      "encryptionType": "AES256"
+     },
+     "imageTagMutability": "MUTABLE",
+     "registryId": "111122223333",
+     "repositoryArn": "arn:aws:ecr:us-west-2:111122223333:repository/encabulator/dingle-arm-gateway",
+     "repositoryName": "encabulator/dingle-arm-gateway",
+     "repositoryUri": "111122223333.dkr.ecr.us-west-2.amazonaws.com/encabulator/dingle-arm-gateway"
+    },
+    {
+     "encryptionConfiguration": {
+      "encryptionType": "AES256"
+     },
+     "imageTagMutability": "MUTABLE",
+     "registryId": "111122223333",
+     "repositoryArn": "arn:aws:ecr:us-west-2:111122223333:repository/encabulator/spurving-bearing-quoter",
+     "repositoryName": "encabulator/spurving-bearing-quoter",
+     "repositoryUri": "111122223333.dkr.ecr.us-west-2.amazonaws.com/encabulator/spurving-bearing-quoter"
+    },
+    {
+     "encryptionConfiguration": {
+      "encryptionType": "AES256"
+     },
+     "imageTagMutability": "MUTABLE",
+     "registryId": "111122223333",
+     "repositoryArn": "arn:aws:ecr:us-west-2:111122223333:repository/other-team/unrelated-app",
+     "repositoryName": "other-team/unrelated-app",
+     "repositoryUri": "111122223333.dkr.ecr.us-west-2.amazonaws.com/other-team/unrelated-app"
+    }
+   ]
+  },
+  "ecr list-tags-for-resource --region us-west-2 --resource-arn arn:aws:ecr:us-west-2:111122223333:repository/encabulator/dingle-arm-gateway": {
+   "tags": [
+    {
+     "Key": "auto-delete",
+     "Value": "no"
+    },
+    {
+     "Key": "project",
+     "Value": "encabulator"
+    },
+    {
+     "Key": "talk",
+     "Value": "opn315"
+    }
+   ]
+  },
+  "ecr list-tags-for-resource --region us-west-2 --resource-arn arn:aws:ecr:us-west-2:111122223333:repository/encabulator/spurving-bearing-quoter": {
+   "tags": [
+    {
+     "Key": "auto-delete",
+     "Value": "no"
+    },
+    {
+     "Key": "project",
+     "Value": "encabulator"
+    },
+    {
+     "Key": "talk",
+     "Value": "opn315"
+    }
+   ]
+  },
+  "eks describe-access-entry --region us-east-2 --cluster-name encabulator-use2 --principal-arn arn:aws:iam::111122223333:role/encabulator-use2-ack": {
+   "accessEntry": {
+    "clusterName": "encabulator-use2",
+    "principalArn": "arn:aws:iam::111122223333:role/encabulator-use2-ack",
+    "tags": {
+     "auto-delete": "no",
+     "project": "encabulator",
+     "talk": "opn315"
+    },
+    "type": "STANDARD"
+   }
+  },
+  "eks describe-access-entry --region us-east-2 --cluster-name encabulator-use2 --principal-arn arn:aws:iam::111122223333:role/encabulator-use2-kro": {
+   "accessEntry": {
+    "clusterName": "encabulator-use2",
+    "principalArn": "arn:aws:iam::111122223333:role/encabulator-use2-kro",
+    "tags": {
+     "auto-delete": "no",
+     "project": "encabulator",
+     "talk": "opn315"
+    },
+    "type": "STANDARD"
+   }
+  },
+  "eks describe-access-entry --region us-east-2 --cluster-name encabulator-use2 --principal-arn arn:aws:iam::111122223333:role/encabulator-use2-node": {
+   "accessEntry": {
+    "clusterName": "encabulator-use2",
+    "principalArn": "arn:aws:iam::111122223333:role/encabulator-use2-node",
+    "tags": {
+     "auto-delete": "no",
+     "project": "encabulator",
+     "talk": "opn315"
+    },
+    "type": "EC2"
+   }
+  },
+  "eks describe-access-entry --region us-east-2 --cluster-name encabulator-use2 --principal-arn arn:aws:iam::111122223333:role/encabulator-usw2-argocd": {
+   "accessEntry": {
+    "clusterName": "encabulator-use2",
+    "principalArn": "arn:aws:iam::111122223333:role/encabulator-usw2-argocd",
+    "tags": {
+     "auto-delete": "no",
+     "project": "encabulator",
+     "talk": "opn315"
+    },
+    "type": "STANDARD"
+   }
+  },
+  "eks describe-access-entry --region us-west-2 --cluster-name encabulator-usw2 --principal-arn arn:aws:iam::111122223333:role/Admin": {
+   "accessEntry": {
+    "clusterName": "encabulator-usw2",
+    "principalArn": "arn:aws:iam::111122223333:role/Admin",
+    "tags": {
+     "auto-delete": "no",
+     "project": "encabulator",
+     "talk": "opn315"
+    },
+    "type": "STANDARD"
+   }
+  },
+  "eks describe-access-entry --region us-west-2 --cluster-name encabulator-usw2 --principal-arn arn:aws:iam::111122223333:role/encabulator-usw2-ack": {
+   "accessEntry": {
+    "clusterName": "encabulator-usw2",
+    "principalArn": "arn:aws:iam::111122223333:role/encabulator-usw2-ack",
+    "tags": {
+     "auto-delete": "no",
+     "project": "encabulator",
+     "talk": "opn315"
+    },
+    "type": "STANDARD"
+   }
+  },
+  "eks describe-access-entry --region us-west-2 --cluster-name encabulator-usw2 --principal-arn arn:aws:iam::111122223333:role/encabulator-usw2-argocd": {
+   "accessEntry": {
+    "clusterName": "encabulator-usw2",
+    "principalArn": "arn:aws:iam::111122223333:role/encabulator-usw2-argocd",
+    "tags": {
+     "auto-delete": "no",
+     "project": "encabulator",
+     "talk": "opn315"
+    },
+    "type": "STANDARD"
+   }
+  },
+  "eks describe-access-entry --region us-west-2 --cluster-name encabulator-usw2 --principal-arn arn:aws:iam::111122223333:role/encabulator-usw2-kro": {
+   "accessEntry": {
+    "clusterName": "encabulator-usw2",
+    "principalArn": "arn:aws:iam::111122223333:role/encabulator-usw2-kro",
+    "tags": {
+     "auto-delete": "no",
+     "project": "encabulator",
+     "talk": "opn315"
+    },
+    "type": "STANDARD"
+   }
+  },
+  "eks describe-access-entry --region us-west-2 --cluster-name encabulator-usw2 --principal-arn arn:aws:iam::111122223333:role/encabulator-usw2-node": {
+   "accessEntry": {
+    "clusterName": "encabulator-usw2",
+    "principalArn": "arn:aws:iam::111122223333:role/encabulator-usw2-node",
+    "tags": {
+     "auto-delete": "no",
+     "project": "encabulator",
+     "talk": "opn315"
+    },
+    "type": "EC2"
+   }
+  },
+  "eks describe-capability --region us-east-2 --cluster-name encabulator-use2 --capability-name encabulator-use2-ack": {
+   "capability": {
+    "capabilityName": "encabulator-use2-ack",
+    "clusterName": "encabulator-use2",
+    "status": "ACTIVE",
+    "tags": {
+     "auto-delete": "no",
+     "project": "encabulator",
+     "talk": "opn315"
+    },
+    "type": "ACK"
+   }
+  },
+  "eks describe-capability --region us-east-2 --cluster-name encabulator-use2 --capability-name encabulator-use2-kro": {
+   "capability": {
+    "capabilityName": "encabulator-use2-kro",
+    "clusterName": "encabulator-use2",
+    "status": "ACTIVE",
+    "tags": {
+     "auto-delete": "no",
+     "project": "encabulator",
+     "talk": "opn315"
+    },
+    "type": "KRO"
+   }
+  },
+  "eks describe-capability --region us-west-2 --cluster-name encabulator-usw2 --capability-name ack": {
+   "capability": {
+    "capabilityName": "ack",
+    "clusterName": "encabulator-usw2",
+    "status": "ACTIVE",
+    "tags": {
+     "auto-delete": "no",
+     "project": "encabulator",
+     "talk": "opn315"
+    },
+    "type": "ACK"
+   }
+  },
+  "eks describe-capability --region us-west-2 --cluster-name encabulator-usw2 --capability-name argocd": {
+   "capability": {
+    "capabilityName": "argocd",
+    "clusterName": "encabulator-usw2",
+    "status": "ACTIVE",
+    "tags": {
+     "auto-delete": "no",
+     "project": "encabulator",
+     "talk": "opn315"
+    },
+    "type": "ARGOCD"
+   }
+  },
+  "eks describe-capability --region us-west-2 --cluster-name encabulator-usw2 --capability-name kro": {
+   "capability": {
+    "capabilityName": "kro",
+    "clusterName": "encabulator-usw2",
+    "status": "ACTIVE",
+    "tags": {
+     "auto-delete": "no",
+     "project": "encabulator",
+     "talk": "opn315"
+    },
+    "type": "KRO"
+   }
+  },
+  "eks describe-cluster --region us-east-2 --name encabulator-use2": {
+   "cluster": {
+    "arn": "arn:aws:eks:us-east-2:111122223333:cluster/encabulator-use2",
+    "name": "encabulator-use2",
+    "resourcesVpcConfig": {
+     "clusterSecurityGroupId": "sg-01000000000000002",
+     "vpcId": "vpc-010000000000000001"
+    },
+    "status": "ACTIVE",
+    "tags": {
+     "auto-delete": "no",
+     "project": "encabulator",
+     "talk": "opn315"
+    },
+    "version": "1.37"
+   }
+  },
+  "eks describe-cluster --region us-west-2 --name encabulator-usw2": {
+   "cluster": {
+    "arn": "arn:aws:eks:us-west-2:111122223333:cluster/encabulator-usw2",
+    "name": "encabulator-usw2",
+    "resourcesVpcConfig": {
+     "clusterSecurityGroupId": "sg-00000000000000002",
+     "vpcId": "vpc-000000000000000001"
+    },
+    "status": "ACTIVE",
+    "tags": {
+     "auto-delete": "no",
+     "project": "encabulator",
+     "talk": "opn315"
+    },
+    "version": "1.37"
+   }
+  },
+  "eks describe-pod-identity-association --region us-west-2 --cluster-name encabulator-usw2 --association-id a-0tagger000000001": {
+   "association": {
+    "associationId": "a-0tagger000000001",
+    "clusterName": "encabulator-usw2",
+    "namespace": "encabulator-tagger",
+    "serviceAccount": "encabulator-tagger",
+    "tags": {
+     "auto-delete": "no",
+     "project": "encabulator",
+     "talk": "opn315"
+    }
+   }
+  },
+  "eks list-access-entries --region us-east-2 --cluster-name encabulator-use2": {
+   "accessEntries": [
+    "arn:aws:iam::111122223333:role/encabulator-use2-node",
+    "arn:aws:iam::111122223333:role/encabulator-use2-ack",
+    "arn:aws:iam::111122223333:role/encabulator-use2-kro",
+    "arn:aws:iam::111122223333:role/encabulator-usw2-argocd"
+   ]
+  },
+  "eks list-access-entries --region us-west-2 --cluster-name encabulator-usw2": {
+   "accessEntries": [
+    "arn:aws:iam::111122223333:role/Admin",
+    "arn:aws:iam::111122223333:role/encabulator-usw2-node",
+    "arn:aws:iam::111122223333:role/encabulator-usw2-argocd",
+    "arn:aws:iam::111122223333:role/encabulator-usw2-ack",
+    "arn:aws:iam::111122223333:role/encabulator-usw2-kro"
+   ]
+  },
+  "eks list-capabilities --region us-east-2 --cluster-name encabulator-use2": {
+   "capabilities": [
+    {
+     "arn": "arn:aws:eks:us-east-2:111122223333:capability/encabulator-use2/encabulator-use2-ack/abc",
+     "capabilityName": "encabulator-use2-ack",
+     "status": "ACTIVE",
+     "type": "ACK"
+    },
+    {
+     "arn": "arn:aws:eks:us-east-2:111122223333:capability/encabulator-use2/encabulator-use2-kro/abc",
+     "capabilityName": "encabulator-use2-kro",
+     "status": "ACTIVE",
+     "type": "KRO"
+    }
+   ]
+  },
+  "eks list-capabilities --region us-west-2 --cluster-name encabulator-usw2": {
+   "capabilities": [
+    {
+     "arn": "arn:aws:eks:us-west-2:111122223333:capability/encabulator-usw2/argocd/abc",
+     "capabilityName": "argocd",
+     "status": "ACTIVE",
+     "type": "ARGOCD"
+    },
+    {
+     "arn": "arn:aws:eks:us-west-2:111122223333:capability/encabulator-usw2/ack/abc",
+     "capabilityName": "ack",
+     "status": "ACTIVE",
+     "type": "ACK"
+    },
+    {
+     "arn": "arn:aws:eks:us-west-2:111122223333:capability/encabulator-usw2/kro/abc",
+     "capabilityName": "kro",
+     "status": "ACTIVE",
+     "type": "KRO"
+    }
+   ]
+  },
+  "eks list-pod-identity-associations --region us-east-2 --cluster-name encabulator-use2": {
+   "associations": []
+  },
+  "eks list-pod-identity-associations --region us-west-2 --cluster-name encabulator-usw2": {
+   "associations": [
+    {
+     "associationId": "a-0tagger000000001",
+     "clusterName": "encabulator-usw2",
+     "namespace": "encabulator-tagger",
+     "serviceAccount": "encabulator-tagger"
+    }
+   ]
+  },
+  "elasticache describe-serverless-cache-snapshots --region us-east-2 --serverless-cache-name encabulator-valkey": {
+   "ServerlessCacheSnapshots": [
+    {
+     "ARN": "arn:aws:elasticache:us-east-2:111122223333:serverlesscachesnapshot:encabulator-valkey-2026-10-12-09-00",
+     "ServerlessCacheSnapshotName": "encabulator-valkey-2026-10-12-09-00",
+     "SnapshotType": "automatic",
+     "Status": "available"
+    }
+   ]
+  },
+  "elasticache describe-serverless-cache-snapshots --region us-west-2 --serverless-cache-name encabulator-valkey": {
+   "ServerlessCacheSnapshots": [
+    {
+     "ARN": "arn:aws:elasticache:us-west-2:111122223333:serverlesscachesnapshot:encabulator-valkey-2026-10-12-09-00",
+     "ServerlessCacheSnapshotName": "encabulator-valkey-2026-10-12-09-00",
+     "SnapshotType": "automatic",
+     "Status": "available"
+    }
+   ]
+  },
+  "elasticache describe-serverless-caches --region us-east-2": {
+   "ServerlessCaches": [
+    {
+     "ARN": "arn:aws:elasticache:us-east-2:111122223333:serverlesscache:encabulator-valkey",
+     "Engine": "valkey",
+     "SecurityGroupIds": [
+      "sg-01000000000000003"
+     ],
+     "ServerlessCacheName": "encabulator-valkey",
+     "Status": "available",
+     "SubnetIds": [
+      "subnet-01000000000000001",
+      "subnet-01100000000000001",
+      "subnet-01200000000000001"
+     ]
+    },
+    {
+     "ARN": "arn:aws:elasticache:us-east-2:111122223333:serverlesscache:unrelated-cache",
+     "Engine": "redis",
+     "ServerlessCacheName": "unrelated-cache",
+     "Status": "available",
+     "SubnetIds": [
+      "subnet-0ffffffffffffffff"
+     ]
+    }
+   ]
+  },
+  "elasticache describe-serverless-caches --region us-west-2": {
+   "ServerlessCaches": [
+    {
+     "ARN": "arn:aws:elasticache:us-west-2:111122223333:serverlesscache:encabulator-valkey",
+     "Engine": "valkey",
+     "SecurityGroupIds": [
+      "sg-00000000000000003"
+     ],
+     "ServerlessCacheName": "encabulator-valkey",
+     "Status": "available",
+     "SubnetIds": [
+      "subnet-00000000000000001",
+      "subnet-00100000000000001",
+      "subnet-00200000000000001"
+     ]
+    },
+    {
+     "ARN": "arn:aws:elasticache:us-west-2:111122223333:serverlesscache:unrelated-cache",
+     "Engine": "redis",
+     "ServerlessCacheName": "unrelated-cache",
+     "Status": "available",
+     "SubnetIds": [
+      "subnet-0ffffffffffffffff"
+     ]
+    }
+   ]
+  },
+  "elasticache list-tags-for-resource --region us-east-2 --resource-name arn:aws:elasticache:us-east-2:111122223333:serverlesscache:encabulator-valkey": {
+   "TagList": [
+    {
+     "Key": "auto-delete",
+     "Value": "no"
+    },
+    {
+     "Key": "project",
+     "Value": "encabulator"
+    },
+    {
+     "Key": "talk",
+     "Value": "opn315"
+    }
+   ]
+  },
+  "elasticache list-tags-for-resource --region us-east-2 --resource-name arn:aws:elasticache:us-east-2:111122223333:serverlesscachesnapshot:encabulator-valkey-2026-10-12-09-00": {
+   "TagList": [
+    {
+     "Key": "auto-delete",
+     "Value": "no"
+    },
+    {
+     "Key": "project",
+     "Value": "encabulator"
+    },
+    {
+     "Key": "talk",
+     "Value": "opn315"
+    }
+   ]
+  },
+  "elasticache list-tags-for-resource --region us-west-2 --resource-name arn:aws:elasticache:us-west-2:111122223333:serverlesscache:encabulator-valkey": {
+   "TagList": [
+    {
+     "Key": "auto-delete",
+     "Value": "no"
+    },
+    {
+     "Key": "project",
+     "Value": "encabulator"
+    },
+    {
+     "Key": "talk",
+     "Value": "opn315"
+    }
+   ]
+  },
+  "elasticache list-tags-for-resource --region us-west-2 --resource-name arn:aws:elasticache:us-west-2:111122223333:serverlesscachesnapshot:encabulator-valkey-2026-10-12-09-00": {
+   "TagList": [
+    {
+     "Key": "auto-delete",
+     "Value": "no"
+    },
+    {
+     "Key": "project",
+     "Value": "encabulator"
+    },
+    {
+     "Key": "talk",
+     "Value": "opn315"
+    }
+   ]
+  },
+  "iam list-instance-profile-tags --region us-east-2 --instance-profile-name eks-us-east-2-encabulator-use2-abc123": {
+   "Tags": [
+    {
+     "Key": "eks:eks-cluster-name",
+     "Value": "encabulator-use2"
+    },
+    {
+     "Key": "auto-delete",
+     "Value": "no"
+    },
+    {
+     "Key": "project",
+     "Value": "encabulator"
+    },
+    {
+     "Key": "talk",
+     "Value": "opn315"
+    }
+   ]
+  },
+  "iam list-instance-profile-tags --region us-west-2 --instance-profile-name eks-us-west-2-encabulator-usw2-abc123": {
+   "Tags": [
+    {
+     "Key": "eks:eks-cluster-name",
+     "Value": "encabulator-usw2"
+    },
+    {
+     "Key": "auto-delete",
+     "Value": "no"
+    },
+    {
+     "Key": "project",
+     "Value": "encabulator"
+    },
+    {
+     "Key": "talk",
+     "Value": "opn315"
+    }
+   ]
+  },
+  "iam list-instance-profiles-for-role --region us-east-2 --role-name encabulator-use2-ack": {
+   "InstanceProfiles": []
+  },
+  "iam list-instance-profiles-for-role --region us-east-2 --role-name encabulator-use2-cluster": {
+   "InstanceProfiles": []
+  },
+  "iam list-instance-profiles-for-role --region us-east-2 --role-name encabulator-use2-kro": {
+   "InstanceProfiles": []
+  },
+  "iam list-instance-profiles-for-role --region us-east-2 --role-name encabulator-use2-node": {
+   "InstanceProfiles": [
+    {
+     "InstanceProfileName": "eks-us-east-2-encabulator-use2-abc123"
+    }
+   ]
+  },
+  "iam list-instance-profiles-for-role --region us-west-2 --role-name encabulator-usw2-ack": {
+   "InstanceProfiles": []
+  },
+  "iam list-instance-profiles-for-role --region us-west-2 --role-name encabulator-usw2-argocd": {
+   "InstanceProfiles": []
+  },
+  "iam list-instance-profiles-for-role --region us-west-2 --role-name encabulator-usw2-cluster": {
+   "InstanceProfiles": []
+  },
+  "iam list-instance-profiles-for-role --region us-west-2 --role-name encabulator-usw2-kro": {
+   "InstanceProfiles": []
+  },
+  "iam list-instance-profiles-for-role --region us-west-2 --role-name encabulator-usw2-node": {
+   "InstanceProfiles": [
+    {
+     "InstanceProfileName": "eks-us-west-2-encabulator-usw2-abc123"
+    }
+   ]
+  },
+  "iam list-instance-profiles-for-role --region us-west-2 --role-name encabulator-usw2-tagger": {
+   "InstanceProfiles": []
+  },
+  "iam list-role-tags --region us-east-2 --role-name encabulator-use2-ack": {
+   "Tags": [
+    {
+     "Key": "auto-delete",
+     "Value": "no"
+    },
+    {
+     "Key": "project",
+     "Value": "encabulator"
+    },
+    {
+     "Key": "talk",
+     "Value": "opn315"
+    }
+   ]
+  },
+  "iam list-role-tags --region us-east-2 --role-name encabulator-use2-cluster": {
+   "Tags": [
+    {
+     "Key": "auto-delete",
+     "Value": "no"
+    },
+    {
+     "Key": "project",
+     "Value": "encabulator"
+    },
+    {
+     "Key": "talk",
+     "Value": "opn315"
+    }
+   ]
+  },
+  "iam list-role-tags --region us-east-2 --role-name encabulator-use2-kro": {
+   "Tags": [
+    {
+     "Key": "auto-delete",
+     "Value": "no"
+    },
+    {
+     "Key": "project",
+     "Value": "encabulator"
+    },
+    {
+     "Key": "talk",
+     "Value": "opn315"
+    }
+   ]
+  },
+  "iam list-role-tags --region us-east-2 --role-name encabulator-use2-node": {
+   "Tags": [
+    {
+     "Key": "auto-delete",
+     "Value": "no"
+    },
+    {
+     "Key": "project",
+     "Value": "encabulator"
+    },
+    {
+     "Key": "talk",
+     "Value": "opn315"
+    }
+   ]
+  },
+  "iam list-role-tags --region us-west-2 --role-name encabulator-usw2-ack": {
+   "Tags": [
+    {
+     "Key": "auto-delete",
+     "Value": "no"
+    },
+    {
+     "Key": "project",
+     "Value": "encabulator"
+    },
+    {
+     "Key": "talk",
+     "Value": "opn315"
+    }
+   ]
+  },
+  "iam list-role-tags --region us-west-2 --role-name encabulator-usw2-argocd": {
+   "Tags": [
+    {
+     "Key": "auto-delete",
+     "Value": "no"
+    },
+    {
+     "Key": "project",
+     "Value": "encabulator"
+    },
+    {
+     "Key": "talk",
+     "Value": "opn315"
+    }
+   ]
+  },
+  "iam list-role-tags --region us-west-2 --role-name encabulator-usw2-cluster": {
+   "Tags": [
+    {
+     "Key": "auto-delete",
+     "Value": "no"
+    },
+    {
+     "Key": "project",
+     "Value": "encabulator"
+    },
+    {
+     "Key": "talk",
+     "Value": "opn315"
+    }
+   ]
+  },
+  "iam list-role-tags --region us-west-2 --role-name encabulator-usw2-kro": {
+   "Tags": [
+    {
+     "Key": "auto-delete",
+     "Value": "no"
+    },
+    {
+     "Key": "project",
+     "Value": "encabulator"
+    },
+    {
+     "Key": "talk",
+     "Value": "opn315"
+    }
+   ]
+  },
+  "iam list-role-tags --region us-west-2 --role-name encabulator-usw2-node": {
+   "Tags": [
+    {
+     "Key": "auto-delete",
+     "Value": "no"
+    },
+    {
+     "Key": "project",
+     "Value": "encabulator"
+    },
+    {
+     "Key": "talk",
+     "Value": "opn315"
+    }
+   ]
+  },
+  "iam list-role-tags --region us-west-2 --role-name encabulator-usw2-tagger": {
+   "Tags": [
+    {
+     "Key": "auto-delete",
+     "Value": "no"
+    },
+    {
+     "Key": "project",
+     "Value": "encabulator"
+    },
+    {
+     "Key": "talk",
+     "Value": "opn315"
+    }
+   ]
+  },
+  "iam list-roles --region us-east-2": {
+   "Roles": [
+    {
+     "Arn": "arn:aws:iam::111122223333:role/encabulator-usw2-cluster",
+     "RoleName": "encabulator-usw2-cluster"
+    },
+    {
+     "Arn": "arn:aws:iam::111122223333:role/encabulator-usw2-node",
+     "RoleName": "encabulator-usw2-node"
+    },
+    {
+     "Arn": "arn:aws:iam::111122223333:role/encabulator-usw2-argocd",
+     "RoleName": "encabulator-usw2-argocd"
+    },
+    {
+     "Arn": "arn:aws:iam::111122223333:role/encabulator-usw2-ack",
+     "RoleName": "encabulator-usw2-ack"
+    },
+    {
+     "Arn": "arn:aws:iam::111122223333:role/encabulator-usw2-kro",
+     "RoleName": "encabulator-usw2-kro"
+    },
+    {
+     "Arn": "arn:aws:iam::111122223333:role/encabulator-usw2-tagger",
+     "RoleName": "encabulator-usw2-tagger"
+    },
+    {
+     "Arn": "arn:aws:iam::111122223333:role/encabulator-use2-cluster",
+     "RoleName": "encabulator-use2-cluster"
+    },
+    {
+     "Arn": "arn:aws:iam::111122223333:role/encabulator-use2-node",
+     "RoleName": "encabulator-use2-node"
+    },
+    {
+     "Arn": "arn:aws:iam::111122223333:role/encabulator-use2-ack",
+     "RoleName": "encabulator-use2-ack"
+    },
+    {
+     "Arn": "arn:aws:iam::111122223333:role/encabulator-use2-kro",
+     "RoleName": "encabulator-use2-kro"
+    },
+    {
+     "Arn": "arn:aws:iam::111122223333:role/Admin",
+     "RoleName": "Admin"
+    },
+    {
+     "Arn": "arn:aws:iam::111122223333:role/encabulator-usw2",
+     "RoleName": "encabulator-usw2"
+    }
+   ]
+  },
+  "iam list-roles --region us-west-2": {
+   "Roles": [
+    {
+     "Arn": "arn:aws:iam::111122223333:role/encabulator-usw2-cluster",
+     "RoleName": "encabulator-usw2-cluster"
+    },
+    {
+     "Arn": "arn:aws:iam::111122223333:role/encabulator-usw2-node",
+     "RoleName": "encabulator-usw2-node"
+    },
+    {
+     "Arn": "arn:aws:iam::111122223333:role/encabulator-usw2-argocd",
+     "RoleName": "encabulator-usw2-argocd"
+    },
+    {
+     "Arn": "arn:aws:iam::111122223333:role/encabulator-usw2-ack",
+     "RoleName": "encabulator-usw2-ack"
+    },
+    {
+     "Arn": "arn:aws:iam::111122223333:role/encabulator-usw2-kro",
+     "RoleName": "encabulator-usw2-kro"
+    },
+    {
+     "Arn": "arn:aws:iam::111122223333:role/encabulator-usw2-tagger",
+     "RoleName": "encabulator-usw2-tagger"
+    },
+    {
+     "Arn": "arn:aws:iam::111122223333:role/encabulator-use2-cluster",
+     "RoleName": "encabulator-use2-cluster"
+    },
+    {
+     "Arn": "arn:aws:iam::111122223333:role/encabulator-use2-node",
+     "RoleName": "encabulator-use2-node"
+    },
+    {
+     "Arn": "arn:aws:iam::111122223333:role/encabulator-use2-ack",
+     "RoleName": "encabulator-use2-ack"
+    },
+    {
+     "Arn": "arn:aws:iam::111122223333:role/encabulator-use2-kro",
+     "RoleName": "encabulator-use2-kro"
+    },
+    {
+     "Arn": "arn:aws:iam::111122223333:role/Admin",
+     "RoleName": "Admin"
+    },
+    {
+     "Arn": "arn:aws:iam::111122223333:role/encabulator-usw2",
+     "RoleName": "encabulator-usw2"
+    }
+   ]
+  },
+  "rds describe-db-instances --region us-east-2": {
+   "DBInstances": [
+    {
+     "CopyTagsToSnapshot": true,
+     "DBInstanceArn": "arn:aws:rds:us-east-2:111122223333:db:encabulator-pg",
+     "DBInstanceIdentifier": "encabulator-pg",
+     "DBSubnetGroup": {
+      "DBSubnetGroupName": "encabulator",
+      "VpcId": "vpc-010000000000000001"
+     },
+     "Engine": "postgres",
+     "TagList": [
+      {
+       "Key": "auto-delete",
+       "Value": "no"
+      },
+      {
+       "Key": "project",
+       "Value": "encabulator"
+      },
+      {
+       "Key": "talk",
+       "Value": "opn315"
+      }
+     ]
+    },
+    {
+     "DBInstanceArn": "arn:aws:rds:us-east-2:111122223333:db:unrelated-db",
+     "DBInstanceIdentifier": "unrelated-db",
+     "DBSubnetGroup": {
+      "DBSubnetGroupName": "default",
+      "VpcId": "vpc-0ffffffffffffffff"
+     },
+     "Engine": "mysql",
+     "TagList": []
+    }
+   ]
+  },
+  "rds describe-db-instances --region us-west-2": {
+   "DBInstances": [
+    {
+     "CopyTagsToSnapshot": true,
+     "DBInstanceArn": "arn:aws:rds:us-west-2:111122223333:db:encabulator-pg",
+     "DBInstanceIdentifier": "encabulator-pg",
+     "DBSubnetGroup": {
+      "DBSubnetGroupName": "encabulator",
+      "VpcId": "vpc-000000000000000001"
+     },
+     "Engine": "postgres",
+     "TagList": [
+      {
+       "Key": "auto-delete",
+       "Value": "no"
+      },
+      {
+       "Key": "project",
+       "Value": "encabulator"
+      },
+      {
+       "Key": "talk",
+       "Value": "opn315"
+      }
+     ]
+    },
+    {
+     "DBInstanceArn": "arn:aws:rds:us-west-2:111122223333:db:unrelated-db",
+     "DBInstanceIdentifier": "unrelated-db",
+     "DBSubnetGroup": {
+      "DBSubnetGroupName": "default",
+      "VpcId": "vpc-0ffffffffffffffff"
+     },
+     "Engine": "mysql",
+     "TagList": []
+    }
+   ]
+  },
+  "rds describe-db-snapshots --region us-east-2 --db-instance-identifier encabulator-pg": {
+   "DBSnapshots": [
+    {
+     "DBSnapshotIdentifier": "rds:encabulator-pg-2026-10-11-09-30",
+     "SnapshotType": "automated",
+     "TagList": [
+      {
+       "Key": "auto-delete",
+       "Value": "no"
+      },
+      {
+       "Key": "project",
+       "Value": "encabulator"
+      },
+      {
+       "Key": "talk",
+       "Value": "opn315"
+      }
+     ]
+    },
+    {
+     "DBSnapshotIdentifier": "rds:encabulator-pg-2026-10-12-09-30",
+     "SnapshotType": "automated",
+     "TagList": [
+      {
+       "Key": "auto-delete",
+       "Value": "no"
+      },
+      {
+       "Key": "project",
+       "Value": "encabulator"
+      },
+      {
+       "Key": "talk",
+       "Value": "opn315"
+      }
+     ]
+    }
+   ]
+  },
+  "rds describe-db-snapshots --region us-west-2 --db-instance-identifier encabulator-pg": {
+   "DBSnapshots": [
+    {
+     "DBSnapshotIdentifier": "rds:encabulator-pg-2026-10-11-09-30",
+     "SnapshotType": "automated",
+     "TagList": [
+      {
+       "Key": "auto-delete",
+       "Value": "no"
+      },
+      {
+       "Key": "project",
+       "Value": "encabulator"
+      },
+      {
+       "Key": "talk",
+       "Value": "opn315"
+      }
+     ]
+    },
+    {
+     "DBSnapshotIdentifier": "rds:encabulator-pg-2026-10-12-09-30",
+     "SnapshotType": "automated",
+     "TagList": [
+      {
+       "Key": "auto-delete",
+       "Value": "no"
+      },
+      {
+       "Key": "project",
+       "Value": "encabulator"
+      },
+      {
+       "Key": "talk",
+       "Value": "opn315"
+      }
+     ]
+    }
+   ]
+  },
+  "rds describe-db-subnet-groups --region us-east-2": {
+   "DBSubnetGroups": [
+    {
+     "DBSubnetGroupArn": "arn:aws:rds:us-east-2:111122223333:subgrp:encabulator",
+     "DBSubnetGroupName": "encabulator",
+     "VpcId": "vpc-010000000000000001"
+    },
+    {
+     "DBSubnetGroupArn": "arn:aws:rds:us-east-2:111122223333:subgrp:default",
+     "DBSubnetGroupName": "default",
+     "VpcId": "vpc-0ffffffffffffffff"
+    }
+   ]
+  },
+  "rds describe-db-subnet-groups --region us-west-2": {
+   "DBSubnetGroups": [
+    {
+     "DBSubnetGroupArn": "arn:aws:rds:us-west-2:111122223333:subgrp:encabulator",
+     "DBSubnetGroupName": "encabulator",
+     "VpcId": "vpc-000000000000000001"
+    },
+    {
+     "DBSubnetGroupArn": "arn:aws:rds:us-west-2:111122223333:subgrp:default",
+     "DBSubnetGroupName": "default",
+     "VpcId": "vpc-0ffffffffffffffff"
+    }
+   ]
+  },
+  "rds list-tags-for-resource --region us-east-2 --resource-name arn:aws:rds:us-east-2:111122223333:subgrp:encabulator": {
+   "TagList": [
+    {
+     "Key": "auto-delete",
+     "Value": "no"
+    },
+    {
+     "Key": "project",
+     "Value": "encabulator"
+    },
+    {
+     "Key": "talk",
+     "Value": "opn315"
+    }
+   ]
+  },
+  "rds list-tags-for-resource --region us-west-2 --resource-name arn:aws:rds:us-west-2:111122223333:subgrp:encabulator": {
+   "TagList": [
+    {
+     "Key": "auto-delete",
+     "Value": "no"
+    },
+    {
+     "Key": "project",
+     "Value": "encabulator"
+    },
+    {
+     "Key": "talk",
+     "Value": "opn315"
+    }
+   ]
+  }
+ },
+ "comment": "Recorded shapes of every describe/list call scripts/tag-check.py makes for the hub (us-west-2:encabulator-usw2) and the cell (us-east-2:encabulator-use2), fully tagged. Placeholder account 111122223333 and documentation IP ranges."
+}

@@ -359,3 +359,180 @@ async def test_shutdown_cancels_the_active_run() -> None:
     await orchestrator.shutdown()
     assert orchestrator.run(run.id).status is RunStatus.CANCELLED
     assert upstreams.flags["turbo-encabulation"] is False
+
+
+# ---- managed stores and traffic ------------------------------------------------------------
+
+_STORE_ACT = [
+    {"say": "Act three: the ledger."},
+    {
+        "malaise": {
+            "ref": "postgres-pod-kill",
+            "target": "postgres",
+            "kind": "pod-kill",
+            "params": {"count": 1},
+            "narration": "Inducing malaise: one PostgreSQL pod, deleted.",
+        }
+    },
+    {"waitFor": {"promql": "failed_orders", "op": ">", "value": 0, "timeout": "60s"}},
+    {"say": "The circuit breaker has opened."},
+    {"clearMalaise": "postgres-pod-kill"},
+    {"say": "Act four: inspection."},
+    {
+        "malaise": {
+            "ref": "line-latency",
+            "target": "logarithmic-casing-line",
+            "kind": "latency",
+            "params": {"ms": 500},
+        }
+    },
+    {"clearMalaise": "line-latency"},
+]
+
+
+async def test_a_store_with_no_pod_skips_its_act_and_the_run_carries_on() -> None:
+    upstreams = FakeUpstreams(unknown_targets={"postgres"})
+    orchestrator = Orchestrator(_catalog(_scenario(_STORE_ACT)), upstreams)
+    run = orchestrator.start("t")
+    await _finish(orchestrator, run.id)
+
+    assert run.status is RunStatus.COMPLETED, run.error
+    messages = [entry.message for entry in run.log]
+    assert any("PostgreSQL runs here as a managed AWS service" in m for m in messages)
+    # The rest of the act (its waitFor and its narration) is skipped, not narrated falsely.
+    assert "failed_orders" not in upstreams.queries
+    assert "The circuit breaker has opened." not in messages
+    # The next act runs, and its malaise is created and cleared as usual.
+    assert "Act four: inspection." in messages
+    assert [m["target"] for m in upstreams.malaises] == ["logarithmic-casing-line"]
+    assert upstreams.cleared == ["mal_1"]
+    assert not any("No malaise called postgres-pod-kill" in m for m in messages)
+
+
+async def test_an_unknown_target_that_is_not_a_store_still_fails_the_run() -> None:
+    upstreams = FakeUpstreams(unknown_targets={"logarithmic-casing-line"})
+    orchestrator = Orchestrator(_catalog(_scenario(_STORE_ACT[5:])), upstreams)
+    run = orchestrator.start("t")
+    await _finish(orchestrator, run.id)
+    assert run.status is RunStatus.FAILED
+    assert "unknown_target" in (run.error or "")
+
+
+async def test_any_other_malaise_error_for_a_store_still_fails_the_run() -> None:
+    upstreams = FakeUpstreams(fail_on="malaise_400")
+    orchestrator = Orchestrator(_catalog(_scenario(_STORE_ACT[:5])), upstreams)
+    run = orchestrator.start("t")
+    await _finish(orchestrator, run.id)
+    assert run.status is RunStatus.FAILED
+    assert "invalid_params" in (run.error or "")
+
+
+async def test_a_skipped_store_act_ending_in_clear_all_still_lifts_the_others() -> None:
+    upstreams = FakeUpstreams(unknown_targets={"postgres"})
+    scenario = _scenario(
+        [
+            {"malaise": {"ref": "slow", "target": "logarithmic-casing-line", "kind": "latency"}},
+            {"malaise": {"ref": "pg", "target": "postgres", "kind": "pod-kill"}},
+            {"say": "Orders are failing, and failing well."},
+            {"clearMalaise": "all"},
+            {"say": "Malaise lifted."},
+        ]
+    )
+    orchestrator = Orchestrator(_catalog(scenario), upstreams)
+    run = orchestrator.start("t")
+    await _finish(orchestrator, run.id)
+    messages = [entry.message for entry in run.log]
+    assert run.status is RunStatus.COMPLETED
+    assert "Orders are failing, and failing well." not in messages
+    assert upstreams.cleared == ["mal_1"]
+    assert "Malaise lifted." in messages
+
+
+_TRAFFIC_BEFORE = {"running": True, "rps": 1, "pattern": "steady", "periodSeconds": 30}
+
+
+async def test_traffic_is_put_back_when_a_run_completes() -> None:
+    upstreams = FakeUpstreams(traffic_state=dict(_TRAFFIC_BEFORE))
+    scenario = _scenario([{"traffic": {"rps": 6, "pattern": "burst"}}, {"say": "Busy."}])
+    orchestrator = Orchestrator(_catalog(scenario), upstreams)
+    run = orchestrator.start("t")
+    await _finish(orchestrator, run.id)
+    assert upstreams.traffic_calls[-1] == _TRAFFIC_BEFORE
+    assert upstreams.traffic_state == _TRAFFIC_BEFORE
+    assert any(e.message.startswith("Grammeters restored: rps=1") for e in run.log)
+
+
+async def test_traffic_is_put_back_when_a_run_fails() -> None:
+    upstreams = FakeUpstreams(
+        traffic_state=dict(_TRAFFIC_BEFORE), unknown_targets={"logarithmic-casing-line"}
+    )
+    scenario = _scenario(
+        [
+            {"traffic": {"rps": 14, "pattern": "burst"}},
+            {"malaise": {"ref": "x", "target": "logarithmic-casing-line", "kind": "latency"}},
+        ]
+    )
+    orchestrator = Orchestrator(_catalog(scenario), upstreams)
+    run = orchestrator.start("t")
+    await _finish(orchestrator, run.id)
+    assert run.status is RunStatus.FAILED
+    assert upstreams.traffic_state == _TRAFFIC_BEFORE
+
+
+async def test_traffic_is_put_back_when_a_run_is_cancelled() -> None:
+    upstreams = FakeUpstreams(traffic_state=dict(_TRAFFIC_BEFORE))
+    scenario = _scenario([{"traffic": {"rps": 8, "pattern": "sine"}}, {"wait": "30s"}])
+    orchestrator = Orchestrator(_catalog(scenario), upstreams)
+    run = orchestrator.start("t")
+    for _ in range(200):
+        if run.current_step >= 2:
+            break
+        await asyncio.sleep(0.01)
+    await orchestrator.cancel(run.id)
+    assert orchestrator.run(run.id).status is RunStatus.CANCELLED
+    assert upstreams.traffic_state == _TRAFFIC_BEFORE
+
+
+async def test_a_run_that_never_touched_traffic_leaves_it_alone() -> None:
+    upstreams = FakeUpstreams(traffic_state=dict(_TRAFFIC_BEFORE))
+    orchestrator = Orchestrator(_catalog(_scenario([{"say": "Quiet."}])), upstreams)
+    run = orchestrator.start("t")
+    await _finish(orchestrator, run.id)
+    assert upstreams.traffic_calls == []
+
+
+async def test_a_run_whose_traffic_could_not_be_read_still_runs() -> None:
+    upstreams = FakeUpstreams(fail_on="get_traffic")
+    scenario = _scenario([{"traffic": {"rps": 3}}, {"say": "On."}])
+    orchestrator = Orchestrator(_catalog(scenario), upstreams)
+    run = orchestrator.start("t")
+    await _finish(orchestrator, run.id)
+    assert run.status is RunStatus.COMPLETED
+    assert upstreams.traffic_calls == [{"rps": 3}]
+    assert any("Could not read the grammeters" in e.message for e in run.log)
+
+
+def test_every_store_pod_kill_in_the_built_in_scenarios_has_a_place_to_resume() -> None:
+    """A skipped store act runs to its clearMalaise; make sure each one has one."""
+    from orchestrator.loader import load_builtin
+    from orchestrator.models import StepKind
+    from orchestrator.runner import MANAGED_STORES
+
+    checked = 0
+    for scenario in load_builtin():
+        steps = list(scenario.steps)
+        for position, step in enumerate(steps):
+            if (
+                step.kind is not StepKind.MALAISE
+                or step.payload.get("target") not in MANAGED_STORES
+            ):
+                continue
+            ref = str(step.payload.get("ref") or f"step-{step.index}")
+            later = [
+                s
+                for s in steps[position + 1 :]
+                if s.kind is StepKind.CLEAR_MALAISE and str(s.payload) in {ref, "all"}
+            ]
+            assert later, f"{scenario.id}: store malaise {ref} has no clearMalaise after it"
+            checked += 1
+    assert checked >= 2  # the hydrocoptic outage and the grand tour

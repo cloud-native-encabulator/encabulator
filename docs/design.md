@@ -67,15 +67,15 @@ application workloads and backing stores run in the `encabulator` namespace; the
 |---|---|---|---|---|
 | `encabulation-control-console` | control | TypeScript (Vue + Fastify BFF) | The web portal: topology, traffic, malaise, scenarios, flags, storefront | none |
 | `cardinal-grammeter` | control | Go | Synthetic customer traffic generator | none |
-| `malaise-injection-engine` | control | Go | Fault injection, app-level and Kubernetes-level | Valkey keys `malaise:*` |
+| `malaise-injection-engine` | control | Go | Fault injection, app-level and Kubernetes-level | Valkey keys `{malaise}:*` |
 | `demo-scenario-orchestrator` | control | Python | Runs scripted demo scenarios with narration | in-memory run history |
 | `dingle-arm-gateway` | processing | Go | Edge API gateway: JWT auth, rate limiting, routing | none |
 | `panametric-fam-processor` | processing | TypeScript | Order orchestration saga | none |
 | `spurving-bearing-quoter` | processing | Rust | Pricing engine | Valkey keys `quote:*` |
 | `logarithmic-casing-line` | processing | Python | Fabrication workers | none |
-| `nofer-trunnion-dispatch` | processing | TypeScript | Shipping and delivery | Valkey keys `shipment:*` |
+| `nofer-trunnion-dispatch` | processing | TypeScript | Shipping and delivery | Valkey keys `{shipment}:*` |
 | `hydrocoptic-datastore` | data | Go | Order ledger and timeline | Postgres db `hydrocoptic` |
-| `prefabulated-amulite-depot` | data | TypeScript | Parts inventory and reservations | Valkey keys `depot:*` |
+| `prefabulated-amulite-depot` | data | TypeScript | Parts inventory and reservations | Valkey keys `{depot}:*` |
 | `sinusoidal-recorder` | data | Go | Unit telemetry (sinusoidal repleneration readings) | InfluxDB database `sinusoidal` |
 | `unilateral-phase-detractor` | support | Python | Identity: users, login, JWT issuance, JWKS | Postgres db `detractor` |
 | `differential-girdlespring` | support | Go | Feature flags | Postgres db `girdlespring` |
@@ -327,7 +327,8 @@ not log request bodies, tokens, or passwords. `LOG_LEVEL` sets the level (defaul
 - W3C trace context over HTTP and NATS headers.
 - Instrument inbound HTTP (server spans), outbound HTTP (client spans with `peer.service` or
   `server.address` set to the target service name), database and cache clients (`db.system`,
-  `db.name` / `db.namespace`), and NATS (producer and consumer spans).
+  `db.name` / `db.namespace`; the recorder's InfluxDB calls carry `db.system.name=influxdb`), and
+  NATS (producer and consumer spans).
 - Do not trace `/healthz`, `/readyz`, `/metrics`, or the malaise and flag polling loops.
 
 ### Malaise (fault injection) middleware
@@ -661,6 +662,13 @@ Rehearses the demo so the presenter does not have to.
 - `GET /v1/scenarios`, `POST /v1/scenarios/{id}/runs` (202 with a run; 409 if a run is active),
   `GET /v1/runs?limit=20`, `GET /v1/runs/{id}` (status, current step, log with narration),
   `POST /v1/runs/{id}/cancel` (reverts flags and clears malaises it created).
+- A run that completes, fails or is cancelled leaves the traffic as it found it: the grammeter
+  settings read at the start of the run are put back in the same cleanup that restores the flags
+  and clears the malaises, if the run changed the traffic.
+- Where `postgres` or `valkey` is a managed AWS service there is no store pod, and the engine answers
+  a malaise on it with `400 unknown_target`. For those two targets only, the run narrates that the
+  store is a managed AWS service with no pod to delete, skips the rest of that act up to its
+  `clearMalaise`, and carries on; every other error still fails the run.
 - Built-in scenarios: `morning-shift` (ramp up traffic), `marzlevane-shortage` (stop the foundry,
   watch 409s, restart), `hydrocoptic-outage` (kill Postgres, watch recovery), `side-fumbling-outbreak`
   (slow the casing line and tighten inspection), `dingle-arm-congestion` (congest the gateway under
@@ -700,12 +708,25 @@ container.
 - Nodes: the 15 services and 4 backing stores from a static registry (name, display name, plane,
   language, kind), merged with live pods from the Kubernetes API (name, phase, ready, restarts)
   and per-pod request rate, p50, p99, and error ratio from Prometheus
-  (`http_server_request_duration_seconds` by `pod`).
+  (`http_server_request_duration_seconds` by `pod`). A service node's figures roll up from its
+  pods: summed rate, rate-weighted p50, worst pod p99, summed errors over summed rate.
 - Edges: from the OTel service graph metrics in Prometheus
   (`traces_service_graph_request_total`, `traces_service_graph_request_failed_total`,
-  `traces_service_graph_request_server_seconds_bucket`) over a 1 minute window: rate, error ratio,
-  p50, p99. Messaging edges appear as `producer → consumer` pairs; database and cache edges come
-  from client spans with `db.system`.
+  `traces_service_graph_request_server_seconds_bucket`) by `client`, `server` and
+  `connection_type`, over a 1 minute window: rate, error ratio, p50, p99. Database and cache edges
+  come from client spans with `db.system.name` or `db.system` (`connection_type="database"`; the
+  latency is the client span's). A messaging edge is a `producer → consumer` pair
+  (`connection_type="messaging_system"`) and is drawn through the NATS node as two legs:
+  `producer → nats` with the producer's latency (`traces_service_graph_request_client_seconds_bucket`)
+  and `nats → consumer` with the consumer's. Pairs that land on the same leg add their rates and
+  failures and keep the worse latency; the connector does not say which side of a failed pair
+  failed, so it counts against both legs. The connector pairs each message with one consumer, so a
+  message several services consume can under-count the delivery legs; nothing is added to make
+  up for it.
+- Store figures: a backing store is not instrumented and serves no HTTP metrics, so its node's rate,
+  p50, p99 and error ratio are those of the edges into it (for NATS, the publish legs): summed
+  rate, rate-weighted p50, worst p99, summed failures over summed rate, and the health colour from
+  those. A store plate therefore reads "no data" only when no edge into it carries a value.
 - An edge with no traffic is drawn idle. A missing metric is shown as "no data", never invented.
 
 **UI**:
@@ -716,7 +737,14 @@ container.
   refabrication rate, stock levels) and the scenario narration ticker.
 - *Grammeters*: traffic controls (rate, pattern, period, journey mix) and live journey stats.
 - *Malaise*: inject faults by target and kind, list active malaises with countdowns, clear.
-- *Scenarios*: list, run, cancel, follow narration and step progress.
+- *Scenarios*: list, run, cancel, follow narration and step progress. The live stream carries the
+  orchestrator's latest run whatever its status; only a `running` (or `pending`) run counts as
+  active, locks the Run buttons and can be cancelled. A completed, failed or cancelled run is shown
+  as the last run with its final status, step and narration, and does not block the next run. A
+  cancel that fails, or finds the run already over, is reported on the page. The orchestrator
+  reports steps as numbers (`currentStep`, `totalSteps`), shown as "24 of 50", and a failed run's
+  `error` is shown as the reason it stopped. A page opened after a run ended reads the narration
+  from the run itself, since the feed only carries lines narrated while the page was open.
 - *Girdlespring*: view and edit flags.
 - *Works*: storefront (quote, order, track) plus live order, shipment, and incident feeds, and the
   parts cage with restock.
@@ -837,6 +865,12 @@ Backing stores:
 
 The chart builds `DATABASE_URL` and `VALKEY_URL` with Kubernetes `$(VAR)` expansion from secret-backed
 `PGPASSWORD` and `VALKEY_PASSWORD` variables.
+
+Every Valkey client accepts `rediss://` as well as `redis://`. TLS verifies the server certificate
+against the client's default root store: the image's system store for Go, Rust and Python, and Node's
+bundled store for TypeScript. An external Valkey such as ElastiCache Serverless, which only
+accepts TLS and, without a user group, has no password, gets `rediss://:@<host>:6379/0`
+(`valkey.external.tls=true`, empty `valkey.user` and password); with that shape no client sends AUTH.
 
 Service-specific:
 

@@ -145,11 +145,15 @@ valkey
 {{- end -}}
 {{- end -}}
 
+{{/*
+The KEDA operator polls this endpoint from its own namespace, so the in-cluster Service name
+must carry the release namespace: a bare "nats" would resolve to nats.<keda namespace>.
+*/}}
 {{- define "encabulator.nats.monitoringEndpoint" -}}
 {{- if .Values.nats.external.enabled -}}
 {{- required "nats.external.monitoringEndpoint is required when nats.external.enabled and keda.enabled" .Values.nats.external.monitoringEndpoint -}}
 {{- else -}}
-{{- printf "nats:%v" .Values.nats.service.monitoringPort -}}
+{{- printf "nats.%s.svc:%v" (include "encabulator.namespace" .) .Values.nats.service.monitoringPort -}}
 {{- end -}}
 {{- end -}}
 
@@ -412,6 +416,19 @@ args: dict "root" $ "name" <store name>
 */}}
 {{- define "encabulator.storeLabels" -}}
 {{- include "encabulator.labels" (dict "root" .root "name" .name "plane" "data" "component" "backing-store") -}}
+{{- end -}}
+
+{{/*
+Labels for a StatefulSet's volumeClaimTemplates. volumeClaimTemplates cannot change after the
+StatefulSet exists, so these leave out everything that changes with a release
+(helm.sh/chart, app.kubernetes.io/version); with them, every chart or image bump failed the
+upgrade with "spec.volumeClaimTemplates: field is immutable".
+*/}}
+{{- define "encabulator.storeVolumeLabels" -}}
+{{- include "encabulator.selectorLabels" (dict "root" .root "name" .name) }}
+app.kubernetes.io/part-of: encabulator
+app.kubernetes.io/component: backing-store
+encabulator.io/plane: data
 {{- end -}}
 
 {{- define "encabulator.storePodLabels" -}}

@@ -134,13 +134,13 @@ Kubernetes-level ones.
 
 ## State
 
-Everything lives under the `malaise:*` keys this service owns in Valkey:
+Everything lives under the `{malaise}:*` keys this service owns in Valkey:
 
 | Key | Type | Holds |
 |---|---|---|
-| `malaise:record:<id>` | string | The JSON record, TTL = expiry + 2h so recent history is readable |
-| `malaise:active` | sorted set | Ids scored by expiry, so "what is due?" is one round trip |
-| `malaise:history` | sorted set | Ids scored by creation, trimmed to 500 |
+| `{malaise}:record:<id>` | string | The JSON record, TTL = expiry + 2h so recent history is readable |
+| `{malaise}:active` | sorted set | Ids scored by expiry, so "what is due?" is one round trip |
+| `{malaise}:history` | sorted set | Ids scored by creation, trimmed to 500 |
 
 Plus the cluster itself: labels `encabulator.io/malaise-id` and
 `app.kubernetes.io/managed-by=malaise-injection-engine`, annotations
@@ -258,7 +258,7 @@ curl -sX DELETE localhost:8080/v1/malaises | jq .
 |---|---|
 | `internal/malaise` | Kinds, parameter validation and normalisation, the record, the directive |
 | `internal/catalog` | The 15 services and the app-level subset |
-| `internal/store` | Valkey persistence under `malaise:*` |
+| `internal/store` | Valkey persistence under `{malaise}:*` |
 | `internal/kube` | Apply, revert and sweep against the Kubernetes API |
 | `internal/engine` | Lifecycle, the reconcile loop, metrics |
 | `internal/api` | The HTTP surface |

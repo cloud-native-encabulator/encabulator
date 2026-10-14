@@ -140,6 +140,8 @@ export class Collector {
       edgeFailed,
       edgeP50,
       edgeP99,
+      edgeClientP50,
+      edgeClientP99,
     ] = await Promise.all([
       cluster.read(),
       prometheus.query(queries.podRps),
@@ -150,10 +152,19 @@ export class Collector {
       prometheus.query(queries.edgeFailed),
       prometheus.query(queries.edgeP50),
       prometheus.query(queries.edgeP99),
+      prometheus.query(queries.edgeClientP50),
+      prometheus.query(queries.edgeClientP99),
     ])
 
     const pods: PodMetrics = { rps: podRps, errors: podErrors, p50: podP50, p99: podP99 }
-    const edges: EdgeMetrics = { rps: edgeRps, failed: edgeFailed, p50: edgeP50, p99: edgeP99 }
+    const edges: EdgeMetrics = {
+      rps: edgeRps,
+      failed: edgeFailed,
+      p50: edgeP50,
+      p99: edgeP99,
+      clientP50: edgeClientP50,
+      clientP99: edgeClientP99,
+    }
 
     this.deps.metrics.countUpstreamPoll('prometheus', podRps.ok ? 'ok' : 'error')
     this.deps.metrics.countUpstreamPoll('kubernetes', clusterSnapshot.ok ? 'ok' : 'error')

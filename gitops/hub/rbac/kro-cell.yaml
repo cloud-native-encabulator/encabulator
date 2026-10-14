@@ -1,0 +1,106 @@
+# What kro on the hub needs for the encabulator-cell RGD, and nothing else.
+#
+# Subject: Kubernetes group encabulator:kro, which the hub kro capability's access entry
+# carries (lead decision D4; terraform/ sets it). The capability's own RBAC subjects
+# (User arn:aws:sts::<account>:assumed-role/<role>/KRO, Group eks-access-entry:<role ARN>)
+# contain the account id, which stays out of Git.
+#
+# The capability's AmazonEKSKROPolicy already covers kro.run (RGDs and EncabulatorCell
+# instances), CRDs, leases and events. These rules cover the kinds the RGD creates:
+#   - list/watch cluster-wide: kro watches every kind it manages with a metadata informer
+#     across all namespaces (kro v0.9.4 pkg/watch/manager.go, NamespaceAll), so a
+#     namespace-scoped grant would leave its watches failing. This includes Secrets.
+#   - writes only where the objects live: ACK resources in encabulator-cells, the Argo CD
+#     cluster Secret in argocd.
+---
+# EncabulatorCell instances and the ACK resources they own live here.
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: encabulator-cells
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: encabulator-cell-kro-watch
+rules:
+  - apiGroups: [ec2.services.k8s.aws]
+    resources: [vpcs, subnets, internetgateways, natgateways, elasticipaddresses, routetables, securitygroups]
+    verbs: [list, watch]
+  - apiGroups: [iam.services.k8s.aws]
+    resources: [roles]
+    verbs: [list, watch]
+  - apiGroups: [eks.services.k8s.aws]
+    resources: [clusters, capabilities, accessentries]
+    verbs: [list, watch]
+  - apiGroups: [""]
+    resources: [secrets]
+    verbs: [list, watch]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: encabulator-cell-kro-watch
+subjects:
+  - kind: Group
+    name: encabulator:kro
+    apiGroup: rbac.authorization.k8s.io
+roleRef:
+  kind: ClusterRole
+  name: encabulator-cell-kro-watch
+  apiGroup: rbac.authorization.k8s.io
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: encabulator-cell-kro
+  namespace: encabulator-cells
+rules:
+  - apiGroups: [ec2.services.k8s.aws]
+    resources: [vpcs, subnets, internetgateways, natgateways, elasticipaddresses, routetables, securitygroups]
+    verbs: [get, create, update, patch, delete]
+  - apiGroups: [iam.services.k8s.aws]
+    resources: [roles]
+    verbs: [get, create, update, patch, delete]
+  - apiGroups: [eks.services.k8s.aws]
+    resources: [clusters, capabilities, accessentries]
+    verbs: [get, create, update, patch, delete]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: encabulator-cell-kro
+  namespace: encabulator-cells
+subjects:
+  - kind: Group
+    name: encabulator:kro
+    apiGroup: rbac.authorization.k8s.io
+roleRef:
+  kind: Role
+  name: encabulator-cell-kro
+  apiGroup: rbac.authorization.k8s.io
+---
+# Argo CD cluster Secrets. Their names are the cell names, so resourceNames cannot narrow this.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: encabulator-cell-kro
+  namespace: argocd
+rules:
+  - apiGroups: [""]
+    resources: [secrets]
+    verbs: [get, create, update, patch, delete]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: encabulator-cell-kro
+  namespace: argocd
+subjects:
+  - kind: Group
+    name: encabulator:kro
+    apiGroup: rbac.authorization.k8s.io
+roleRef:
+  kind: Role
+  name: encabulator-cell-kro
+  apiGroup: rbac.authorization.k8s.io

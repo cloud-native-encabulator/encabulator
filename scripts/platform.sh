@@ -3,6 +3,7 @@
 #
 #   scripts/platform.sh install     add repos, install the four charts in order, then the dashboards
 #   scripts/platform.sh template    render every chart with its pinned values (no cluster needed)
+#   scripts/platform.sh template-cell  render what Argo CD installs on a cell, and check its pins
 #   scripts/platform.sh dashboards  (re)create the Grafana dashboard ConfigMaps only
 #   scripts/platform.sh status       what is installed where
 #   scripts/platform.sh uninstall   remove them again, in reverse order
@@ -50,11 +51,12 @@ install_chart() {
     --wait --timeout "$HELM_TIMEOUT"
 }
 
-# template <release> <chart> <version> <namespace> <values-file>
+# template <release> <chart> <version> <namespace> <values-file> [extra helm flags...]
 template_chart() {
   local release="$1" chart="$2" version="$3" namespace="$4" values="$5"
+  shift 5
   $HELM template "$release" "$chart" \
-    --version "$version" --namespace "$namespace" --values "$values"
+    --version "$version" --namespace "$namespace" --values "$values" "$@"
 }
 
 dashboards() {
@@ -137,6 +139,98 @@ cmd_template() {
     "$KEDA_VERSION" "$KEDA_NAMESPACE" "$platform_dir/keda.values.yaml"
 }
 
+# The cell's platform entries in gitops/hub/appset.yaml (ApplicationSet encabulator-platform), one
+# "release chart repoURL version" line per chart entry.
+appset_entries() {
+  awk '
+    /^kind: ApplicationSet/ { doc = 0 }
+    /^  name: encabulator-platform$/ { doc = 1 }
+    !doc { next }
+    /^ *- component:/ { if (chart != "") print release, chart, repo, version; release = chart = repo = version = "" }
+    /^ *release:/ { release = $2 }
+    /^ *chart:/   { chart = $2; gsub(/"/, "", chart) }
+    /^ *repoURL:/ { repo = $2 }
+    /^ *version:/ { version = $2 }
+    /^ *- clusters:/ { if (chart != "") print release, chart, repo, version; release = chart = ""; doc = 0 }
+  ' "$repo_root/gitops/hub/appset.yaml"
+}
+
+# Fail unless the cell entries pin exactly what versions.env pins, with the same release names.
+check_cell_pins() {
+  local entries want failures=0
+  entries="$(appset_entries)"
+  [ -n "$entries" ] || die "no chart entries found in gitops/hub/appset.yaml"
+  for want in \
+    "$KUBE_PROMETHEUS_STACK_RELEASE kube-prometheus-stack $KUBE_PROMETHEUS_STACK_REPO $KUBE_PROMETHEUS_STACK_VERSION" \
+    "$JAEGER_RELEASE jaeger $JAEGER_REPO $JAEGER_VERSION" \
+    "$OPENTELEMETRY_COLLECTOR_RELEASE opentelemetry-collector $OPENTELEMETRY_COLLECTOR_REPO $OPENTELEMETRY_COLLECTOR_VERSION"; do
+    if grep -qxF "$want" <<<"$entries"; then
+      log "cell pin ok: $want"
+    else
+      warn "gitops/hub/appset.yaml does not pin: $want"
+      failures=$((failures + 1))
+    fi
+  done
+  # Every chart entry must be one of the above: nothing on a cell that versions.env does not pin.
+  if [ "$(wc -l <<<"$entries")" -ne 3 ]; then
+    warn "gitops/hub/appset.yaml has chart entries versions.env does not pin:"
+    printf '%s\n' "$entries" >&2
+    failures=$((failures + 1))
+  fi
+  [ "$failures" -eq 0 ] || die "cell platform pins differ from platform/versions.env"
+}
+
+# The document whose metadata.name is $1, from a multi-document YAML stream on stdin.
+yaml_doc() {
+  awk -v want="  name: $1" '
+    /^---$/ { if (hit) printf "%s", buf; buf = ""; hit = 0; next }
+    { buf = buf $0 "\n"; if ($0 == want) hit = 1 }
+    END { if (hit) printf "%s", buf }'
+}
+
+# The dashboards a cell gets (platform/kustomization.yaml) must equal what `dashboards` creates.
+check_cell_dashboards() {
+  local file base name built made
+  built="$($KUBECTL kustomize "$platform_dir")"
+  for file in "$platform_dir"/dashboards/*.json; do
+    base="$(basename "$file")"
+    name="encabulator-dashboard-${base%.json}"
+    made="$($KUBECTL create configmap "$name" --namespace "$OBSERVABILITY_NAMESPACE" \
+              --from-file="$base=$file" --dry-run=client -o yaml \
+            | $KUBECTL label --local -f - -o yaml grafana_dashboard=1 app.kubernetes.io/part-of=encabulator \
+            | $KUBECTL annotate --local -f - -o yaml grafana_folder=Encabulator \
+            | grep -v '^  creationTimestamp: null$')"
+    if ! diff <(printf '%s\n' "$made") <(yaml_doc "$name" <<<"$built") >&2; then
+      die "platform/kustomization.yaml renders $name differently from scripts/platform.sh dashboards"
+    fi
+  done
+  log "cell dashboards ok: platform/kustomization.yaml equals scripts/platform.sh dashboards"
+}
+
+# What Argo CD installs on a cell: each chart with the common values plus platform/cell/, CRDs
+# included (Argo CD renders them), then the kustomize folder with the dashboards and the
+# services' ServiceMonitor. No cluster needed.
+cmd_template_cell() {
+  need "$HELM"; need "$KUBECTL"
+  check_cell_pins
+  check_cell_dashboards
+  add_repos
+  local cell="$platform_dir/cell"
+  template_chart "$KUBE_PROMETHEUS_STACK_RELEASE" prometheus-community/kube-prometheus-stack \
+    "$KUBE_PROMETHEUS_STACK_VERSION" "$OBSERVABILITY_NAMESPACE" \
+    "$platform_dir/kube-prometheus-stack.values.yaml" \
+    --values "$cell/kube-prometheus-stack.values.yaml" --include-crds
+  template_chart "$JAEGER_RELEASE" jaegertracing/jaeger \
+    "$JAEGER_VERSION" "$OBSERVABILITY_NAMESPACE" "$platform_dir/jaeger.values.yaml" \
+    --values "$cell/jaeger.values.yaml"
+  template_chart "$OPENTELEMETRY_COLLECTOR_RELEASE" open-telemetry/opentelemetry-collector \
+    "$OPENTELEMETRY_COLLECTOR_VERSION" "$OBSERVABILITY_NAMESPACE" \
+    "$platform_dir/opentelemetry-collector.values.yaml" \
+    --values "$cell/opentelemetry-collector.values.yaml"
+  echo "---"
+  $KUBECTL kustomize "$platform_dir"
+}
+
 cmd_status() {
   need "$HELM"
   log "releases"
@@ -159,8 +253,9 @@ cmd_uninstall() {
 case "${1:-install}" in
   install)    cmd_install ;;
   template)   cmd_template ;;
+  template-cell) cmd_template_cell ;;
   dashboards) need "$KUBECTL"; dashboards ;;
   status)     cmd_status ;;
   uninstall)  cmd_uninstall ;;
-  *) die "usage: $(basename "$0") {install|template|dashboards|status|uninstall}" ;;
+  *) die "usage: $(basename "$0") {install|template|template-cell|dashboards|status|uninstall}" ;;
 esac

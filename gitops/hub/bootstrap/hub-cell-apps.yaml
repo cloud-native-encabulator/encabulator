@@ -1,0 +1,30 @@
+# hub-cell-apps: an Argo CD Application (not an ApplicationSet). It syncs one file, the cell
+# ApplicationSet gitops/hub/appset.yaml, which renders one Application per cluster Secret
+# labelled encabulator.io/cell=true. Only that one file in gitops/hub is synced.
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: hub-cell-apps
+  namespace: argocd
+spec:
+  project: encabulator-hub
+  source:
+    repoURL: https://github.com/jlbutler/cloud-native-encabulator
+    targetRevision: carrlos
+    path: gitops/hub
+    directory:
+      recurse: false
+      include: appset.yaml
+  destination:
+    name: encabulator-usw2
+    namespace: argocd
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    retry:
+      limit: 10
+      backoff:
+        duration: 10s
+        factor: 2
+        maxDuration: 5m

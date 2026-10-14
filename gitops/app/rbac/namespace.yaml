@@ -1,0 +1,8 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: encabulator
+  labels:
+    app.kubernetes.io/part-of: encabulator
+  annotations:
+    argocd.argoproj.io/sync-wave: "-1"

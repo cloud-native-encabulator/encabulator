@@ -1,0 +1,42 @@
+# The Encabulator for one cell. Argo CD syncs this to every cell after the RGDs (sync wave 1).
+#
+# subnetIDs and securityGroupID are placeholders: the cell ApplicationSet replaces them with
+# kustomize patches from the cell's cluster Secret annotations encabulator.io/subnet-ids and
+# encabulator.io/security-group-id. No account-specific value lives in Git.
+apiVersion: kro.run/v1alpha1
+kind: Encabulator
+metadata:
+  name: encabulator
+  namespace: encabulator
+  annotations:
+    argocd.argoproj.io/sync-wave: "1"
+    # The Encabulator kind only exists once kro has processed the RGD.
+    argocd.argoproj.io/sync-options: SkipDryRunOnMissingResource=true
+spec:
+  imageTag: "1.0.3"
+  dbInstanceClass: db.t4g.medium
+  subnetIDs:
+    - subnet-00000000000000001
+    - subnet-00000000000000002
+    - subnet-00000000000000003
+  securityGroupID: sg-00000000000000000
+  services:
+    # control plane
+    - encabulation-control-console
+    - cardinal-grammeter
+    - malaise-injection-engine
+    - demo-scenario-orchestrator
+    # processing plane
+    - dingle-arm-gateway
+    - panametric-fam-processor
+    - spurving-bearing-quoter
+    - logarithmic-casing-line
+    - nofer-trunnion-dispatch
+    # data plane
+    - hydrocoptic-datastore
+    - prefabulated-amulite-depot
+    - sinusoidal-recorder
+    # support plane
+    - unilateral-phase-detractor
+    - differential-girdlespring
+    - side-fumbling-detector
