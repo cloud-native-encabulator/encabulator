@@ -91,7 +91,10 @@ case "$tool" in
   # ------------------------------------------------------------------- terraform
   terraform)
     log "terraform $* | $(env | grep '^TF_VAR_' | sort | paste -sd' ' -)"
-    [[ "${1:-}" == "version" ]] && { echo "Terraform ${STUB_TF_VERSION:-v1.14.9}"; echo "on linux_amd64"; exit 0; }
+    if [[ "${1:-}" == "version" ]]; then
+      [[ "${STUB_TF_VERSION_FAILS:-}" == 1 ]] && { echo "No version is set for terraform" >&2; exit 126; }
+      echo "Terraform ${STUB_TF_VERSION:-v1.14.9}"; echo "on linux_amd64"; exit 0
+    fi
     [[ "${1:-}" == -chdir=* ]] || unknown "$@"
     case "${2:-}" in
       init|plan) ;;

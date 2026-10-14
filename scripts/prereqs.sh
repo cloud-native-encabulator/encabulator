@@ -90,6 +90,8 @@ if have "${terraform[0]}" && tf_version="$(first_line "${terraform[@]}" version)
   else
     problem "could not read the Terraform version from: $tf_version" "check that '$TERRAFORM version' works"
   fi
+elif have "${terraform[0]}"; then
+  problem "'$TERRAFORM version' fails" "check the Terraform install, or set TERRAFORM to a wrapper, for example TERRAFORM=\"mise exec terraform@1.14.9 -- terraform\""
 else
   problem "Terraform not found ($TERRAFORM)" "install Terraform 1.14.9 (https://developer.hashicorp.com/terraform/install), or set TERRAFORM to a wrapper"
 fi

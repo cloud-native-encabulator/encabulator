@@ -247,6 +247,8 @@ mk STUB_TF_VERSION=v1.6.6 -- make prereqs
 expect_in "Terraform 1.6 refused" "$out" "Terraform 1.7 or newer 1.x needed"
 mk STUB_TF_VERSION=v2.0.0 -- make prereqs
 expect_in "Terraform 2 refused" "$out" "Terraform 1.7 or newer 1.x needed"
+mk STUB_TF_VERSION_FAILS=1 -- make prereqs
+expect_in "a terraform that is on PATH but does not run is named" "$out" "'terraform version' fails"
 mk STUB_HELM_VERSION=v3.21.3+g1234567 -- make prereqs
 expect_in "Helm 3 refused" "$out" "Helm 4 needed"
 mk STUB_IDC_REGION=us-east-1 -- make prereqs
