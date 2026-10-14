@@ -771,6 +771,13 @@ influxdb:
   # the cost of smaller WAL files, more object-store writes and a snapshot every 30s instead of
   # every 10 minutes (600 WAL files per snapshot). Empty string: the InfluxDB default.
   walFlushInterval: 50ms
+  # INFLUXDB3_QUERY_FILE_LIMIT. InfluxDB 3 Core keeps one Parquet file per gen1 block
+  # (INFLUXDB3_GEN1_DURATION, 1m below) and never compacts them, and it refuses any query that
+  # would scan more than this many files (432 by default: 7.2 hours of data at 1m). 4320 is 72
+  # hours at 1m, the reach the default limit has at InfluxDB's default 10m gen1. A query that
+  # does scan that many files is slow, so reads should still carry a time bound. Empty string:
+  # the InfluxDB default.
+  queryFileLimit: "4320"
   dataDir: /var/lib/influxdb3
   # InfluxDB 3 Core bootstraps an operator/admin token from an *offline admin token file*
   # (--admin-token-file). The chart generates the token, writes both the raw string and the

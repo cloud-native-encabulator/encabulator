@@ -28,7 +28,7 @@ gitops/app/
 | secret-init image | `docker.io/library/python:3.13.16-slim-trixie@sha256:70729b46...c2f` (Python 3.13.16, OpenSSL 3.5.7) | `secretInit` Job |
 | db-init image | `docker.io/library/postgres:18.6-trixie@sha256:74935e72...4336` | `dbInit` Job |
 | Service images | `<spec.registry>/<service>:<spec.imageTag>`, default `ghcr.io/jlbutler/cloud-native-encabulator/<service>:1.0.2` | `spec.registry`, `spec.imageTag` |
-| NATS, InfluxDB images | `nats:2.12`, `influxdb:3-core` (the chart's tags, unchanged); InfluxDB flushes its WAL every 50 ms (`INFLUXDB3_WAL_FLUSH_INTERVAL`, the chart's `influxdb.walFlushInterval` default) | StatefulSets |
+| NATS, InfluxDB images | `nats:2.12`, `influxdb:3-core` (the chart's tags, unchanged); InfluxDB flushes its WAL every 50 ms (`INFLUXDB3_WAL_FLUSH_INTERVAL`, the chart's `influxdb.walFlushInterval` default) and lets one query scan up to 4320 Parquet files (`INFLUXDB3_QUERY_FILE_LIMIT`, the chart's `influxdb.queryFileLimit` default) | StatefulSets |
 | Validation | kind cluster on `kindest/node` (shared `opn315-cell`, Kubernetes 1.35.8), helm 4.2.4, kubectl 1.35.0, Python 3.12 + PyYAML 6.0.3 | `hack/` |
 
 ## The two APIs

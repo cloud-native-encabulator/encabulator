@@ -137,6 +137,11 @@ spec:
             - name: INFLUXDB3_WAL_FLUSH_INTERVAL
               value: {{ . | quote }}
             {{- end }}
+            {{- with $ix.queryFileLimit }}
+            # The most Parquet files one query may scan (default 432).
+            - name: INFLUXDB3_QUERY_FILE_LIMIT
+              value: {{ . | quote }}
+            {{- end }}
             {{- range $k, $v := $ix.extraEnv }}
             - name: {{ $k }}
               value: {{ tpl (toString $v) $ | quote }}

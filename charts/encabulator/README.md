@@ -217,6 +217,23 @@ writes, and a snapshot every 30s rather than every 10 minutes (600 WAL files per
 empty value leaves InfluxDB's own default. Changing it restarts `influxdb-0` once; the data PVC
 stays.
 
+## InfluxDB 3 Core query file limit
+
+InfluxDB 3 Core writes one Parquet file per gen1 block (`INFLUXDB3_GEN1_DURATION`, `1m` in
+`influxdb.extraEnv`) and does not compact them, so a table gains about 60 files an hour while the
+works runs. Core refuses any query that would scan more files than its limit, 432 by default,
+which is 7.2 hours of data at a 1m gen1:
+
+```
+Query would scan 432 Parquet files, exceeding the file limit.
+```
+
+`influxdb.queryFileLimit` (default `"4320"`) sets `INFLUXDB3_QUERY_FILE_LIMIT`: 72 hours at 1m,
+the same reach the built-in limit has at InfluxDB's default 10m gen1. A query that scans that many
+files is still slow, so reads should carry a time bound and touch only the files they need. An
+empty value leaves InfluxDB's own default. Changing it restarts `influxdb-0` once; the data PVC
+stays.
+
 ## Going external (phase 3)
 
 Every store has an `external:` block, so pointing at RDS, ElastiCache and Timestream for InfluxDB

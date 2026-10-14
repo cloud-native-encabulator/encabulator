@@ -767,6 +767,10 @@ spec:
                     # How long a write may wait for the WAL flush that acknowledges it (InfluxDB's
                     # default is 1s). Same value and place as the chart's influxdb.walFlushInterval.
                     - {name: INFLUXDB3_WAL_FLUSH_INTERVAL, value: 50ms}
+                    # The most Parquet files one query may scan (InfluxDB's default is 432, 7.2
+                    # hours at the 1m gen1 below). Same value and place as the chart's
+                    # influxdb.queryFileLimit.
+                    - {name: INFLUXDB3_QUERY_FILE_LIMIT, value: "4320"}
                     - {name: INFLUXDB3_DISABLE_TELEMETRY_UPLOAD, value: "true"}
                     - {name: INFLUXDB3_GEN1_DURATION, value: 1m}
                   startupProbe:
