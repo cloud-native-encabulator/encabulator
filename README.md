@@ -236,20 +236,37 @@ again for every cell you add. Check the
 [AWS Pricing Calculator](https://calculator.aws/) first. Everything is tagged, so you can find it
 all again ([`docs/TAGGING.md`](docs/TAGGING.md)).
 
+You need an AWS account with [IAM Identity Center](https://docs.aws.amazon.com/singlesignon/latest/userguide/get-set-up-for-idc.html)
+enabled and a group in it whose members will be Argo CD admins (Argo CD signs users in through
+Identity Center), and AWS credentials in your shell (a profile, `aws sso login`, or environment
+variables). The few values specific to your account go in one gitignored file:
+
 ```bash
-# 1. The starting point: what a team built with Terraform (about 25 minutes, RDS is the long pole)
-cp terraform/brownfield/terraform.tfvars.example terraform/brownfield/encabulator.auto.tfvars
-make brownfield-init brownfield-apply
-$(terraform -chdir=terraform/brownfield output -raw kubeconfig_command)
-make platform && make brownfield-deploy       # observability, then the app on RDS and ElastiCache
-
-# 2. Let GitOps take over
-make gitops-register gitops-bootstrap         # tell Argo CD about the hub, then hand it the repository
-                                              # Argo CD syncs gitops/hub/brownfield and ACK adopts RDS and ElastiCache
-
-# 3. Add a region: commit gitops/hub/cells/use2.yaml and push
-make tag-check                                # read-only: no AWS resource without its tags
+cp .env.example .env     # fill in IDC_INSTANCE_ARN and ARGOCD_ADMIN_GROUP_ID; the file says how to find them
+make prereqs             # read-only: checks the tools, your credentials and those values, and names every fix
+make hub                 # asks first, then builds the hub in us-west-2 (billable, about 25 minutes)
+make add-cell CELL=use2  # optional: the hub builds a second region, a cell (billable)
+make tag-check           # read-only: no AWS resource without its tags
 ```
+
+`make hub` runs these steps in order, and each one is also a target of its own:
+
+| Step | What it does |
+|---|---|
+| `prereqs` | AWS CLI v2 and working credentials, Terraform 1.7 or newer, kubectl, Helm 4, Python 3, curl, the `.env` values, and that the Identity Center instance and group exist |
+| `brownfield-init`, `brownfield-apply` | Terraform builds what a team typically has before GitOps: a VPC, an EKS Auto Mode cluster, RDS for PostgreSQL, ElastiCache Serverless, and the Argo CD, ACK and kro capabilities (RDS is the long pole) |
+| `kubeconfig` | points kubectl at the hub (context `encabulator-usw2`, namespace `encabulator`) |
+| `wait-capabilities` | waits until Argo CD, ACK and kro report `ACTIVE` |
+| `mirror-images` | does nothing when the release is on GitHub Container Registry; otherwise builds the images into Amazon ECR in your account (Docker or Finch needed) and writes `REGISTRY` into `.env` |
+| `platform`, `brownfield-deploy` | the observability platform, then the app on RDS and ElastiCache |
+| `gitops-register`, `gitops-repo-access`, `gitops-bootstrap` | Argo CD takes over from Git: it syncs `gitops/hub/brownfield` and ACK adopts RDS and ElastiCache ([`gitops/hub/bootstrap/README.md`](gitops/hub/bootstrap/README.md)) |
+
+It stops at the first step that fails, names it, and is safe to run again. `CONFIRM=yes` answers
+its question for you. A value on the make command line or in your shell wins over `.env`, so
+`make hub REGISTRY=...` works too. To deploy from your own fork or branch, set `GIT_REPO_URL` and
+`GIT_REVISION` in `.env` (and `GIT_TOKEN_FILE` for a private repository). The one-command path is
+new and has not been run end to end in a fresh account yet; every step it runs is the one described
+in the READMEs linked here.
 
 The hand-off from Terraform to Git (the `removed` blocks), the optional look-first step that adopts
 the database by hand before Git owns it, and the exact order of the live steps are in
@@ -258,7 +275,9 @@ the database by hand before Git owns it, and the exact order of the live steps a
 
 Clean-up note: once ACK owns the databases, deleting their Kubernetes objects leaves them in AWS
 on purpose (`deletion-policy: retain`), and Terraform no longer tracks them, so remove them
-explicitly when you are finished.
+explicitly when you are finished; the order is in the
+[Teardown section](terraform/brownfield/README.md#teardown). If `make mirror-images` created ECR
+repositories (`encabulator/*` in us-west-2), delete those too: nothing else owns them.
 
 ## The console
 
