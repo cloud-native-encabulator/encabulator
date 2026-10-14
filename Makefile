@@ -182,9 +182,11 @@ brownfield-deploy: ## Deploy the app onto the hub's RDS and ElastiCache (run `ma
 	@./$(TF_DIR)/deploy-app.sh
 
 gitops-register: ## Register the hub with its own Argo CD, recording GIT_REPO_URL, GIT_REVISION, REGISTRY (REGISTER_ARGS=--dry-run shows the Secret first)
+	$(call gitops_settings,gitops-register)
 	@./gitops/hub/bootstrap/register-hub.sh $(REGISTER_ARGS)
 
 gitops-bootstrap: ## Apply the Argo CD projects and hub Applications for GIT_REPO_URL at GIT_REVISION; builds no cell
+	$(call gitops_settings,gitops-bootstrap)
 	@./scripts/gitops.sh bootstrap
 
 gitops-validate: ## Validate gitops/app on a local kind cluster, no AWS (KIND_KUBECONFIG=path)
@@ -204,14 +206,20 @@ talk: ## Serve the OPN315 talk slides on http://localhost:DECK_PORT (press P for
 # scripts through the environment, never through the shell.
 CELL ?=
 export CELL
+# Shows the settings a GitOps target runs with, also under `make -n`. Make prints it itself, so
+# no value passes through a shell. The scripts read the values from the environment.
+gitops_settings = $(info ==> $(1): GIT_REPO_URL=$(or $(GIT_REPO_URL),(default)) GIT_REVISION=$(or $(GIT_REVISION),(default)) REGISTRY=$(or $(REGISTRY),(none)) GIT_TOKEN_FILE=$(or $(GIT_TOKEN_FILE),(none))$(if $(filter add-cell cell-access,$(1)), CELL=$(CELL)))
 
 gitops-repo-access: ## Give Argo CD the token in GIT_TOKEN_FILE (mode 600) for a private GIT_REPO_URL; nothing when unset
+	$(call gitops_settings,gitops-repo-access)
 	@./scripts/gitops.sh repo-access
 
 add-cell: ## Build the cells in gitops/hub/cells at GIT_REVISION (CELL=<cell>; about 35 minutes; costs money)
+	$(call gitops_settings,add-cell)
 	@./scripts/gitops.sh add-cell
 
 cell-access: ## Give your AWS principal cluster admin on a cell's EKS cluster (CELL=<cell>)
+	$(call gitops_settings,cell-access)
 	@./scripts/gitops.sh cell-access
 
 gitops-render: ## Print the bootstrap manifests with GIT_REPO_URL and GIT_REVISION applied

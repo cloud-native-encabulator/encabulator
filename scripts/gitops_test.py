@@ -623,6 +623,22 @@ class MakefileTest(unittest.TestCase):
         self.assertEqual(status, 0, err)
         self.assertIn("encabulator-use2", err)
 
+    def test_settings_on_the_make_command_line_reach_the_scripts(self):
+        status, _, err = self.make("gitops-bootstrap", f"GIT_REPO_URL={CUSTOM_URL}", "GIT_REVISION=main")
+        self.assertEqual(status, 0, err)
+        (apply,) = [c for c in self.sb.calls("kubectl") if "apply" in c["args"]]
+        self.assertIn(f"repoURL: {CUSTOM_URL}", apply["stdin"])
+        self.assertIn('targetRevision: "main"', apply["stdin"])
+
+    def test_dry_run_shows_the_settings(self):
+        status, out, _ = self.make("-n", "gitops-bootstrap", "GIT_REVISION=main", GIT_REPO_URL=CUSTOM_URL)
+        self.assertEqual(status, 0)
+        self.assertIn(f"gitops-bootstrap: GIT_REPO_URL={CUSTOM_URL} GIT_REVISION=main", out)
+        status, out, _ = self.make("-n", "add-cell", "CELL=use2")
+        self.assertIn("GIT_REPO_URL=(default) GIT_REVISION=(default)", out)
+        self.assertIn("CELL=use2", out)
+        self.assertEqual(self.sb.calls(), [])
+
     def test_cell_is_not_run_by_the_shell(self):
         marker = self.sb.dir / "ran"
         status, _, err = self.make("add-cell", f"CELL=use2;touch {marker}")
