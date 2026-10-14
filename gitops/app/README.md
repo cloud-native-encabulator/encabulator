@@ -150,7 +150,8 @@ underused nodes that stay until they are empty. Delete that budget to repack aga
 - `Encabulator/encabulator` in `encabulator`: `/spec/subnetIDs` and `/spec/securityGroupID`
   from the cluster Secret annotations `encabulator.io/subnet-ids` and
   `encabulator.io/security-group-id`, and `/spec/registry` from the optional
-  `encabulator.io/registry` (an image mirror; without it the images come from ghcr.io).
+  `encabulator.io/registry` (an image mirror, set on the hub with `REGISTRY`; without it the
+  images come from ghcr.io).
 - every `eks.amazonaws.com` NodeClass: `/spec/role` (`<cell>-node`, from the cell's name),
   `/spec/subnetSelectorTerms` and `/spec/securityGroupSelectorTerms`.
 

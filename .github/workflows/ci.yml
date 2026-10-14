@@ -284,7 +284,7 @@ jobs:
         run: |
           sudo apt-get update -qq && sudo apt-get install -y --no-install-recommends shellcheck
           # dev-env.sh is sourced, not executed, so it has no shebang for shellcheck to read.
-          shellcheck --severity=warning scripts/*.sh
+          shellcheck --severity=warning scripts/*.sh gitops/hub/bootstrap/register-hub.sh
           shellcheck --severity=warning --shell=bash --exclude=SC2148 dev-env.sh
       - name: the make-driven AWS path, offline
         # make hub, make prereqs and make mirror-images with aws, terraform, kubectl, helm,
@@ -293,6 +293,21 @@ jobs:
         run: |
           shellcheck --severity=warning scripts/make-flow-fixtures/stub.sh
           ./scripts/make-flow_test.sh
+
+  # -------------------------------------------------------------------------- gitops
+  gitops:
+    name: gitops render check and script tests
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v7
+      - name: the default render equals the committed bootstrap files
+        # A hub with no deploy settings must get exactly what gitops/hub/bootstrap/ holds, and
+        # custom settings must reach every place the repository and revision are named.
+        run: ./scripts/gitops.sh check
+      - name: offline tests for the GitOps scripts and make targets
+        # register-hub.sh, gitops.sh and the Makefile targets against stand-ins for aws,
+        # kubectl and git: no AWS account, cluster or network.
+        run: python3 scripts/gitops_test.py
 
   # Single required check, so branch protection does not need editing every time a service
   # is added to scripts/services.txt.
@@ -311,6 +326,7 @@ jobs:
         rust,
         charts,
         shell,
+        gitops,
       ]
     runs-on: ubuntu-24.04
     steps:

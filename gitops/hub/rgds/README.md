@@ -37,6 +37,8 @@ EKS Cluster (private subnets, cluster role) ── readyWhen status == ACTIVE
      └─ SecurityGroup encabulator-db (5432 + 6379 from the cluster security group, in the VPC)
                                    │
 argocd cluster Secret ◄────────────┘  waits for both capabilities ACTIVE and the Argo CD entry
+         ▲
+hub's argocd cluster Secret (external reference, read only): the repository, revision and registry
 ```
 
 - Every ACK resource carries `services.k8s.aws/region: ${schema.spec.region}` and the three
@@ -81,23 +83,54 @@ argocd cluster Secret ◄────────────┘  waits for both
   | `encabulator.io/subnet-ids` | private subnet ids, comma-separated | `Encabulator.spec.subnetIDs`, NodeClass subnets |
   | `encabulator.io/security-group-id` | `encabulator-db` group id | `Encabulator.spec.securityGroupID` |
   | `encabulator.io/cluster-security-group-id` | EKS cluster security group | NodeClass security group |
-  | `encabulator.io/registry` (optional, not written by the RGD) | an image mirror, for example `<account>.dkr.ecr.<region>.amazonaws.com/encabulator` | `Encabulator.spec.registry`; absent means the RGD default `ghcr.io/jlbutler/cloud-native-encabulator` |
+  | `encabulator.io/registry` (optional) | an image mirror, for example `<account>.dkr.ecr.<region>.amazonaws.com/encabulator` | `Encabulator.spec.registry`; absent means the RGD default `ghcr.io/jlbutler/cloud-native-encabulator` |
+  | `encabulator.io/repo-url`, `encabulator.io/revision` (optional) | the repository and revision of the cell's Applications | `source.repoURL` and `targetRevision` of every Application the two ApplicationSets render; absent means this repository at `carrlos` |
   | `encabulator.io/ack-capability`, `kro-capability`, `argocd-access-entry` | ARNs | ordering: the Secret waits for them |
 
   and labels `argocd.argoproj.io/secret-type: cluster`, `encabulator.io/cell: "true"` and
   `encabulator.io/platform-observability`, which is `spec.observability` as `"true"` or
   `"false"`. The `encabulator-platform` ApplicationSet selects on it.
 
-  `encabulator.io/registry` is the one annotation the RGD does not write: add it by hand (or with
-  your own automation) when a cell pulls from a mirror. kro applies only the fields it owns, so
-  an annotation someone else added stays on the Secret.
+### The hub's settings
+
+The three optional annotations, `encabulator.io/repo-url`, `encabulator.io/revision` and
+`encabulator.io/registry`, come from the hub. `register-hub.sh` writes them on the hub's own
+cluster Secret (`argocd/encabulator-usw2`) when `GIT_REPO_URL`, `GIT_REVISION` or `REGISTRY` is
+set ([`../bootstrap/README.md`](../bootstrap/README.md#deploy-into-your-own-account)). The RGD
+reads that Secret as an external reference (`id: hub`; kro reads it and never changes it) and
+merges those three keys, when present, into the register Secret's annotations:
+
+```yaml
+annotations: >-
+  ${ { "encabulator.io/region": schema.spec.region, ... }.merge(
+  hub.metadata.?annotations.orValue({}).transformMap(k, v,
+  k in ["encabulator.io/repo-url", "encabulator.io/revision", "encabulator.io/registry"], v)) }
+```
+
+The whole map is one expression so that a key the hub does not carry is not written at all: a
+template entry per key would write it even when empty. A hub registered without the settings
+therefore yields exactly the annotations a cell always had, and a cell added by committing a file
+to `gitops/hub/cells/` gets the hub's settings with no extra step. kro applies the Secret with
+server-side apply and owns only the keys it writes. An `encabulator.io/registry` added to a cell's
+Secret by hand stays as long as the hub has none; once the hub has one, kro takes the key over,
+and if the hub's is removed later, the key goes too.
+
+kro waits for the hub's Secret: until it exists, a new cell's AWS resources are built but its
+register Secret is not written, so Argo CD deploys nothing there, and the instance stays
+`IN_PROGRESS` with `waiting for external reference "hub": not found`. An existing cell whose hub
+Secret disappears keeps every object, including its register Secret, so the ApplicationSets keep
+rendering its Applications as before; only its instance shows `IN_PROGRESS` with the same message. Both go back to
+`ACTIVE` once the hub Secret is back. kro's existing grants already cover the read (`get` on
+Secrets in `argocd`, `list` and `watch` on Secrets cluster-wide).
 
 ### The ApplicationSet
 
 Cluster generator on `encabulator.io/cell=true`, `goTemplate: true` with
 `missingkey=error` (the Argo CD recommendation; a missing template parameter fails the render
 instead of rendering an empty value). It renders Application `{{ .name }}` (= `encabulator-use2`) in
-project `encabulator-cells`, source `gitops/app` at `carrlos`, destination the cluster ARN,
+project `encabulator-cells`, source `gitops/app` from the repository and revision on the cell's
+Secret (`encabulator.io/repo-url`, `encabulator.io/revision`; by default this repository at
+`carrlos`), destination the cluster ARN,
 namespace `encabulator`, automated prune + self-heal, `CreateNamespace=true`, and retries while a
 new cell's CRDs settle. Two kustomize patches (JSON 6902, `op: add`) carry the annotations into
 `gitops/app` (lead decision D7: `gitops/app/kustomization.yaml` is the root):
@@ -191,6 +224,8 @@ role selectors (EKS ACK permissions guide).
 
 ### What the hub needs (owned by other items)
 
+- The hub's own Argo CD cluster Secret `argocd/encabulator-usw2` (`register-hub.sh`): a cell
+  registers with Argo CD only once it exists.
 - Hub kro capability access entry with group `encabulator:kro` (`terraform/`).
 - Hub Argo CD capability role named `encabulator-usw2-argocd` (`spec.argoCDRoleName`).
 - AppProject `encabulator-cells` in `argocd` (`gitops/hub/bootstrap/`), which also allows the

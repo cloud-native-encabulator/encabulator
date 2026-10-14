@@ -14,11 +14,12 @@ registers the hub with its own Argo CD.
 | `register-hub.sh` | Secret `encabulator-usw2` in `argocd` (not committed) | - | - |
 
 All four sync from `https://github.com/jlbutler/cloud-native-encabulator` at `carrlos`, with
-automated sync, prune, selfHeal and retry. Destinations use the Argo CD cluster name
-`encabulator-usw2`, so no cluster ARN or account id is in Git. The cell ApplicationSets
-(`gitops/hub/appset.yaml`) use project `encabulator-cells`, which can deploy to any
-`encabulator-*` cluster except the hub, from this repository and from the chart repositories of
-the platform charts.
+automated sync, prune, selfHeal and retry. Another repository or branch needs no edit to these
+files: see [Deploy into your own account](#deploy-into-your-own-account). Destinations use the
+Argo CD cluster name `encabulator-usw2`, so no cluster ARN or account id is in Git. The cell
+ApplicationSets (`gitops/hub/appset.yaml`) use project `encabulator-cells`, which can deploy to
+any `encabulator-*` cluster except the hub, from this repository and from the chart repositories
+of the platform charts.
 
 ## Bring up the hub (the day before)
 
@@ -29,12 +30,16 @@ kubectl config set-context --current --namespace encabulator   # the Act 1 comma
 
 # 2. Register the hub with its own Argo CD. Reads the cluster ARN, the DB subnet group's
 #    subnets and the encabulator-db security group from AWS. --dry-run shows the Secret first.
-./gitops/hub/bootstrap/register-hub.sh --dry-run
-./gitops/hub/bootstrap/register-hub.sh
+make gitops-register REGISTER_ARGS=--dry-run
+make gitops-register
 
-# 3. Projects, the hub-brownfield ApplicationSet and the three Applications.
-kubectl apply -f gitops/hub/bootstrap/
+# 3. Projects, the hub-brownfield ApplicationSet and the hub Applications, except hub-cells.
+make gitops-bootstrap
 kubectl get applications -n argocd
+
+# 4. When it is time to build the cells in gitops/hub/cells/ (a second EKS cluster, a NAT
+#    gateway and a database per cell; about 35 minutes; costs money):
+make add-cell CELL=use2
 ```
 
 `register-hub.sh` refuses to run if kubectl points at a different cluster, or if the cache's
@@ -42,9 +47,95 @@ subnets and security group differ from the DB subnet group's (the ApplicationSet
 values into both CRs).
 
 `projects.yaml` is not synced by any Application: after changing it, apply it again with
-`kubectl apply -f gitops/hub/bootstrap/projects.yaml`. Until it is applied, a cell's platform
-Applications report that their chart repositories are not permitted in the project, and the
-app's Application is unaffected.
+`make gitops-bootstrap`. Until it is applied, a cell's platform Applications report that their
+chart repositories are not permitted in the project, and the app's Application is unaffected.
+
+## Deploy into your own account
+
+The repository Argo CD syncs from, its branch, and the registry the cells pull images from are
+settings, not edits. They come from the environment (the `Makefile` reads them from `.env`), and
+each is optional:
+
+| Setting | Default | What it changes |
+|---|---|---|
+| `GIT_REPO_URL` | `https://github.com/jlbutler/cloud-native-encabulator` | the repository of every Application on the hub and on every cell, and the one the AppProjects allow |
+| `GIT_REVISION` | `carrlos` | the branch, tag or commit they track |
+| `REGISTRY` | none: the images' own registry | the registry of every cell's app images (`Encabulator.spec.registry`), for example your account's ECR mirror |
+| `GIT_TOKEN_FILE` | none: a public repository | a path to a file that holds a token for a private repository (mode 600; the token itself never goes in `.env`) |
+
+With none of them set, every object is exactly what the committed files say.
+
+```bash
+make gitops-register       # records GIT_REPO_URL, GIT_REVISION and REGISTRY on the hub's cluster Secret
+make gitops-repo-access    # private repository only: Argo CD's repository Secret from GIT_TOKEN_FILE
+make gitops-bootstrap      # projects and hub Applications for GIT_REPO_URL at GIT_REVISION; no cell
+make add-cell CELL=use2    # builds the cells committed to gitops/hub/cells/ at GIT_REVISION
+make cell-access CELL=use2 # optional: kubectl access to that cell for your own AWS role or user
+```
+
+What each Argo CD object reads:
+
+| Object | Applied by | Repository and revision from |
+|---|---|---|
+| AppProjects, `hub-rgds`, `hub-cell-apps`, `hub-brownfield`, `hub-cells` | `make gitops-bootstrap`, `make add-cell` | the settings, rendered into the files when they are applied (`make gitops-render` prints the result) |
+| ApplicationSets `encabulator` and `encabulator-platform` (`gitops/hub/appset.yaml`) | Argo CD, from Git | the cell's cluster Secret: `encabulator.io/repo-url` and `encabulator.io/revision`, defaults as above |
+| each cell's cluster Secret | kro, from the `EncabulatorCell` RGD | the hub's cluster Secret: kro copies `encabulator.io/repo-url`, `encabulator.io/revision` and `encabulator.io/registry` from it ([`../rgds/README.md`](../rgds/README.md#the-hubs-settings)) |
+
+`appset.yaml` is synced from Git, so it cannot be rendered; it reads the cell's Secret instead,
+and the cell's Secret carries what the hub was registered with. A cell added later by committing
+a file to `gitops/hub/cells/` gets the same values, with no command.
+
+Only settings that differ from the defaults are recorded on the hub, so a hub registered without
+them, or with the default values, keeps the Secret it had. To change a setting later, change it
+and run `make gitops-register gitops-bootstrap` again; a setting you remove is removed from the
+hub's Secret and from every cell's Secret within seconds. `REGISTRY` set on the hub replaces an
+`encabulator.io/registry` annotation added to a cell's Secret by hand; with no `REGISTRY` on the
+hub, a hand-set one stays.
+
+### Cells are off until you add one
+
+`make gitops-bootstrap` never applies `hub-cells`, because `hub-cells` builds every cell in
+`gitops/hub/cells/` straight away. `make add-cell CELL=<cell>` applies it. It first checks that
+`gitops/hub/cells/<cell>.yaml` is in `GIT_REPO_URL` at `GIT_REVISION` (the revision Argo CD
+reads, not just your checkout) and says so if it is not; when the repository cannot be read from
+your machine, it checks your checkout and tells you to make sure the file is pushed. Then it
+prints how to watch the build:
+
+```bash
+kubectl get encabulatorcells -n encabulator-cells -w
+```
+
+The cell is ACTIVE in about 20 minutes and its app is Healthy about 15 minutes after that.
+Running `make add-cell` again is harmless. Every cell in the folder is built, not only `CELL`.
+
+A cell registers with Argo CD only once the hub's cluster Secret exists, because kro reads the
+settings from it: run `make gitops-register` first. Without it, kro still builds the cell's AWS
+resources, the `EncabulatorCell` stays `IN_PROGRESS` ("waiting for external reference hub"), and
+Argo CD deploys nothing to the cell until the hub is registered. A running cell whose hub Secret
+is deleted keeps everything it has, including its own cluster Secret, and goes back to `ACTIVE`
+when the hub is registered again.
+
+### A private repository
+
+Put a token that can read the repository in a file, `chmod 600` it, and set `GIT_TOKEN_FILE` to
+its path (`GIT_REPO_URL` must be an `https://` URL). `make gitops-repo-access` creates the Argo
+CD repository Secret `repo-<repository name>` in `argocd`, labelled
+`argocd.argoproj.io/secret-type: repository`, with `url` set to `GIT_REPO_URL`, user
+`x-access-token` (GitHub's convention for tokens) and the file's content as the password. It
+refuses a file that is empty or readable by anyone else, and never prints the token or passes it
+on a command line. Run it again after rotating the token. With `GIT_TOKEN_FILE` unset it does
+nothing and says so.
+
+### kubectl on a cell
+
+The cell's cluster grants access to the hub's Argo CD and, optionally, to the IAM role named in
+the cell file (`spec.adminRoleName`). `make cell-access CELL=<cell>` gives your own AWS identity
+access without putting a role name in Git: it creates an EKS access entry on the cell's cluster
+for the role (with its path) or user you are signed in as, tagged `auto-delete=no`,
+`project=encabulator`, `talk=opn315`, associates `AmazonEKSClusterAdminPolicy`, and prints the
+`aws eks update-kubeconfig` command. When your role cannot read IAM, set `PRINCIPAL_ARN` to its
+ARN. To remove the access, delete the access entry
+(`aws eks delete-access-entry --cluster-name <cluster> --principal-arn <arn>`).
 
 ## What every cell gets
 
