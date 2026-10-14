@@ -151,8 +151,12 @@ spec:
             - { key: talk, value: opn315 }
 
     # One NAT gateway keeps the demo cheap. Use one per AZ for anything that must survive the
-    # loss of an AZ.
+    # loss of an AZ. The private route table waits until the gateway is available: EC2 refuses
+    # a route to a NAT gateway it does not know yet, and ACK does not keep the id of a route
+    # table whose route failed, so every retry would add a route table.
     - id: natGateway
+      readyWhen:
+        - ${natGateway.status.?state.orValue("") == "available"}
       template:
         apiVersion: ec2.services.k8s.aws/v1alpha1
         kind: NATGateway

@@ -25,7 +25,7 @@ kro orders the resources from their references (the RGD's `status.topologicalOrd
 ```
 VPC ─┬─ InternetGateway ── public RouteTable ── public Subnet × AZ ─┐
      │                                ElasticIPAddress ── NATGateway ┘─ private RouteTable ── private Subnet × AZ
-     │
+     │                                                    readyWhen state == available
 IAM Roles: cluster, node, ack, kro (no dependencies, created at once)
      │
 EKS Cluster (private subnets, cluster role) ── readyWhen status == ACTIVE
@@ -52,6 +52,11 @@ hub's argocd cluster Secret (external reference, read only): the repository, rev
   the same split the hub's Terraform uses. Private subnets carry
   `kubernetes.io/role/internal-elb=1`, public ones `kubernetes.io/role/elb=1`. One NAT gateway
   in the first AZ keeps the demo cheap.
+- NAT gateway: `readyWhen` `status.state == available`, so kro creates the private route table,
+  and after it the private subnets and the cluster, only once the gateway is available. EC2
+  refuses a route to a NAT gateway it does not know yet, and ACK keeps no id for a route table
+  whose route failed, so a route table created before then would be left behind on every retry. The
+  cluster therefore starts when the NAT gateway is available, not right after it is created.
 - Cluster: EKS Auto Mode with **no built-in node pools** (`computeConfig.nodePools: []`,
   lead decision D8). The built-in pools use the managed `default` NodeClass, which cannot carry
   custom tags; `gitops/app/nodes/` (item C) ships a tagged NodeClass with the cell's node role
