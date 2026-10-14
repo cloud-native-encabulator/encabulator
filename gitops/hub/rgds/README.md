@@ -116,11 +116,12 @@ Secret by hand stays as long as the hub has none; once the hub has one, kro take
 and if the hub's is removed later, the key goes too.
 
 kro waits for the hub's Secret: until it exists, a new cell's AWS resources are built but its
-register Secret is not written, so Argo CD deploys nothing there, and the instance reports
-`waiting for external reference "hub": not found`. An existing cell whose hub Secret disappears
-keeps every object, including its register Secret, and is reconciled again once the hub Secret is
-back. kro's existing grants already cover the read (`get` on Secrets in `argocd`, `list` and
-`watch` on Secrets cluster-wide).
+register Secret is not written, so Argo CD deploys nothing there, and the instance stays
+`IN_PROGRESS` with `waiting for external reference "hub": not found`. An existing cell whose hub
+Secret disappears keeps every object, including its register Secret, so the ApplicationSets keep
+rendering its Applications as before; only its instance shows `IN_PROGRESS` with the same message. Both go back to
+`ACTIVE` once the hub Secret is back. kro's existing grants already cover the read (`get` on
+Secrets in `argocd`, `list` and `watch` on Secrets cluster-wide).
 
 ### The ApplicationSet
 
