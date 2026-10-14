@@ -52,8 +52,9 @@ argocd cluster Secret ◄────────────┘  waits for both
   in the first AZ keeps the demo cheap.
 - Cluster: EKS Auto Mode with **no built-in node pools** (`computeConfig.nodePools: []`,
   lead decision D8). The built-in pools use the managed `default` NodeClass, which cannot carry
-  custom tags; `gitops/app/nodes/` (item C) ships a tagged NodeClass with role
-  `encabulator-use2-node` and a NodePool. Because of that the RGD creates the node role, its
+  custom tags; `gitops/app/nodes/` (item C) ships a tagged NodeClass with the cell's node role
+  (`<cell>-node`, for example `encabulator-use2-node`, set per cell by the ApplicationSet) and a
+  NodePool. Because of that the RGD creates the node role, its
   `EC2` access entry with `AmazonEKSAutoNodePolicy` (EKS only creates one for the built-in
   pools), and gives the cluster role the custom-tags inline policy from the EKS Auto Mode
   cluster IAM role guide (with the cluster name written in place of the principal-tag variable).
@@ -105,9 +106,11 @@ new cell's CRDs settle. Two kustomize patches (JSON 6902, `op: add`) carry the a
   `,`) and `spec.securityGroupID`, plus `spec.registry` only when the Secret has
   `encabulator.io/registry` (`missingkey=error` fails on a missing template parameter such as
   `.name`; `index` on a missing annotation returns empty, which `{{ with }}` skips);
-- target any `NodeClass` (`eks.amazonaws.com`): `spec.subnetSelectorTerms` (one `id` per private
-  subnet) and `spec.securityGroupSelectorTerms` (the cluster security group), matching the
-  hub's NodeClass. If `gitops/app` has no NodeClass, this patch matches nothing and is a no-op.
+- target any `NodeClass` (`eks.amazonaws.com`): `spec.role` (`replace`, the cell's node role
+  `<cell>-node`, which the RGD creates with its EC2 access entry), `spec.subnetSelectorTerms`
+  (one `id` per private subnet) and `spec.securityGroupSelectorTerms` (the cluster security
+  group), matching the hub's NodeClass. If `gitops/app` has no NodeClass, this patch matches
+  nothing and is a no-op.
 
 `preserveResourcesOnDeletion: true`: deleting the ApplicationSet does not delete a running region.
 
