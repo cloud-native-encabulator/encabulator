@@ -40,6 +40,16 @@ crash.log
 *.kubeconfig
 tmp/
 
+# re:Invent speaker deck (Bento). A built deck embeds Amazon Ember Modern, which is
+# internal and embargoed until 2026-11-30, so it must never land in this public repo.
+# It is built outside the repo and published to Alcove instead.
+*.bento.html
+*.prev.bento.html
+*.woff
+*.woff2
+*.ttf
+*.otf
+
 # Editors / OS
 .idea/
 .vscode/
