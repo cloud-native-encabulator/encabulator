@@ -878,7 +878,7 @@ kubectl get encabulator encabulator -n encabulator -o yaml | yq .status
       deletePropagationPolicy: RETAIN
   </pre>
   <div style="display:flex;flex-direction:column;gap:26px">
-   <pre class="code xs" data-file="gitops/hub/rgds/encabulator-cell.yaml" data-step="3" data-hl="10,17">
+   <pre class="code xs" data-file="gitops/hub/rgds/encabulator-cell.yaml" data-step="3" data-hl="10,15">
 - id: register
   template:
     apiVersion: v1
@@ -889,9 +889,7 @@ kubectl get encabulator encabulator -n encabulator -o yaml | yq .status
       labels:
         argocd.argoproj.io/secret-type: cluster
         encabulator.io/cell: "true"
-      annotations:
-        encabulator.io/region: ${schema.spec.region}
-        # ... subnet, security group and capability ids
+      # ... annotations: region, subnet, security group and capability ids
     type: Opaque
     stringData:
       name: ${schema.metadata.name}
