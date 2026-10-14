@@ -29,7 +29,7 @@ spec:
     apiVersion: v1alpha1
     kind: Encabulator
     spec:
-      imageTag: string | default="1.0.1"
+      imageTag: string | default="1.0.2"
       # Images are <registry>/<service>:<imageTag>, like the chart's global.registry. The cell
       # ApplicationSet sets it from the cluster Secret annotation encabulator.io/registry when
       # one is present (a mirror), so no registry hostname has to live in Git.
@@ -659,10 +659,19 @@ spec:
                     name: ${natsConfig.metadata.name}
                 - name: tmp
                   emptyDir: {}
+          # volumeClaimTemplates are immutable once the StatefulSet exists, so these labels must
+          # not change between releases: the natsLabels set minus app.kubernetes.io/version,
+          # like the chart's encabulator.storeVolumeLabels.
           volumeClaimTemplates:
             - metadata:
                 name: data
-                labels: *natsLabels
+                labels:
+                  app.kubernetes.io/name: nats
+                  app.kubernetes.io/instance: ${schema.metadata.name}
+                  app.kubernetes.io/part-of: encabulator
+                  app.kubernetes.io/managed-by: kro
+                  app.kubernetes.io/component: backing-store
+                  encabulator.io/plane: data
               spec:
                 accessModes: ["ReadWriteOnce"]
                 resources:
@@ -755,6 +764,9 @@ spec:
                     - {name: INFLUXDB3_HTTP_BIND_ADDR, value: "0.0.0.0:8181"}
                     - {name: INFLUXDB3_ADMIN_TOKEN_FILE, value: /etc/influxdb3/admin-token.json}
                     - {name: INFLUXDB3_DISABLE_AUTHZ, value: "health,ping,metrics"}
+                    # How long a write may wait for the WAL flush that acknowledges it (InfluxDB's
+                    # default is 1s). Same value and place as the chart's influxdb.walFlushInterval.
+                    - {name: INFLUXDB3_WAL_FLUSH_INTERVAL, value: 50ms}
                     - {name: INFLUXDB3_DISABLE_TELEMETRY_UPLOAD, value: "true"}
                     - {name: INFLUXDB3_GEN1_DURATION, value: 1m}
                   startupProbe:
@@ -791,10 +803,17 @@ spec:
                   emptyDir: {}
                 - name: tmp
                   emptyDir: {}
+          # Immutable like the NATS ones above: the influxdbLabels set minus app.kubernetes.io/version.
           volumeClaimTemplates:
             - metadata:
                 name: data
-                labels: *influxdbLabels
+                labels:
+                  app.kubernetes.io/name: influxdb
+                  app.kubernetes.io/instance: ${schema.metadata.name}
+                  app.kubernetes.io/part-of: encabulator
+                  app.kubernetes.io/managed-by: kro
+                  app.kubernetes.io/component: backing-store
+                  encabulator.io/plane: data
               spec:
                 accessModes: ["ReadWriteOnce"]
                 resources:

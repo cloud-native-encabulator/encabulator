@@ -27,8 +27,8 @@ gitops/app/
 | ElastiCache Serverless | engine `valkey`, major `8` (lead decision D2; 9.0 and 9.1 exist for Serverless) | `rgds/encabulator.yaml` |
 | secret-init image | `docker.io/library/python:3.13.16-slim-trixie@sha256:70729b46...c2f` (Python 3.13.16, OpenSSL 3.5.7) | `secretInit` Job |
 | db-init image | `docker.io/library/postgres:18.6-trixie@sha256:74935e72...4336` | `dbInit` Job |
-| Service images | `<spec.registry>/<service>:<spec.imageTag>`, default `ghcr.io/jlbutler/cloud-native-encabulator/<service>:1.0.1` | `spec.registry`, `spec.imageTag` |
-| NATS, InfluxDB images | `nats:2.12`, `influxdb:3-core` (the chart's tags, unchanged) | StatefulSets |
+| Service images | `<spec.registry>/<service>:<spec.imageTag>`, default `ghcr.io/jlbutler/cloud-native-encabulator/<service>:1.0.2` | `spec.registry`, `spec.imageTag` |
+| NATS, InfluxDB images | `nats:2.12`, `influxdb:3-core` (the chart's tags, unchanged); InfluxDB flushes its WAL every 50 ms (`INFLUXDB3_WAL_FLUSH_INTERVAL`, the chart's `influxdb.walFlushInterval` default) | StatefulSets |
 | Validation | kind cluster on `kindest/node` (shared `opn315-cell`, Kubernetes 1.35.8), helm 4.2.4, kubectl 1.35.0, Python 3.12 + PyYAML 6.0.3 | `hack/` |
 
 ## The two APIs
@@ -38,7 +38,7 @@ apiVersion: kro.run/v1alpha1
 kind: Encabulator
 metadata: {name: encabulator, namespace: encabulator}
 spec:
-  imageTag: "1.0.1"               # default 1.0.1
+  imageTag: "1.0.2"               # default 1.0.2
   registry: ghcr.io/jlbutler/cloud-native-encabulator  # the default; a mirror per cell, see below
   dbInstanceClass: db.t4g.medium  # default db.t4g.medium
   subnetIDs: [...]                # patched in per cell
@@ -220,7 +220,9 @@ Needs a real cell with the ACK capability, so it is untested here:
 
 - Job pod templates and StatefulSet `volumeClaimTemplates` are immutable. Changing them in an
   RGD fails the update for existing instances; delete the Job or StatefulSet (data stays on the
-  PVC) and let kro recreate it.
+  PVC) and let kro recreate it. `kubectl delete statefulset <name> --cascade=orphan` keeps the
+  store pod running until kro's new StatefulSet adopts it. The claim templates carry no
+  `app.kubernetes.io/version`, so changing `spec.imageTag` never touches them.
 - Deleting the instance deletes the Jobs but leaves their completed pods; the AWS resources stay
   (deletion-policy retain) and so do the generated Secrets (kro did not create them). Remove
   both deliberately at teardown.
