@@ -764,6 +764,9 @@ spec:
                     - {name: INFLUXDB3_HTTP_BIND_ADDR, value: "0.0.0.0:8181"}
                     - {name: INFLUXDB3_ADMIN_TOKEN_FILE, value: /etc/influxdb3/admin-token.json}
                     - {name: INFLUXDB3_DISABLE_AUTHZ, value: "health,ping,metrics"}
+                    # How long a write may wait for the WAL flush that acknowledges it (InfluxDB's
+                    # default is 1s). Same value and place as the chart's influxdb.walFlushInterval.
+                    - {name: INFLUXDB3_WAL_FLUSH_INTERVAL, value: 50ms}
                     - {name: INFLUXDB3_DISABLE_TELEMETRY_UPLOAD, value: "true"}
                     - {name: INFLUXDB3_GEN1_DURATION, value: 1m}
                   startupProbe:
