@@ -15,6 +15,15 @@ locals {
   access_policy_prefix = "arn:${data.aws_partition.current.partition}:eks::aws:cluster-access-policy"
   account_id           = data.aws_caller_identity.current.account_id
   partition            = data.aws_partition.current.partition
+
+  # Who may sign in to the Argo CD UI: the full list when it is given, otherwise one ADMIN
+  # mapping for argocd_admin_group_id (the single value .env sets), otherwise nobody.
+  argocd_rbac_role_mappings = length(var.argocd_rbac_role_mappings) > 0 ? var.argocd_rbac_role_mappings : [
+    for id in compact([var.argocd_admin_group_id]) : {
+      role       = "ADMIN"
+      identities = [{ id = id, type = "SSO_GROUP" }]
+    }
+  ]
 }
 
 data "aws_iam_policy_document" "capability_assume" {
@@ -259,7 +268,7 @@ resource "aws_eks_capability" "argocd" {
       }
 
       dynamic "rbac_role_mapping" {
-        for_each = var.argocd_rbac_role_mappings
+        for_each = local.argocd_rbac_role_mappings
         content {
           role = rbac_role_mapping.value.role
 

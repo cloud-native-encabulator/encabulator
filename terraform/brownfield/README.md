@@ -39,6 +39,11 @@ service-linked role, and the same defaults in every cell).
 
 ## Command flow
 
+From the repository root, `make hub` runs all of this from one `.env` file (see the
+[README quick start](../../README.md#on-aws-from-terraform-to-gitops)): it passes
+`IDC_INSTANCE_ARN`, `IDC_REGION` and `ARGOCD_ADMIN_GROUP_ID` to Terraform as `TF_VAR_` variables,
+so no file here needs editing. By hand:
+
 ```bash
 cd terraform/brownfield
 cp terraform.tfvars.example encabulator.auto.tfvars   # gitignored; fill in the Identity Center ARN
@@ -47,6 +52,12 @@ terraform apply                                        # about 25 minutes, RDS i
 $(terraform output -raw kubeconfig_command)
 make -C ../.. platform && ./deploy-app.sh              # observability, then the app on RDS + ElastiCache
 ```
+
+Who may sign in to Argo CD comes from `argocd_rbac_role_mappings` (a list of roles and Identity
+Center users or groups) or, for the common case of one admin group, from `argocd_admin_group_id`
+alone, which gives that group the `ADMIN` role. When the list is set it wins. An
+`encabulator.auto.tfvars` takes precedence over `TF_VAR_` values, so a stack that has one keeps
+planning exactly as it did.
 
 `deploy-app.sh` reads the store endpoints from the ConfigMap `encabulator-aws` and runs `make deploy`
 with `values-eks-auto-mode.yaml`, `values-brownfield.yaml` and `--set postgres.external.host=...
@@ -222,7 +233,8 @@ terraform fmt -check -recursive
 terraform init -backend=false && terraform validate
 terraform test     # plan with fake AWS credentials and mocked Kubernetes/Helm; asserts names,
                    # tags, store values, hand-off keys and the ACK policy scope (brownfield.tftest.hcl)
-                   # and auto-delete=no, the access entries and the tagger's limits (tags.tftest.hcl)
+                   # and auto-delete=no, the access entries and the tagger's limits (tags.tftest.hcl);
+                   # both ways of naming the Argo CD admins give the same mapping
 python3 tagger/test_sweep.py   # the tagger against a fake boto3
 ```
 

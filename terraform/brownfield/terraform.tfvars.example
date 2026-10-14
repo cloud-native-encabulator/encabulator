@@ -1,5 +1,9 @@
 # Copy to encabulator.auto.tfvars (gitignored) and fill in real values. Placeholders only
 # in this file.
+#
+# With `make hub` you do not need this file: it passes IDC_INSTANCE_ARN, IDC_REGION and
+# ARGOCD_ADMIN_GROUP_ID from the repository's .env as TF_VAR_ variables. When this file
+# exists, its values win over .env.
 
 # IAM Identity Center instance the Argo CD capability signs users in with:
 #   aws sso-admin list-instances --query 'Instances[0].InstanceArn' --output text
@@ -18,6 +22,9 @@ argocd_rbac_role_mappings = [
     ]
   },
 ]
+
+# The short form for one admin group, used only when argocd_rbac_role_mappings is empty:
+# argocd_admin_group_id = "00000000-0000-0000-0000-000000000000"
 
 # Defaults, shown for reference.
 # region                      = "us-west-2"

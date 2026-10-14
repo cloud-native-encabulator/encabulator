@@ -249,4 +249,98 @@ run "plan" {
     ])
     error_message = "ACK may pass the roles of every cell (encabulator-use2-*, -reh1-*, -euw1-*)"
   }
+
+  # ------------------------------------------------------ Argo CD sign-in mappings
+  assert {
+    condition     = length(aws_eks_capability.argocd.configuration[0].argo_cd[0].rbac_role_mapping) == 0
+    error_message = "default: no Argo CD role mapping (neither argocd_rbac_role_mappings nor argocd_admin_group_id is set)"
+  }
+}
+
+# The two ways to name the Argo CD admins resolve to the same mapping: the single group id
+# that .env sets (TF_VAR_argocd_admin_group_id) ...
+run "argocd_admin_group_id" {
+  command = plan
+
+  variables {
+    argocd_admin_group_id = "a1b2c3d4e5-11111111-2222-3333-4444-555555555555"
+  }
+
+  assert {
+    condition = [
+      for m in aws_eks_capability.argocd.configuration[0].argo_cd[0].rbac_role_mapping : {
+        role       = m.role
+        identities = [for i in m.identity : { id = i.id, type = i.type }]
+      }
+      ] == [{
+        role       = "ADMIN"
+        identities = [{ id = "a1b2c3d4e5-11111111-2222-3333-4444-555555555555", type = "SSO_GROUP" }]
+    }]
+    error_message = "argocd_admin_group_id alone gives one ADMIN mapping for that SSO_GROUP"
+  }
+}
+
+# ... and the list in encabulator.auto.tfvars (terraform.tfvars.example).
+run "argocd_rbac_role_mappings" {
+  command = plan
+
+  variables {
+    argocd_rbac_role_mappings = [
+      {
+        role       = "ADMIN"
+        identities = [{ id = "a1b2c3d4e5-11111111-2222-3333-4444-555555555555", type = "SSO_GROUP" }]
+      },
+    ]
+  }
+
+  assert {
+    condition = [
+      for m in aws_eks_capability.argocd.configuration[0].argo_cd[0].rbac_role_mapping : {
+        role       = m.role
+        identities = [for i in m.identity : { id = i.id, type = i.type }]
+      }
+      ] == [{
+        role       = "ADMIN"
+        identities = [{ id = "a1b2c3d4e5-11111111-2222-3333-4444-555555555555", type = "SSO_GROUP" }]
+    }]
+    error_message = "the list form gives the same ADMIN mapping as argocd_admin_group_id"
+  }
+}
+
+# When both are set, the list wins and the group id adds nothing.
+run "argocd_rbac_role_mappings_win" {
+  command = plan
+
+  variables {
+    argocd_admin_group_id = "a1b2c3d4e5-11111111-2222-3333-4444-555555555555"
+    argocd_rbac_role_mappings = [
+      {
+        role       = "VIEWER"
+        identities = [{ id = "a1b2c3d4e5-66666666-7777-8888-9999-000000000000", type = "SSO_USER" }]
+      },
+    ]
+  }
+
+  assert {
+    condition = [
+      for m in aws_eks_capability.argocd.configuration[0].argo_cd[0].rbac_role_mapping : {
+        role       = m.role
+        identities = [for i in m.identity : { id = i.id, type = i.type }]
+      }
+      ] == [{
+        role       = "VIEWER"
+        identities = [{ id = "a1b2c3d4e5-66666666-7777-8888-9999-000000000000", type = "SSO_USER" }]
+    }]
+    error_message = "a non-empty argocd_rbac_role_mappings wins over argocd_admin_group_id"
+  }
+}
+
+run "argocd_admin_group_id_rejects_junk" {
+  command = plan
+
+  variables {
+    argocd_admin_group_id = "admins"
+  }
+
+  expect_failures = [var.argocd_admin_group_id]
 }
