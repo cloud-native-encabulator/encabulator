@@ -52,8 +52,9 @@ argocd cluster Secret ◄────────────┘  waits for both
   in the first AZ keeps the demo cheap.
 - Cluster: EKS Auto Mode with **no built-in node pools** (`computeConfig.nodePools: []`,
   lead decision D8). The built-in pools use the managed `default` NodeClass, which cannot carry
-  custom tags; `gitops/app/nodes/` (item C) ships a tagged NodeClass with role
-  `encabulator-use2-node` and a NodePool. Because of that the RGD creates the node role, its
+  custom tags; `gitops/app/nodes/` (item C) ships a tagged NodeClass with the cell's node role
+  (`<cell>-node`, for example `encabulator-use2-node`, set per cell by the ApplicationSet) and a
+  NodePool. Because of that the RGD creates the node role, its
   `EC2` access entry with `AmazonEKSAutoNodePolicy` (EKS only creates one for the built-in
   pools), and gives the cluster role the custom-tags inline policy from the EKS Auto Mode
   cluster IAM role guide (with the cluster name written in place of the principal-tag variable).
@@ -105,9 +106,11 @@ new cell's CRDs settle. Two kustomize patches (JSON 6902, `op: add`) carry the a
   `,`) and `spec.securityGroupID`, plus `spec.registry` only when the Secret has
   `encabulator.io/registry` (`missingkey=error` fails on a missing template parameter such as
   `.name`; `index` on a missing annotation returns empty, which `{{ with }}` skips);
-- target any `NodeClass` (`eks.amazonaws.com`): `spec.subnetSelectorTerms` (one `id` per private
-  subnet) and `spec.securityGroupSelectorTerms` (the cluster security group), matching the
-  hub's NodeClass. If `gitops/app` has no NodeClass, this patch matches nothing and is a no-op.
+- target any `NodeClass` (`eks.amazonaws.com`): `spec.role` (`replace`, the cell's node role
+  `<cell>-node`, which the RGD creates with its EC2 access entry), `spec.subnetSelectorTerms`
+  (one `id` per private subnet) and `spec.securityGroupSelectorTerms` (the cluster security
+  group), matching the hub's NodeClass. If `gitops/app` has no NodeClass, this patch matches
+  nothing and is a no-op.
 
 `preserveResourcesOnDeletion: true`: deleting the ApplicationSet does not delete a running region.
 
@@ -193,20 +196,25 @@ role selectors (EKS ACK permissions guide).
 - AppProject `encabulator-cells` in `argocd` (`gitops/hub/bootstrap/`), which also allows the
   platform charts' repositories, namespace `encabulator-observability` and the cluster-scoped
   kinds kube-prometheus-stack ships (CRDs, admission webhooks).
-- Hub ACK capability role (`encabulator-usw2-ack`) IAM permissions, in us-east-2 as well as
-  us-west-2 (lead decision D5):
+- Hub ACK capability role (`encabulator-usw2-ack`) IAM permissions, in every cell region as well
+  as us-west-2 (lead decision D5). `terraform/brownfield` scopes them with three lists: the
+  regions (`var.ack_regions`), the cells' IAM role prefixes (`var.ack_iam_role_prefixes`) and
+  the cells' cluster names (`var.ack_eks_cluster_names`). **A new cell name or region needs all
+  three updated and applied on the hub before its file is committed**; otherwise ACK is denied
+  at the first VPC and IAM call. The tagger reads the same lists.
   - EC2: VPC, Subnet, InternetGateway, ElasticIPAddress, NATGateway, RouteTable and
     SecurityGroup create/describe/modify/delete plus `ec2:CreateTags`/`DeleteTags`
     (the ec2-controller's recommended policy is `AmazonEC2FullAccess`);
-  - IAM on `arn:aws:iam::*:role/encabulator-use2-*`: `CreateRole`, `GetRole`, `UpdateRole`,
+  - IAM on `arn:aws:iam::*:role/<prefix>*` for each cell prefix (`encabulator-use2-` and so on):
+    `CreateRole`, `GetRole`, `UpdateRole`,
     `DeleteRole`, `UpdateAssumeRolePolicy`, `TagRole`, `UntagRole`, `ListRoleTags`,
     `AttachRolePolicy`, `DetachRolePolicy`, `ListAttachedRolePolicies`, `PutRolePolicy`,
     `GetRolePolicy`, `DeleteRolePolicy`, `ListRolePolicies` (from the iam-controller's
     recommended inline policy);
   - EKS: the eks-controller's recommended inline policy (`eks:*`, `iam:GetRole`,
-    `iam:ListAttachedRolePolicies`, `ec2:DescribeSubnets`) and `iam:PassRole` on
-    `encabulator-use2-*` (the cluster role is passed to EKS, the capability roles to
-    `CreateCapability`).
+    `iam:ListAttachedRolePolicies`, `ec2:DescribeSubnets`) on the listed cell clusters, and
+    `iam:PassRole` on the cell prefixes (the cluster role is passed to EKS, the capability roles
+    to `CreateCapability`).
 
 ## Pinned versions
 

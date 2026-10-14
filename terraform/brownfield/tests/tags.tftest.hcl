@@ -169,13 +169,13 @@ run "tags" {
     condition = (
       { for e in kubernetes_cron_job_v1.tagger.spec[0].job_template[0].spec[0].template[0].spec[0].container[0].env : e.name => e.value } ==
       {
-        REGIONS       = "us-west-2 us-east-2"
+        REGIONS       = "us-west-2 us-east-2 eu-west-1"
         CACHE_NAMES   = "encabulator-valkey"
-        NODE_ROLES    = "encabulator-usw2-node encabulator-use2-node"
-        CLUSTER_NAMES = "encabulator-usw2 encabulator-use2"
+        NODE_ROLES    = "encabulator-usw2-node encabulator-use2-node encabulator-reh1-node encabulator-euw1-node"
+        CLUSTER_NAMES = "encabulator-usw2 encabulator-use2 encabulator-reh1 encabulator-euw1"
         HOME          = "/tmp"
       }
     )
-    error_message = "the tagger sweeps the hub and cell regions, the Valkey cache's snapshots, both NodeClass roles' instance profiles and both clusters' access entries"
+    error_message = "the tagger sweeps the hub and cell regions, the Valkey cache's snapshots, every NodeClass role's instance profiles and every cluster's access entries"
   }
 }

@@ -131,10 +131,12 @@ to one. No wildcards anywhere.
 
 ## Nodes (`nodes/auto-mode.yaml`)
 
-Lead decision D8: the cell has no built-in node pools; this NodeClass (role
-`encabulator-use2-node`, the three contract tags on instances, volumes and ENIs) and the NodePool
-equivalent to the general-purpose pool replace them, same spec as the hub's. Subnets and the
-cluster security group are placeholders that the cell ApplicationSet replaces with `add` patches.
+Lead decision D8: the cell has no built-in node pools; this NodeClass (the cell's node role
+`<cell>-node`, the three contract tags on instances, volumes and ENIs) and the NodePool
+equivalent to the general-purpose pool replace them, same spec as the hub's. The role, the
+subnets and the cluster security group are placeholders that the cell ApplicationSet replaces
+with patches (the role from the cell's name, so each cell's nodes join with the role that has
+the cell's EC2 access entry).
 
 ## What the cell ApplicationSet patches
 
@@ -142,8 +144,8 @@ cluster security group are placeholders that the cell ApplicationSet replaces wi
   from the cluster Secret annotations `encabulator.io/subnet-ids` and
   `encabulator.io/security-group-id`, and `/spec/registry` from the optional
   `encabulator.io/registry` (an image mirror; without it the images come from ghcr.io).
-- every `eks.amazonaws.com` NodeClass: `/spec/subnetSelectorTerms` and
-  `/spec/securityGroupSelectorTerms`.
+- every `eks.amazonaws.com` NodeClass: `/spec/role` (`<cell>-node`, from the cell's name),
+  `/spec/subnetSelectorTerms` and `/spec/securityGroupSelectorTerms`.
 
 Git keeps placeholders only (`subnet-0000...`, `sg-0000...`).
 

@@ -41,7 +41,8 @@ resource "aws_iam_role" "capability" {
 # ------------------------------------------------------------------- ACK permissions
 # Simple setup (all permissions on the capability role), scoped to what the talk needs:
 #   Act 1  adopt RDS, ElastiCache and the DB subnet group in the hub region
-#   Act 3  build a cell in us-east-2: VPC pieces, IAM roles for the cell, the EKS cluster,
+#   Act 3  build a cell in each cell region (var.ack_regions, names in var.ack_eks_cluster_names):
+#          VPC pieces, IAM roles for the cell, the EKS cluster,
 #          its capabilities and access entries
 # For production use IAM role selectors instead (one role per namespace or team).
 
@@ -172,7 +173,7 @@ data "aws_iam_policy_document" "ack" {
     }
   }
 
-  # IAM roles for the cells (encabulator-use2-*). The hub's own roles are not covered,
+  # IAM roles for the cells (var.ack_iam_role_prefixes). The hub's own roles are not covered,
   # so ACK cannot widen its own permissions.
   statement {
     sid = "IamCellRoles"

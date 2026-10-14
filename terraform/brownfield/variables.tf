@@ -90,17 +90,17 @@ variable "kro_cluster_admin" {
 variable "ack_regions" {
   description = "Regions the ACK capability may manage resources in: the hub plus every cell region."
   type        = list(string)
-  default     = ["us-west-2", "us-east-2"]
+  default     = ["us-west-2", "us-east-2", "eu-west-1"]
 }
 
 variable "ack_iam_role_prefixes" {
   description = "IAM role name prefixes the ACK capability may create, change and pass (the cells' roles). The hub's own roles (encabulator-usw2-*) are deliberately not in this list."
   type        = list(string)
-  default     = ["encabulator-use2-"]
+  default     = ["encabulator-use2-", "encabulator-reh1-", "encabulator-euw1-"]
 }
 
 variable "ack_eks_cluster_names" {
   description = "EKS clusters (cells) the ACK capability may create and manage, with their capabilities and access entries. The hub cluster is deliberately not in this list."
   type        = list(string)
-  default     = ["encabulator-use2"]
+  default     = ["encabulator-use2", "encabulator-reh1", "encabulator-euw1"]
 }

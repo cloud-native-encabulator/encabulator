@@ -5,9 +5,10 @@
 # cell is created with no built-in pools; this NodeClass + NodePool replace the
 # general-purpose pool. Same spec as the hub's (terraform/brownfield/charts/auto-mode-nodes).
 #
-# Placeholders: the cell ApplicationSet replaces subnetSelectorTerms (from the cluster Secret
+# Placeholders: the cell ApplicationSet replaces role with the cell's own node role
+# (<cell>-node, from the cell's name), subnetSelectorTerms (from the cluster Secret
 # annotation encabulator.io/subnet-ids) and securityGroupSelectorTerms (from
-# encabulator.io/cluster-security-group-id) with kustomize "add" patches.
+# encabulator.io/cluster-security-group-id) with kustomize patches.
 apiVersion: eks.amazonaws.com/v1
 kind: NodeClass
 metadata:
@@ -15,7 +16,7 @@ metadata:
   annotations:
     argocd.argoproj.io/sync-wave: "-1"
 spec:
-  # Created by the EncabulatorCell RGD on the hub.
+  # Created by the EncabulatorCell RGD on the hub. Replaced per cell by the ApplicationSet.
   role: encabulator-use2-node
   subnetSelectorTerms:
     - id: subnet-00000000000000001

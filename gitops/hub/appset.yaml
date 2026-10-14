@@ -9,6 +9,7 @@
 #   encabulator.io/cluster-security-group-id  -> NodeClass security group
 #   encabulator.io/registry (optional)        -> Encabulator.spec.registry, an image mirror;
 #                                                absent means the RGD default (ghcr.io)
+# and the cell's name gives the NodeClass its node role (<cell>-node).
 apiVersion: argoproj.io/v1alpha1
 kind: ApplicationSet
 metadata:
@@ -54,12 +55,16 @@ spec:
                   path: /spec/registry
                   value: {{ . | quote }}
                 {{- end }}
-            # The cell's custom NodeClass (gitops/app/nodes/): nodes in the private subnets,
-            # with the cluster security group, as on the hub.
+            # The cell's custom NodeClass (gitops/app/nodes/): the cell's own node role (the
+            # EncabulatorCell RGD names it <cell>-node and gives it the EC2 access entry), nodes
+            # in the private subnets, with the cluster security group, as on the hub.
             - target:
                 group: eks.amazonaws.com
                 kind: NodeClass
               patch: |-
+                - op: replace
+                  path: /spec/role
+                  value: {{ printf "%s-node" .name | quote }}
                 - op: add
                   path: /spec/subnetSelectorTerms
                   value: [{{ range $i, $id := splitList "," (index .metadata.annotations "encabulator.io/subnet-ids") }}{{ if $i }}, {{ end }}{"id": {{ $id | quote }}}{{ end }}]
