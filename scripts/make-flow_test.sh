@@ -80,8 +80,9 @@ in_repo() {
       STUB_LOG="$log" STUB_STATE="$state" KUBECONFIG="$case_dir/kubeconfig" \
       ${envs[@]+"${envs[@]}"} "$@") >"$out.raw" 2>&1
   status=$?
-  # The stand-ins in GNUmakefile replace three recipes on purpose; drop make's notes on that.
-  grep -vE "warning: (overriding|ignoring old) recipe for target" "$out.raw" >"$out" || true
+  # The stand-ins in GNUmakefile replace three recipes on purpose; drop make's notes on that
+  # (GNU Make 3.81, the one macOS ships, says "commands" where newer ones say "recipe").
+  grep -vE "warning: (overriding|ignoring old) (recipe|commands) for target" "$out.raw" >"$out" || true
 }
 mk() { in_repo "$@" </dev/null; }
 
@@ -108,6 +109,8 @@ ecr_repo_with() {
 }
 
 contract_tags=("Key=auto-delete,Value=no" "Key=project,Value=encabulator" "Key=talk,Value=opn315")
+make_version="$(make --version 2>/dev/null)"
+printf 'with %s and bash %s\n' "${make_version%%$'\n'*}" "$BASH_VERSION"
 
 # ================================================================== no .env
 new_case "no .env: the existing targets are unchanged"
