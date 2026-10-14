@@ -284,8 +284,13 @@ jobs:
         run: |
           sudo apt-get update -qq && sudo apt-get install -y --no-install-recommends shellcheck
           # dev-env.sh is sourced, not executed, so it has no shebang for shellcheck to read.
-          shellcheck --severity=warning scripts/*.sh
+          shellcheck --severity=warning scripts/*.sh scripts/make-flow-fixtures/stub.sh
           shellcheck --severity=warning --shell=bash --exclude=SC2148 dev-env.sh
+      - name: the make-driven AWS path, offline
+        # make hub, make prereqs and make mirror-images with aws, terraform, kubectl, helm,
+        # docker and curl stubbed: .env precedence, every prereqs failure, the confirmation,
+        # the step order, and ECR repositories created with the contract tags.
+        run: ./scripts/make-flow_test.sh
 
   # Single required check, so branch protection does not need editing every time a service
   # is added to scripts/services.txt.
