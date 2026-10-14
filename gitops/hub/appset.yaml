@@ -10,6 +10,13 @@
 #   encabulator.io/registry (optional)        -> Encabulator.spec.registry, an image mirror;
 #                                                absent means the RGD default (ghcr.io)
 # and the cell's name gives the NodeClass its node role (<cell>-node).
+#
+# The Git source comes from the cell Secret too, with this repository and branch as defaults:
+#   encabulator.io/repo-url (optional)        -> source.repoURL
+#   encabulator.io/revision (optional)        -> source.targetRevision
+# The EncabulatorCell RGD copies these two and encabulator.io/registry from the hub's own
+# cluster Secret (gitops/hub/bootstrap/register-hub.sh writes them there), so every cell of a
+# hub follows the repository the hub was registered with.
 apiVersion: argoproj.io/v1alpha1
 kind: ApplicationSet
 metadata:
@@ -34,8 +41,8 @@ spec:
     spec:
       project: encabulator-cells
       source:
-        repoURL: https://github.com/jlbutler/cloud-native-encabulator
-        targetRevision: carrlos
+        repoURL: '{{ index .metadata.annotations "encabulator.io/repo-url" | default "https://github.com/jlbutler/cloud-native-encabulator" }}'
+        targetRevision: '{{ index .metadata.annotations "encabulator.io/revision" | default "carrlos" }}'
         path: gitops/app
         kustomize:
           patches:
@@ -142,13 +149,12 @@ spec:
                   repoURL: https://open-telemetry.github.io/opentelemetry-helm-charts
                   chart: opentelemetry-collector
                   version: 0.174.0
-                # Not a chart: the dashboards and the services' ServiceMonitor (platform/kustomization.yaml).
+                # Not a chart: the dashboards and the services' ServiceMonitor (platform/kustomization.yaml),
+                # from this repository at the cell's revision (see templatePatch).
                 - component: observability
                   release: observability-config
                   namespace: encabulator-observability
-                  repoURL: https://github.com/jlbutler/cloud-native-encabulator
                   chart: ""
-                  version: carrlos
           - clusters:
               selector:
                 matchLabels:
@@ -206,8 +212,11 @@ spec:
             maxDuration: 5m
   # The source differs between a chart and a Git folder, and automated sync is on unless the
   # cell is being adopted. No automated prune: a chart bump that drops an object (a CRD, say)
-  # must not delete it, or everything that uses it, on its own.
+  # must not delete it, or everything that uses it, on its own. This repository's URL and
+  # revision come from the cell Secret, as in the encabulator ApplicationSet above.
   templatePatch: |
+    {{- $repoURL := index .metadata.annotations "encabulator.io/repo-url" | default "https://github.com/jlbutler/cloud-native-encabulator" }}
+    {{- $revision := index .metadata.annotations "encabulator.io/revision" | default "carrlos" }}
     spec:
       sources:
       {{- if .chart }}
@@ -219,12 +228,12 @@ spec:
             valueFiles:
               - $values/platform/{{ .chart }}.values.yaml
               - $values/platform/cell/{{ .chart }}.values.yaml
-        - repoURL: https://github.com/jlbutler/cloud-native-encabulator
-          targetRevision: carrlos
+        - repoURL: {{ $repoURL }}
+          targetRevision: {{ $revision | quote }}
           ref: values
       {{- else }}
-        - repoURL: {{ .repoURL }}
-          targetRevision: {{ .version }}
+        - repoURL: {{ $repoURL }}
+          targetRevision: {{ $revision | quote }}
           path: platform
       {{- end }}
     {{- if ne (index .metadata.annotations "encabulator.io/platform-sync") "manual" }}

@@ -665,6 +665,19 @@ spec:
             - { key: talk, value: opn315 }
 
     # --------------------------------------------------------------------------- Argo CD
+    # The hub's own cluster Secret, which register-hub.sh writes. kro only reads it. Three
+    # optional annotations on it, the Git repository, the revision and an image registry,
+    # are copied to every cell's Secret below, so a hub registered with its own repository
+    # deploys every cell from that repository. An annotation the hub does not carry is left
+    # off the cell too, and the ApplicationSets fall back to their defaults.
+    - id: hub
+      externalRef:
+        apiVersion: v1
+        kind: Secret
+        metadata:
+          name: encabulator-usw2
+          namespace: argocd
+
     # Registering the cell is one more resource in the graph. The EKS Argo CD capability
     # addresses clusters by ARN. The annotations carry the region's ids to the ApplicationSet,
     # and the references to the capabilities and access entry hold registration back until
@@ -682,14 +695,20 @@ spec:
             argocd.argoproj.io/secret-type: cluster
             encabulator.io/cell: "true"
             encabulator.io/platform-observability: ${string(schema.spec.observability)}
-          annotations:
-            encabulator.io/region: ${schema.spec.region}
-            encabulator.io/subnet-ids: ${privateSubnets.map(s, s.status.subnetID).join(",")}
-            encabulator.io/security-group-id: ${dbSecurityGroup.status.id}
-            encabulator.io/cluster-security-group-id: ${cluster.status.clusterSecurityGroupID}
-            encabulator.io/ack-capability: ${ackCapability.status.ackResourceMetadata.arn}
-            encabulator.io/kro-capability: ${kroCapability.status.ackResourceMetadata.arn}
-            encabulator.io/argocd-access-entry: ${argoCDAccessEntry.status.ackResourceMetadata.arn}
+          # One expression for the whole map, so that the hub's three settings are added only
+          # when the hub carries them: a cell of a hub registered without them gets exactly the
+          # annotations it always had, and a hand-set encabulator.io/registry stays untouched.
+          annotations: >-
+            ${ {
+            "encabulator.io/region": schema.spec.region,
+            "encabulator.io/subnet-ids": privateSubnets.map(s, s.status.subnetID).join(","),
+            "encabulator.io/security-group-id": dbSecurityGroup.status.id,
+            "encabulator.io/cluster-security-group-id": cluster.status.clusterSecurityGroupID,
+            "encabulator.io/ack-capability": ackCapability.status.ackResourceMetadata.arn,
+            "encabulator.io/kro-capability": kroCapability.status.ackResourceMetadata.arn,
+            "encabulator.io/argocd-access-entry": argoCDAccessEntry.status.ackResourceMetadata.arn
+            }.merge(hub.metadata.?annotations.orValue({}).transformMap(k, v,
+            k in ["encabulator.io/repo-url", "encabulator.io/revision", "encabulator.io/registry"], v)) }
         type: Opaque
         stringData:
           name: ${schema.metadata.name}
