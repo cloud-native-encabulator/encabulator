@@ -42,7 +42,7 @@ spec:
       project: encabulator-cells
       source:
         repoURL: '{{ index .metadata.annotations "encabulator.io/repo-url" | default "https://github.com/jlbutler/cloud-native-encabulator" }}'
-        targetRevision: '{{ index .metadata.annotations "encabulator.io/revision" | default "carrlos" }}'
+        targetRevision: '{{ index .metadata.annotations "encabulator.io/revision" | default "main" }}'
         path: gitops/app
         kustomize:
           patches:
@@ -216,7 +216,7 @@ spec:
   # revision come from the cell Secret, as in the encabulator ApplicationSet above.
   templatePatch: |
     {{- $repoURL := index .metadata.annotations "encabulator.io/repo-url" | default "https://github.com/jlbutler/cloud-native-encabulator" }}
-    {{- $revision := index .metadata.annotations "encabulator.io/revision" | default "carrlos" }}
+    {{- $revision := index .metadata.annotations "encabulator.io/revision" | default "main" }}
     spec:
       sources:
       {{- if .chart }}

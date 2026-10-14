@@ -13,7 +13,7 @@ registers the hub with its own Argo CD.
 | `hub-cell-apps.yaml` | Application `hub-cell-apps` | `gitops/hub/appset.yaml` only: the cell ApplicationSets `encabulator` (the app) and `encabulator-platform` (the observability platform) | hub, ns `argocd` |
 | `register-hub.sh` | Secret `encabulator-usw2` in `argocd` (not committed) | - | - |
 
-All four sync from `https://github.com/jlbutler/cloud-native-encabulator` at `carrlos`, with
+All four sync from `https://github.com/jlbutler/cloud-native-encabulator` at `main`, with
 automated sync, prune, selfHeal and retry. Another repository or branch needs no edit to these
 files: see [Deploy into your own account](#deploy-into-your-own-account). Destinations use the
 Argo CD cluster name `encabulator-usw2`, so no cluster ARN or account id is in Git. The cell
@@ -59,7 +59,7 @@ each is optional:
 | Setting | Default | What it changes |
 |---|---|---|
 | `GIT_REPO_URL` | `https://github.com/jlbutler/cloud-native-encabulator` | the repository of every Application on the hub and on every cell, and the one the AppProjects allow |
-| `GIT_REVISION` | `carrlos` | the branch, tag or commit they track |
+| `GIT_REVISION` | `main` | the branch, tag or commit they track |
 | `REGISTRY` | none: the images' own registry | the registry of every cell's app images (`Encabulator.spec.registry`), for example your account's ECR mirror |
 | `GIT_TOKEN_FILE` | none: a public repository | a path to a file that holds a token for a private repository (mode 600; the token itself never goes in `.env`) |
 

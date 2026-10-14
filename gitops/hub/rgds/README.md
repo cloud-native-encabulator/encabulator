@@ -84,7 +84,7 @@ hub's argocd cluster Secret (external reference, read only): the repository, rev
   | `encabulator.io/security-group-id` | `encabulator-db` group id | `Encabulator.spec.securityGroupID` |
   | `encabulator.io/cluster-security-group-id` | EKS cluster security group | NodeClass security group |
   | `encabulator.io/registry` (optional) | an image mirror, for example `<account>.dkr.ecr.<region>.amazonaws.com/encabulator` | `Encabulator.spec.registry`; absent means the RGD default `ghcr.io/jlbutler/cloud-native-encabulator` |
-  | `encabulator.io/repo-url`, `encabulator.io/revision` (optional) | the repository and revision of the cell's Applications | `source.repoURL` and `targetRevision` of every Application the two ApplicationSets render; absent means this repository at `carrlos` |
+  | `encabulator.io/repo-url`, `encabulator.io/revision` (optional) | the repository and revision of the cell's Applications | `source.repoURL` and `targetRevision` of every Application the two ApplicationSets render; absent means this repository at `main` |
   | `encabulator.io/ack-capability`, `kro-capability`, `argocd-access-entry` | ARNs | ordering: the Secret waits for them |
 
   and labels `argocd.argoproj.io/secret-type: cluster`, `encabulator.io/cell: "true"` and
@@ -130,7 +130,7 @@ Cluster generator on `encabulator.io/cell=true`, `goTemplate: true` with
 instead of rendering an empty value). It renders Application `{{ .name }}` (= `encabulator-use2`) in
 project `encabulator-cells`, source `gitops/app` from the repository and revision on the cell's
 Secret (`encabulator.io/repo-url`, `encabulator.io/revision`; by default this repository at
-`carrlos`), destination the cluster ARN,
+`main`), destination the cluster ARN,
 namespace `encabulator`, automated prune + self-heal, `CreateNamespace=true`, and retries while a
 new cell's CRDs settle. Two kustomize patches (JSON 6902, `op: add`) carry the annotations into
 `gitops/app` (lead decision D7: `gitops/app/kustomization.yaml` is the root):

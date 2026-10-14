@@ -3,7 +3,7 @@
 # them from .env). Sourced by scripts/gitops.sh and gitops/hub/bootstrap/register-hub.sh.
 #
 #   GIT_REPO_URL   the repository Argo CD syncs    default: this repository on GitHub
-#   GIT_REVISION   the branch, tag or commit       default: carrlos
+#   GIT_REVISION   the branch, tag or commit       default: main
 #   REGISTRY       an image registry for the cells default: none (the images' own registry)
 #
 # After sourcing: repo_url and revision always hold a value (the default when unset);
@@ -11,7 +11,7 @@
 # default, which is what register-hub.sh records on the hub. Invalid values stop the script.
 
 default_repo_url="https://github.com/jlbutler/cloud-native-encabulator"
-default_revision="carrlos"
+default_revision="main"
 # The Makefile's own REGISTRY default. The same value set by hand means "no mirror".
 default_registry="ghcr.io/jlbutler/cloud-native-encabulator"
 
