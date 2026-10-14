@@ -171,7 +171,7 @@ Decided (OPN315 build contract, lead decisions D1-D10):
 Still open:
 
 1. Who drives which act, and who types.
-2. Bake revision. The hub Applications track `carrlos`, where `gitops/hub/brownfield/kustomization.yaml`
+2. Bake revision. The hub Applications track one revision, where `gitops/hub/brownfield/kustomization.yaml`
    already lists `postgres.yaml`. The bake needs a revision without that line, or ACK adopts the
    instance the day before and the live `adopt` step collides with it; the live commit then has to
    land on the revision Argo CD tracks. Switch every `targetRevision` to the release branch before

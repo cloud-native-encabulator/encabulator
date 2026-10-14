@@ -209,7 +209,7 @@ class RenderTest(unittest.TestCase):
                                        GIT_TOKEN_FILE="/nonexistent/token")
         self.assertEqual(status, 0, err)
         self.assertNotIn(DEFAULT_URL, out)
-        self.assertNotIn("carrlos", out)
+        self.assertNotIn("targetRevision: main", out)
         self.assertEqual(out.count(CUSTOM_URL), 7)
         self.assertEqual(out.count('targetRevision: "1.10"'), 5)
         # The registry and the token file are not part of the bootstrap files.
@@ -229,7 +229,7 @@ class RenderTest(unittest.TestCase):
         for settings, word in [({"GIT_REPO_URL": "https://example.com/a b"}, "GIT_REPO_URL"),
                                ({"GIT_REPO_URL": 'https://example.com/"x'}, "GIT_REPO_URL"),
                                ({"GIT_REPO_URL": "http://example.com/x"}, "GIT_REPO_URL"),
-                               ({"GIT_REVISION": "main..x"}, "GIT_REVISION"),
+                               ({"GIT_REVISION": "release..x"}, "GIT_REVISION"),
                                ({"GIT_REVISION": "-x"}, "GIT_REVISION"),
                                ({"GIT_REVISION": "a: b"}, "GIT_REVISION"),
                                ({"REGISTRY": "Example.com/X"}, "REGISTRY")]:
@@ -272,7 +272,7 @@ class RenderCheckTest(unittest.TestCase):
     def test_fails_on_a_hard_coded_revision_in_a_bootstrap_file(self):
         root = self.copy()
         f = root / "gitops/hub/bootstrap/hub-rgds.yaml"
-        f.write_text(f.read_text().replace("targetRevision: carrlos", "targetRevision: main", 1))
+        f.write_text(f.read_text().replace("targetRevision: main", "targetRevision: release", 1))
         status, err = self.check(root)
         self.assertEqual(status, 1, err)
         self.assertIn("hub-rgds.yaml: repository URL 2 (want 2), targetRevision 1 (want 2)", err)
@@ -297,8 +297,8 @@ class RenderCheckTest(unittest.TestCase):
         f = root / "gitops/hub/appset.yaml"
         text = f.read_text()
         f.write_text(text.replace(
-            "targetRevision: '{{ index .metadata.annotations \"encabulator.io/revision\" | default \"carrlos\" }}'",
-            "targetRevision: carrlos", 1))
+            "targetRevision: '{{ index .metadata.annotations \"encabulator.io/revision\" | default \"main\" }}'",
+            "targetRevision: main", 1))
         status, err = self.check(root)
         self.assertEqual(status, 1, err)
         self.assertIn("revision 1 (want 2)", err)
@@ -338,32 +338,32 @@ class RegisterHubTest(unittest.TestCase):
         self.assertIn("encabulator.io/subnet-ids", out)
 
     def test_settings_are_recorded_next_to_the_subnet_ids(self):
-        status, out, err = self.sb.run(REGISTER, "--dry-run", GIT_REPO_URL=CUSTOM_URL, GIT_REVISION="main",
+        status, out, err = self.sb.run(REGISTER, "--dry-run", GIT_REPO_URL=CUSTOM_URL, GIT_REVISION="release",
                                        REGISTRY=REGISTRY)
         self.assertEqual(status, 0, err)
         ann = self.annotations(self.manifest())
         self.assertEqual(ann["encabulator.io/repo-url"], CUSTOM_URL)
-        self.assertEqual(ann["encabulator.io/revision"], '"main"')
+        self.assertEqual(ann["encabulator.io/revision"], '"release"')
         self.assertEqual(ann["encabulator.io/registry"], REGISTRY)
         self.assertEqual(len(ann), 6)
-        for v in (CUSTOM_URL, "main", REGISTRY):
+        for v in (CUSTOM_URL, "release", REGISTRY):
             self.assertIn(v, out)
 
     def test_only_settings_that_differ_from_the_default_are_recorded(self):
-        status, _, err = self.sb.run(REGISTER, "--dry-run", GIT_REPO_URL=DEFAULT_URL, GIT_REVISION="carrlos",
+        status, _, err = self.sb.run(REGISTER, "--dry-run", GIT_REPO_URL=DEFAULT_URL, GIT_REVISION="main",
                                      REGISTRY="ghcr.io/jlbutler/cloud-native-encabulator")
         self.assertEqual(status, 0, err)
         self.assertEqual(len(self.annotations(self.manifest())), 3)
-        status, _, err = self.sb.run(REGISTER, "--dry-run", GIT_REVISION="main")
+        status, _, err = self.sb.run(REGISTER, "--dry-run", GIT_REVISION="release")
         self.assertEqual(set(self.annotations(self.manifest())) - {"encabulator.io/region",
                          "encabulator.io/subnet-ids", "encabulator.io/security-group-id"},
                          {"encabulator.io/revision"})
 
     def test_a_real_run_applies_and_says_where_cells_sync_from(self):
-        status, out, err = self.sb.run(REGISTER, GIT_REPO_URL=CUSTOM_URL, GIT_REVISION="main")
+        status, out, err = self.sb.run(REGISTER, GIT_REPO_URL=CUSTOM_URL, GIT_REVISION="release")
         self.assertEqual(status, 0, err)
         self.assertNotIn("--dry-run=server", self.sb.calls("kubectl")[-1]["args"])
-        self.assertIn(f"Cells sync from {CUSTOM_URL} at main.", out)
+        self.assertIn(f"Cells sync from {CUSTOM_URL} at release.", out)
 
     def test_existing_checks_still_refuse(self):
         w = hub_world()
@@ -397,7 +397,7 @@ class BootstrapAndCellsTest(unittest.TestCase):
         return [c["stdin"] for c in self.sb.calls("kubectl") if "apply" in c["args"]]
 
     def test_bootstrap_applies_everything_but_hub_cells(self):
-        status, _, err = self.sb.run(GITOPS, "bootstrap", GIT_REPO_URL=CUSTOM_URL, GIT_REVISION="main")
+        status, _, err = self.sb.run(GITOPS, "bootstrap", GIT_REPO_URL=CUSTOM_URL, GIT_REVISION="release")
         self.assertEqual(status, 0, err)
         (stream,) = self.applied()
         self.assertNotIn(("Application", "hub-cells"), docs(stream))
@@ -414,36 +414,36 @@ class BootstrapAndCellsTest(unittest.TestCase):
         self.assertEqual(self.applied(), [])
 
     def remote(self, files):
-        return {CUSTOM_URL: {"main": files}}
+        return {CUSTOM_URL: {"release": files}}
 
     def test_add_cell_applies_hub_cells_when_the_file_is_in_the_revision(self):
         self.sb.set_world(hub_world(remote=self.remote(["gitops/hub/cells/use2.yaml"])))
         for attempt in (1, 2):  # applying it twice is the same apply
             status, _, err = self.sb.run(GITOPS, "add-cell", CELL="use2", GIT_REPO_URL=CUSTOM_URL,
-                                         GIT_REVISION="main")
+                                         GIT_REVISION="release")
             self.assertEqual(status, 0, err)
             (stream,) = self.applied()
             self.assertEqual(docs(stream), [("Application", "hub-cells")])
             self.assertIn(f"repoURL: {CUSTOM_URL}", stream)
-            self.assertIn('targetRevision: "main"', stream)
+            self.assertIn('targetRevision: "release"', stream)
             self.assertIn("kubectl get encabulatorcells -n encabulator-cells -w", err)
             self.assertIn("about 20 minutes", err)
             self.assertIn("encabulator-use2 in us-east-2", err)
             fetch = [c for c in self.sb.calls("git") if "fetch" in c["args"]][0]
-            self.assertEqual(fetch["args"][-2:], [CUSTOM_URL, "main"])
+            self.assertEqual(fetch["args"][-2:], [CUSTOM_URL, "release"])
 
     def test_add_cell_refuses_a_cell_not_in_the_revision(self):
         self.sb.set_world(hub_world(remote=self.remote(["gitops/hub/cells/other.yaml"])))
-        status, _, err = self.sb.run(GITOPS, "add-cell", CELL="use2", GIT_REPO_URL=CUSTOM_URL, GIT_REVISION="main")
+        status, _, err = self.sb.run(GITOPS, "add-cell", CELL="use2", GIT_REPO_URL=CUSTOM_URL, GIT_REVISION="release")
         self.assertEqual(status, 1)
         self.assertIn("gitops/hub/cells/use2.yaml is not in", err)
         self.assertIn("commit and push it there first", err)
         self.assertEqual(self.applied(), [])
 
     def test_add_cell_falls_back_to_the_checkout_when_the_remote_is_unreadable(self):
-        status, _, err = self.sb.run(GITOPS, "add-cell", CELL="use2", GIT_REPO_URL=CUSTOM_URL, GIT_REVISION="main")
+        status, _, err = self.sb.run(GITOPS, "add-cell", CELL="use2", GIT_REPO_URL=CUSTOM_URL, GIT_REVISION="release")
         self.assertEqual(status, 0, err)
-        self.assertIn("could not read main", err)
+        self.assertIn("could not read release", err)
         self.assertIn("make sure it is pushed", err)
         status, _, err = self.sb.run(GITOPS, "add-cell", CELL="nosuchcell", GIT_REPO_URL=CUSTOM_URL)
         self.assertEqual(status, 1)
@@ -589,7 +589,7 @@ class CellAccessTest(unittest.TestCase):
 
 class MakefileTest(unittest.TestCase):
     def setUp(self):
-        self.sb = Sandbox(hub_world(remote={DEFAULT_URL: {"carrlos": ["gitops/hub/cells/use2.yaml"]}}))
+        self.sb = Sandbox(hub_world(remote={DEFAULT_URL: {"main": ["gitops/hub/cells/use2.yaml"]}}))
 
     def tearDown(self):
         self.sb.close()
@@ -615,7 +615,7 @@ class MakefileTest(unittest.TestCase):
                 self.assertIn(want, out)
 
     def test_settings_reach_the_scripts_from_the_environment(self):
-        status, _, err = self.make("gitops-bootstrap", GIT_REPO_URL=CUSTOM_URL, GIT_REVISION="main")
+        status, _, err = self.make("gitops-bootstrap", GIT_REPO_URL=CUSTOM_URL, GIT_REVISION="release")
         self.assertEqual(status, 0, err)
         (apply,) = [c for c in self.sb.calls("kubectl") if "apply" in c["args"]]
         self.assertIn(f"repoURL: {CUSTOM_URL}", apply["stdin"])
@@ -624,16 +624,16 @@ class MakefileTest(unittest.TestCase):
         self.assertIn("encabulator-use2", err)
 
     def test_settings_on_the_make_command_line_reach_the_scripts(self):
-        status, _, err = self.make("gitops-bootstrap", f"GIT_REPO_URL={CUSTOM_URL}", "GIT_REVISION=main")
+        status, _, err = self.make("gitops-bootstrap", f"GIT_REPO_URL={CUSTOM_URL}", "GIT_REVISION=release")
         self.assertEqual(status, 0, err)
         (apply,) = [c for c in self.sb.calls("kubectl") if "apply" in c["args"]]
         self.assertIn(f"repoURL: {CUSTOM_URL}", apply["stdin"])
-        self.assertIn('targetRevision: "main"', apply["stdin"])
+        self.assertIn('targetRevision: "release"', apply["stdin"])
 
     def test_dry_run_shows_the_settings(self):
-        status, out, _ = self.make("-n", "gitops-bootstrap", "GIT_REVISION=main", GIT_REPO_URL=CUSTOM_URL)
+        status, out, _ = self.make("-n", "gitops-bootstrap", "GIT_REVISION=release", GIT_REPO_URL=CUSTOM_URL)
         self.assertEqual(status, 0)
-        self.assertIn(f"gitops-bootstrap: GIT_REPO_URL={CUSTOM_URL} GIT_REVISION=main", out)
+        self.assertIn(f"gitops-bootstrap: GIT_REPO_URL={CUSTOM_URL} GIT_REVISION=release", out)
         status, out, _ = self.make("-n", "add-cell", "CELL=use2")
         self.assertIn("GIT_REPO_URL=(default) GIT_REVISION=(default)", out)
         self.assertIn("CELL=use2", out)

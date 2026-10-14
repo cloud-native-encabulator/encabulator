@@ -9,10 +9,10 @@ spec:
   project: encabulator-hub
   sources:
     - repoURL: https://github.com/jlbutler/cloud-native-encabulator
-      targetRevision: carrlos
+      targetRevision: main
       path: gitops/hub/rgds
     - repoURL: https://github.com/jlbutler/cloud-native-encabulator
-      targetRevision: carrlos
+      targetRevision: main
       path: gitops/hub/rbac
   destination:
     name: encabulator-usw2

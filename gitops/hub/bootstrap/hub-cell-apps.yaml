@@ -10,7 +10,7 @@ spec:
   project: encabulator-hub
   source:
     repoURL: https://github.com/jlbutler/cloud-native-encabulator
-    targetRevision: carrlos
+    targetRevision: main
     path: gitops/hub
     directory:
       recurse: false
