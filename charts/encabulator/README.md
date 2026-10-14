@@ -115,8 +115,10 @@ over a tag).
   congestion signal in this system (design section 5). Enable with `--set keda.enabled=true`.
 
 The `nats-jetstream` scaler polls the NATS **monitoring** port (8222), not the client port. That
-is why the chart's NATS config enables `http: 8222` and the Service publishes it. With an
-external NATS you must set `nats.external.monitoringEndpoint` as well as `nats.external.url`.
+is why the chart's NATS config enables `http: 8222` and the Service publishes it. The KEDA
+operator polls it from its own namespace, so the ScaledObject names it with the release
+namespace, `nats.<namespace>.svc:8222`. With an external NATS you must set
+`nats.external.monitoringEndpoint` as well as `nats.external.url`.
 
 When anything other than the Deployment owns the replica count, `replicas` is omitted from the
 Deployment so Helm and the autoscaler do not fight over it on every upgrade.

@@ -145,11 +145,15 @@ valkey
 {{- end -}}
 {{- end -}}
 
+{{/*
+The KEDA operator polls this endpoint from its own namespace, so the in-cluster Service name
+must carry the release namespace: a bare "nats" would resolve to nats.<keda namespace>.
+*/}}
 {{- define "encabulator.nats.monitoringEndpoint" -}}
 {{- if .Values.nats.external.enabled -}}
 {{- required "nats.external.monitoringEndpoint is required when nats.external.enabled and keda.enabled" .Values.nats.external.monitoringEndpoint -}}
 {{- else -}}
-{{- printf "nats:%v" .Values.nats.service.monitoringPort -}}
+{{- printf "nats.%s.svc:%v" (include "encabulator.namespace" .) .Values.nats.service.monitoringPort -}}
 {{- end -}}
 {{- end -}}
 

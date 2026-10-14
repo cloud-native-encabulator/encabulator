@@ -136,6 +136,41 @@ else
   log "ok  [influxdb WAL flush interval: 50ms default, empty omits it, override applied]"
 fi
 
+# KEDA scales the casing line. Its operator polls NATS from the keda namespace, so the endpoint
+# must carry the release namespace (a bare "nats" resolves to nats.keda). And the Deployment must
+# leave `replicas` out, or the next helm upgrade fights the HPA KEDA owns.
+rendered_object() {
+  local kind="$1" name="$2" ns="$3"
+  shift 3
+  # shellcheck disable=SC2086
+  $HELM template encabulator "$chart" --namespace "$ns" "$@" \
+    | awk -v kind="kind: $kind" -v name="  name: $name" '
+        function flush() { if (k && n) printf "%s", doc; doc = ""; k = 0; n = 0 }
+        /^---/ { flush(); next }
+        { doc = doc $0 "\n" }
+        $0 == kind { k = 1 }
+        $0 == name { n = 1 }
+        END { flush() }'
+}
+keda_endpoint() {
+  rendered_object ScaledObject logarithmic-casing-line "$1" --set keda.enabled=true \
+    | grep 'natsServerMonitoringEndpoint:' | tr -d ' "' || true
+}
+casing_replicas() {
+  rendered_object Deployment logarithmic-casing-line encabulator "$@" | grep -c '^  replicas:' || true
+}
+if [ "$(keda_endpoint encabulator)" != "natsServerMonitoringEndpoint:nats.encabulator.svc:8222" ]; then
+  fail "keda: ScaledObject NATS endpoint is not nats.encabulator.svc:8222 (got '$(keda_endpoint encabulator)')"
+elif [ "$(keda_endpoint factory)" != "natsServerMonitoringEndpoint:nats.factory.svc:8222" ]; then
+  fail "keda: ScaledObject NATS endpoint does not follow the release namespace (got '$(keda_endpoint factory)')"
+elif [ "$(casing_replicas --set keda.enabled=true)" != "0" ]; then
+  fail "keda: the casing-line Deployment renders replicas while KEDA owns them"
+elif [ "$(casing_replicas --set keda.enabled=false)" != "1" ]; then
+  fail "keda: the casing-line Deployment does not render replicas when KEDA is off"
+else
+  log "ok  [keda: NATS endpoint carries the release namespace, casing line leaves replicas to KEDA]"
+fi
+
 if [ "$failures" -ne 0 ]; then
   printf '\033[31m==> %d check(s) failed\033[0m\n' "$failures" >&2
   exit 1
