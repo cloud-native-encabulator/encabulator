@@ -12,6 +12,7 @@ the service itself. Two ways to get there:
 | create time | NodeClass `spec.tags` (hub: `terraform/brownfield/nodes.tf`, cells: `gitops/app/nodes`) | Auto Mode instances, root volumes, network interfaces, launch templates |
 | create time | StorageClass `tagSpecification_1..3` (hub: `charts/encabulator/values-brownfield.yaml`, cells: the `encabulator-gp3` StorageClass in `gitops/app/rgds/encabulator.yaml`) | EBS volumes for the NATS and InfluxDB PVCs |
 | create time | RDS copy tags to snapshot (hub: `copy_tags_to_snapshot`, cells: `copyTagsToSnapshot`) | automated backups |
+| create time | `--tags` on `aws ecr create-repository` (`scripts/ecr-repos.sh`, run by `make mirror-images`) | the ECR repositories `encabulator/<service>` an image mirror uses; one that already exists without the tags gets them added |
 | post-pass | the tagger CronJob on the hub, every 10 minutes (`terraform/brownfield/tagger.tf`, `tagger/sweep.py`) | what AWS creates without a tag request: a cell's main route table, default security group, default network ACL and EKS cluster security group; the requester-managed network interfaces of the EKS control plane, NAT gateways, RDS and ElastiCache in the hub and every cell; the three requester-managed VPC endpoints ElastiCache Serverless creates in the hub's and every cell's VPC; ElastiCache serverless snapshots; Auto Mode's instance profiles; the access entry EKS creates for its service-linked role on the hub and every cell |
 
 Nothing creates load balancers (no Ingress, no Service of type `LoadBalancer`), and the cell
@@ -59,7 +60,7 @@ resource; exit 1 naming every resource without `auto-delete=no`. Run it at least
 the last change so the tagger has had a pass. It finds resources by structure (the VPC tagged
 `Name=<stack>` and what is in it, the EKS cluster `<stack>`, roles `<stack>-*`), never by the tag
 it checks. ECR repositories named `encabulator/*` in each stack's region are checked too (once per
-region): no stack creates them, but a live run that mirrors images does. Offline tests:
+region): no stack creates them, but `make mirror-images` does when the release has to be mirrored. Offline tests:
 `scripts/tag-check_test.py` (the tests' fixtures are in `scripts/tag-check-fixtures/`).
 
 ## The audit
