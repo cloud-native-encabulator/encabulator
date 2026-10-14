@@ -136,7 +136,7 @@ kubectl --context use2 -n encabulator get encabulator encabulator -o yaml | yq .
 - Presenter access: the cell's cluster is created without creator admin permissions, so
   `kubectl --context use2` is refused until the cell has an access entry for your role: set
   `spec.adminRoleName` on the cell (kro creates the entry), or create an access entry by hand.
-- Image mirror: until 1.0.2 is on GHCR and its dingle-arm-gateway package is public, all 15
+- Image mirror: until 1.0.3 is on GHCR and its dingle-arm-gateway package is public, all 15
   images come from a mirror. Add the annotation to the cell's cluster Secret right after kro
   creates it, before Argo CD's first sync:
   `kubectl -n argocd wait --for=create secret/encabulator-use2 --timeout=40m && kubectl -n argocd annotate secret encabulator-use2 encabulator.io/registry=<account>.dkr.ecr.us-west-2.amazonaws.com/encabulator`.
@@ -240,9 +240,9 @@ Still open:
   `aws eks update-kubeconfig --region us-east-2 --name encabulator-use2 --alias use2`. Leave it
   running as the fallback.
 - Log in to the Argo CD UI (IAM Identity Center); open the RDS console.
-- Images: pin the image tag (`1.0.2`, the chart's appVersion and the RGD default). Until 1.0.2 is
+- Images: pin the image tag (`1.0.3`, the chart's appVersion and the RGD default). Until 1.0.3 is
   on GHCR and its dingle-arm-gateway package is public, all 15 images come from a mirror
-  (`<account>.dkr.ecr.us-west-2.amazonaws.com/encabulator/<service>:1.0.2`): point the hub's
+  (`<account>.dkr.ecr.us-west-2.amazonaws.com/encabulator/<service>:1.0.3`): point the hub's
   chart at it (the Makefile's `REGISTRY`, which sets `global.registry`), and give each cell's
   cluster Secret the `encabulator.io/registry` annotation right after kro creates it (presenter
   notes above). Pre-pull images; phone hotspot; a recording of each live segment.

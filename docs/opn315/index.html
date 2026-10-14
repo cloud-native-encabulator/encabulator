@@ -580,7 +580,7 @@ resources:
   <g data-step="1">
    <rect class="box k8s" x="20" y="220" width="440" height="280" rx="20"/>
    <text class="sm" x="44" y="258">you write</text>
-   <g class="tmono"><text x="44" y="310" style="fill:#86b4ff">kind: Encabulator</text><text x="44" y="356">imageTag: 1.0.2</text><text x="44" y="402">dbInstanceClass: db.t4g…</text><text x="44" y="448">services: [15 names]</text></g>
+   <g class="tmono"><text x="44" y="310" style="fill:#86b4ff">kind: Encabulator</text><text x="44" y="356">imageTag: 1.0.3</text><text x="44" y="402">dbInstanceClass: db.t4g…</text><text x="44" y="448">services: [15 names]</text></g>
   </g>
   <g data-step="2">
    <path class="ar kro" d="M460 360 H534"/>
@@ -628,7 +628,7 @@ spec:
     apiVersion: v1alpha1
     kind: Encabulator
     spec:
-      imageTag: string | default="1.0.2"
+      imageTag: string | default="1.0.3"
       registry: string | default="ghcr.io/jlbutler/cloud-native-encabulator"
       dbInstanceClass: string | default="db.t4g.medium"
       subnetIDs: "[]string"
@@ -963,7 +963,7 @@ kustomize:
  <aside class="notes">
   <p>⏱ 45:00-47:00. The cluster generator watches Argo CD cluster Secrets. Label the Secret (kro already did) and an Application appears for that cluster. With <code>goTemplate</code>, <code>{{ .name }}</code> is the Secret's name, so the Application is called <code>encabulator-use2</code>, and <code>{{ .server }}</code> is the cluster ARN. It points at <code>gitops/app</code>: RBAC, the tagged NodeClass, the two RGDs and the Encabulator instance.</p>
   <p>Build 3: region-specific values never enter Git. Two kustomize patches copy the Secret's annotations into the instance (<code>spec.subnetIDs</code>, <code>spec.securityGroupID</code>) and into the NodeClass. <code>missingkey=error</code> fails the render if an annotation is missing instead of rendering an empty value. The third patch is optional: when the Secret carries <code>encabulator.io/registry</code>, it sets <code>spec.registry</code> and every image comes from that registry (a mirror, for example); without it the RGD default applies. Automated sync with prune and self-heal: Git is the source. <code>preserveResourcesOnDeletion</code> keeps a running region if the ApplicationSet is deleted.</p>
-  <p>Presenter prep: until 1.0.2 is on GHCR and the dingle-arm-gateway package there is public, all 15 images come from the mirror. Annotate the cell's cluster Secret the moment kro creates it, before Argo CD's first sync: <code>kubectl -n argocd wait --for=create secret/encabulator-use2 --timeout=40m &amp;&amp; kubectl -n argocd annotate secret encabulator-use2 encabulator.io/registry=&lt;account&gt;.dkr.ecr.us-west-2.amazonaws.com/encabulator</code>. kro applies the Secret with server-side apply and does not own that annotation, so it keeps it.</p>
+  <p>Presenter prep: until 1.0.3 is on GHCR and the dingle-arm-gateway package there is public, all 15 images come from the mirror. Annotate the cell's cluster Secret the moment kro creates it, before Argo CD's first sync: <code>kubectl -n argocd wait --for=create secret/encabulator-use2 --timeout=40m &amp;&amp; kubectl -n argocd annotate secret encabulator-use2 encabulator.io/registry=&lt;account&gt;.dkr.ecr.us-west-2.amazonaws.com/encabulator</code>. kro applies the Secret with server-side apply and does not own that annotation, so it keeps it.</p>
  </aside>
 </section>
 
