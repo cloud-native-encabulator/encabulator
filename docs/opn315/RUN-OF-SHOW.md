@@ -25,21 +25,33 @@ Slides carry diagrams and partial YAML. The full files are shown in the IDE.
 | 53:00-56:00 | Close | Day 2: three reconcile loops (delete a Deployment, change the DB class in Git) | Live |
 | 56:00-60:00 | Close | Recipe card (best practices), links, Q&A | Slides |
 
-Act 3 timings, from a run of this demo (counted from the trigger): network about 3 minutes; EKS
-Auto Mode cluster about 11 minutes; kro capability about 1.5 minutes and ACK capability about 7.5
-minutes after the cluster; the cell is ACTIVE about 20 minutes after the trigger; the app is
-Healthy about 14 minutes after that (ElastiCache Serverless 1.5 minutes, RDS 8.5 minutes); first
-order at about 35 minutes. The critical path is the cluster, the ACK capability, the first sync's
-retries and RDS. The "Where the time goes" slide shows these as a captured run.
+Act 3 timings, from two runs of this demo (counted from the trigger): network (VPC, NAT gateway)
+about 3 minutes; the private route table, the private subnets and the EKS Auto Mode cluster wait
+for the NAT gateway, so the cell VPC ends with exactly one private route table; the cluster takes
+about 10 minutes and is ACTIVE about 13 minutes after the trigger; kro capability about 2 minutes
+and ACK capability about 7 minutes after the cluster; the cell is ACTIVE about 20 minutes after
+the trigger (19:44 and 19:48); Argo CD's first sync takes 3 to 5 minutes with its retries;
+ElastiCache Serverless about 1.5 minutes, RDS about 5.5 minutes; the app is Healthy 9 to 12
+minutes after the cell (28:46 and 31:40 after the trigger). An order then takes under a minute;
+the runs delivered their first order at 34:23 and 36:31, each placed a few minutes after the app
+was Healthy. The critical path is the cluster, the ACK capability, the first sync's retries and
+RDS. The "Where the time goes" slide shows the slower run as a captured run. The second run's
+trigger reached the hub within seconds (its `hub-cells` revision was changed directly); on talk
+day the push waits for Argo CD's Git poll (2:17 in the first run, up to about 3 minutes) unless
+`hub-cells` is refreshed right after the push, and that wait comes on top of the second run's
+figures.
 
 Oven move, at 8:00: push `gitops/hub/cells/use2.yaml` at the start of Act 1, so the new region
 builds while we adopt the stores and explain kro, and Act 3 shows it live. It starts the build only
-if `hub-cells` is staged as in "Act 3 trigger" below. On the clock of the talk, using the run above:
+if `hub-cells` is staged as in "Act 3 trigger" below. On the clock of the talk, using the runs above:
 the cell is ACTIVE near 28:00 (during the Act 2 opening), registered with Argo CD the same second,
-the app Healthy near 42:00 and the first order near 43:00, two to three minutes into Act 3. The
-latest push that still shows a delivered order before the Act 3 build slides (47:00) is about 12:00;
-a push at 14:00 still has the app Healthy by 48:00. Keep the baked cell running as the fallback: if
-the live cell is not Healthy when Act 3 reaches it, switch to the baked one and say so.
+the app Healthy by about 40:00 (36:46 and 39:40), and an order placed then is delivered within a
+minute, near 41:00, at the start of Act 3. The latest push that still shows a delivered order
+before the Act 3 build slides (47:00) is about 14:00: on the slower run the app was Healthy 31:40
+after the push, so a 14:00 push is Healthy near 46:00 and an order placed at once lands before
+47:00. If the push waits for the Git poll, the latest push is about 11:00. Keep the baked cell
+running as the fallback: if the live cell is not Healthy when Act 3 reaches it, switch to the
+baked one and say so.
 
 Right after the push, in a second terminal, start the registry annotation wait described under
 "Act 3, what the presenter types" (it blocks until kro creates the cell's Secret, near 28:00, and
@@ -131,8 +143,8 @@ kubectl --context use2 -n encabulator get encabulator encabulator -o yaml | yq .
 
 - First sync retries: the new cell's NodePool reads Degraded for about 10 seconds while its
   NodeClass validates, so Argo CD's first sync of `encabulator-use2` fails that wave and the UI
-  shows "Retrying attempt #1". It heals on its own (backoff 30 s, factor 2); in the captured run
-  it cost about 4.5 minutes.
+  shows "Retrying attempt #1". It heals on its own (backoff 30 s, factor 2); in the two captured
+  runs the first sync took 3 to 5 minutes with its retries.
 - Presenter access: the cell's cluster is created without creator admin permissions, so
   `kubectl --context use2` is refused until the cell has an access entry for your role: set
   `spec.adminRoleName` on the cell (kro creates the entry), or create an access entry by hand.
@@ -185,7 +197,7 @@ Still open:
    is created without creator admin permissions, so `kubectl --context use2` is refused until the
    cell you show sets it or has an access entry for your role made by hand.
 5. Oven move timing: decided. The push is at 8:00 (start of Act 1). The cell is ACTIVE near 28:00,
-   the app Healthy near 42:00 and the first order near 43:00, so Act 3 shows the live result. The
+   the app Healthy by about 40:00 and an order delivered near 41:00, so Act 3 shows the live result. The
    baked cell stays as the fallback. Rehearse it once, because the cell build runs alongside the
    live adoption and the live kro apply (see "Oven move").
 
