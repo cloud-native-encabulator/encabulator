@@ -62,6 +62,30 @@ type Patch struct {
 	Customers     *int             `json:"customers"`
 }
 
+// With returns c with the patch's fields applied. It does not validate.
+func (c Config) With(p Patch) Config {
+	next := c.clone()
+	if p.Running != nil {
+		next.Running = *p.Running
+	}
+	if p.RPS != nil {
+		next.RPS = *p.RPS
+	}
+	if p.Pattern != nil {
+		next.Pattern = *p.Pattern
+	}
+	if p.PeriodSeconds != nil {
+		next.PeriodSeconds = *p.PeriodSeconds
+	}
+	if p.Mix != nil {
+		next.Mix = maps.Clone(p.Mix)
+	}
+	if p.Customers != nil {
+		next.Customers = *p.Customers
+	}
+	return next
+}
+
 // Stats is the live half of GET /v1/traffic.
 type Stats struct {
 	TargetRPS float64                       `json:"targetRps"`
@@ -119,6 +143,10 @@ type Options struct {
 	TargetRPSGauge Gauge
 	// DroppedCounter may be nil.
 	DroppedCounter Counter
+	// OnChange may be nil. It is called with every configuration Update accepts,
+	// in the order they were accepted, while the engine still holds its lock: it
+	// must return at once and must not call back into the Engine.
+	OnChange func(Config)
 }
 
 // Engine owns the schedule. Tick is called from exactly one goroutine; the
@@ -134,6 +162,10 @@ type Engine struct {
 	now         func() time.Time
 	gauge       Gauge
 	dropCounter Counter
+	onChange    func(Config)
+
+	// draining stops new journeys for good once the process is shutting down.
+	draining atomic.Bool
 
 	mu         sync.RWMutex
 	cfg        Config
@@ -204,6 +236,7 @@ func New(o Options) (*Engine, error) {
 		now:         o.Now,
 		gauge:       o.TargetRPSGauge,
 		dropCounter: o.DroppedCounter,
+		onChange:    o.OnChange,
 		cfg:         cfg.clone(),
 		picker:      picker,
 	}
@@ -214,6 +247,10 @@ func New(o Options) (*Engine, error) {
 	}
 	return e, nil
 }
+
+// Validate reports whether c is a configuration the engine accepts: the same
+// rules PUT /v1/traffic enforces.
+func Validate(c Config) error { return validate(c) }
 
 func validate(c Config) error {
 	if c.RPS < MinRPS || c.RPS > MaxRPS {
@@ -240,25 +277,7 @@ func (e *Engine) Update(p Patch) (Config, error) {
 	e.mu.Lock()
 	defer e.mu.Unlock()
 
-	next := e.cfg.clone()
-	if p.Running != nil {
-		next.Running = *p.Running
-	}
-	if p.RPS != nil {
-		next.RPS = *p.RPS
-	}
-	if p.Pattern != nil {
-		next.Pattern = *p.Pattern
-	}
-	if p.PeriodSeconds != nil {
-		next.PeriodSeconds = *p.PeriodSeconds
-	}
-	if p.Mix != nil {
-		next.Mix = maps.Clone(p.Mix)
-	}
-	if p.Customers != nil {
-		next.Customers = *p.Customers
-	}
+	next := e.cfg.With(p)
 	if err := validate(next); err != nil {
 		return Config{}, err
 	}
@@ -288,7 +307,19 @@ func (e *Engine) Update(p Patch) (Config, error) {
 	e.log.Info("traffic configuration changed",
 		"running", next.Running, "rps", next.RPS, "pattern", string(next.Pattern),
 		"periodSeconds", next.PeriodSeconds, "customers", next.Customers)
+	if e.onChange != nil {
+		e.onChange(next.clone())
+	}
 	return next.clone(), nil
+}
+
+// Drain stops launching journeys for good, without touching the configuration,
+// so a pod that is shutting down never runs alongside its replacement. Journeys
+// already in flight finish.
+func (e *Engine) Drain() {
+	if !e.draining.Swap(true) {
+		e.log.Info("shutting down: no new journeys")
+	}
 }
 
 // Config returns the current configuration.
@@ -330,7 +361,7 @@ func (e *Engine) Tick(ctx context.Context) (started, dropped int) {
 	phaseStart := e.phaseStart
 	e.mu.RUnlock()
 
-	if !cfg.Running {
+	if !cfg.Running || e.draining.Load() {
 		e.sched.Reset()
 		e.lastTick = now
 		e.setTargetRPS(0)

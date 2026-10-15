@@ -228,10 +228,17 @@ services:
     language: go
     # Single replica by design (section 8.12): one scheduler owns the target RPS.
     replicas: 1
+    # It resumes the traffic saved in its settings ConfigMap when it starts, so an
+    # update replaces the pod instead of briefly running two generators.
+    strategy:
+      type: Recreate
     autoscaling:
       enabled: false
     podDisruptionBudget:
       enabled: false
+    # The token reads and writes the one settings ConfigMap its Role names.
+    serviceAccount:
+      automountServiceAccountToken: true
     malaiseTarget: false
     applyMalaise: false
     resources:
@@ -242,6 +249,8 @@ services:
       MAX_IN_FLIGHT: "256"
       AUTOSTART: "false"
       AUTOSTART_RPS: "5"
+      # The last traffic settings applied through the API, kept across restarts.
+      SETTINGS_CONFIGMAP: cardinal-grammeter-settings
     secretEnv:
       CUSTOMER_PASSWORD_SEED:
         secret: app
@@ -524,6 +533,7 @@ wiring:
   podNamespace:
     - malaise-injection-engine
     - encabulation-control-console
+    - cardinal-grammeter
 
 # -----------------------------------------------------------------------------
 # Console ingress (design section 10)

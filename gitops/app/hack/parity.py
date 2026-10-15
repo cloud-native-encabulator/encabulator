@@ -12,7 +12,8 @@ kro created in namespace encabulator:
   labels          the chart's labels, except managed-by (kro, not Helm) and helm.sh/chart
 
 and, for the stores: the NATS and InfluxDB StatefulSets and Services, the nats-config
-ConfigMap, the gp3 StorageClass, and the key names (never the values) of the Secrets.
+ConfigMap, the gp3 StorageClass, and the key names (never the values) of the Secrets; and the
+grammeter's settings ConfigMap.
 
 Live objects carry API server defaults the chart never writes (successThreshold, fieldRef
 apiVersion, ...), so "same" means every field the chart sets is present with the same
@@ -56,6 +57,9 @@ STORE_OBJECTS = [
     ("Service", "nats"), ("Service", "nats-headless"),
     ("Service", "influxdb"), ("Service", "influxdb-headless"),
     ("ConfigMap", "nats-config"), ("StorageClass", "encabulator-gp3"),
+    # Not a store, but outside the per-service set: where the grammeter keeps its traffic
+    # settings. Both sides create it without data, so labels are what is compared.
+    ("ConfigMap", "cardinal-grammeter-settings"),
 ]
 # The chart only renders these with existingSecret unset; the cell's names and keys are fixed
 # by the contract.

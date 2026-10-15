@@ -1,0 +1,17 @@
+{{/*
+The grammeter's settings ConfigMap (design section 8.12), created empty. The grammeter writes
+the last traffic settings applied through its API under key settings.json and reads them back
+when its pod starts. The chart never sets data, so an upgrade leaves the saved settings alone.
+*/}}
+{{- with (get .Values.services "cardinal-grammeter") }}
+{{- if and .enabled (dig "env" "SETTINGS_CONFIGMAP" "" .) }}
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ .env.SETTINGS_CONFIGMAP }}
+  namespace: {{ include "encabulator.namespace" $ }}
+  labels:
+    {{- include "encabulator.labels" (dict "root" $ "name" "cardinal-grammeter" "plane" "control" "component" "settings") | nindent 4 }}
+{{- end }}
+{{- end }}

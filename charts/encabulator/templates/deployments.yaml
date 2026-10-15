@@ -24,7 +24,12 @@ spec:
   {{- end }}
   revisionHistoryLimit: {{ $svc.revisionHistoryLimit }}
   strategy:
+    {{- if eq (toString $svc.strategy.type) "Recreate" }}
+    {{- /* Recreate takes no rollingUpdate block, whatever defaults.strategy holds. */}}
+    type: Recreate
+    {{- else }}
     {{- toYaml $svc.strategy | nindent 4 }}
+    {{- end }}
   selector:
     matchLabels:
       {{- include "encabulator.selectorLabels" (dict "root" $ "name" $name) | nindent 6 }}

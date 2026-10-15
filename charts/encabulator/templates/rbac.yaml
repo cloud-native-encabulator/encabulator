@@ -3,6 +3,7 @@ Namespaced RBAC only. Nothing in the Encabulator needs a ClusterRole (design sec
 
   malaise-injection-engine  mutates pods, deployments, deployments/scale and networkpolicies
   encabulation-control-console  reads pods and deployments and nothing else
+  cardinal-grammeter  reads and patches its own settings ConfigMap and nothing else
 */}}
 {{- $ns := include "encabulator.namespace" . }}
 
@@ -90,6 +91,41 @@ roleRef:
 subjects:
   - kind: ServiceAccount
     name: encabulation-control-console
+    namespace: {{ $ns }}
+{{- end }}
+{{- end }}
+
+{{- with (get .Values.services "cardinal-grammeter") }}
+{{- if and .enabled (dig "env" "SETTINGS_CONFIGMAP" "" .) }}
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: cardinal-grammeter
+  namespace: {{ $ns }}
+  labels:
+    {{- include "encabulator.labels" (dict "root" $ "name" "cardinal-grammeter" "plane" "control" "component" "rbac") | nindent 4 }}
+rules:
+  # One ConfigMap by name: the chart creates it, so the grammeter never needs create.
+  - apiGroups: [""]
+    resources: ["configmaps"]
+    resourceNames: [{{ .env.SETTINGS_CONFIGMAP | quote }}]
+    verbs: ["get", "patch"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: cardinal-grammeter
+  namespace: {{ $ns }}
+  labels:
+    {{- include "encabulator.labels" (dict "root" $ "name" "cardinal-grammeter" "plane" "control" "component" "rbac") | nindent 4 }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: cardinal-grammeter
+subjects:
+  - kind: ServiceAccount
+    name: cardinal-grammeter
     namespace: {{ $ns }}
 {{- end }}
 {{- end }}

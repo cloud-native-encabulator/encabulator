@@ -9,7 +9,8 @@
 #
 # What one instance expands to, matching what the chart renders per service:
 #   ServiceAccount, Deployment, Service, plus an HPA, a PodDisruptionBudget and a
-#   Role + RoleBinding for the services the chart gives them.
+#   Role + RoleBinding for the services the chart gives them, and the grammeter's
+#   settings ConfigMap.
 #
 # Chart objects deliberately not rendered here: ServiceMonitor and PrometheusRule,
 # and the KEDA ScaledObject (KEDA is off by default in the chart too). kro accepts
@@ -78,7 +79,7 @@ spec:
                 "side-fumbling-detector": "support"
               }[?schema.metadata.name].orValue("processing")}
         # No token unless the workload talks to the Kubernetes API.
-        automountServiceAccountToken: ${schema.metadata.name in ["encabulation-control-console", "malaise-injection-engine"]}
+        automountServiceAccountToken: ${schema.metadata.name in ["encabulation-control-console", "malaise-injection-engine", "cardinal-grammeter"]}
 
     # Two Deployment nodes that differ only in spec.replicas. The HPA owns the
     # replica count of an autoscaled service, so its Deployment must not set one
@@ -118,11 +119,13 @@ spec:
             ${schema.metadata.name in ["encabulation-control-console", "cardinal-grammeter",
               "malaise-injection-engine", "demo-scenario-orchestrator"] ? 1 : 2}
           revisionHistoryLimit: 3
-          strategy: &strategy
-            type: RollingUpdate
-            rollingUpdate:
-              maxUnavailable: 0
-              maxSurge: 1
+          # The grammeter resumes the traffic saved in its settings ConfigMap when it
+          # starts, so an update replaces its pod instead of briefly running two
+          # generators. Everyone else rolls one pod at a time.
+          strategy: |-
+            ${schema.metadata.name == "cardinal-grammeter"
+              ? {"type": "Recreate"}
+              : {"type": "RollingUpdate", "rollingUpdate": {"maxUnavailable": 0, "maxSurge": 1}}}
           selector: &selector
             matchLabels:
               app.kubernetes.io/name: ${schema.metadata.name}
@@ -220,7 +223,7 @@ spec:
                           {"name": callee.upperAscii().replace("-", "_") + "_URL", "value": "http://" + callee + ":8080"})
                       + (schema.metadata.name in ["demo-scenario-orchestrator", "encabulation-control-console"]
                           ? [{"name": "PROMETHEUS_URL", "value": "http://prometheus-operated.encabulator-observability:9090"}] : [])
-                      + (schema.metadata.name in ["malaise-injection-engine", "encabulation-control-console"]
+                      + (schema.metadata.name in ["malaise-injection-engine", "encabulation-control-console", "cardinal-grammeter"]
                           ? [{"name": "POD_NAMESPACE", "valueFrom": {"fieldRef": {"fieldPath": "metadata.namespace"}}}] : [])
                       + [{"name": "POD_NAME", "valueFrom": {"fieldRef": {"fieldPath": "metadata.name"}}}]
                       + (schema.metadata.name == "encabulation-control-console"
@@ -265,7 +268,8 @@ spec:
                       + {
                           "encabulation-control-console": [{"name": "COOKIE_SECURE", "value": "false"}],
                           "cardinal-grammeter": [{"name": "AUTOSTART", "value": "false"}, {"name": "AUTOSTART_RPS", "value": "5"},
-                            {"name": "CUSTOMERS", "value": "50"}, {"name": "MAX_IN_FLIGHT", "value": "256"}],
+                            {"name": "CUSTOMERS", "value": "50"}, {"name": "MAX_IN_FLIGHT", "value": "256"},
+                            {"name": "SETTINGS_CONFIGMAP", "value": "cardinal-grammeter-settings"}],
                           "malaise-injection-engine": [{"name": "OBSERVABILITY_NAMESPACE", "value": "encabulator-observability"}],
                           "demo-scenario-orchestrator": [{"name": "SCENARIO_DIR", "value": "/etc/scenarios"}],
                           "logarithmic-casing-line": [{"name": "LINE_CAPACITY", "value": "2"}],
@@ -333,7 +337,11 @@ spec:
         metadata: *deploymentMetadata
         spec:
           revisionHistoryLimit: 3
-          strategy: *strategy
+          strategy:
+            type: RollingUpdate
+            rollingUpdate:
+              maxUnavailable: 0
+              maxSurge: 1
           selector: *selector
           template: *podTemplate
 
@@ -404,12 +412,13 @@ spec:
           maxUnavailable: 1
           selector: *selector
 
-    # Namespaced RBAC for the two services that talk to the Kubernetes API.
+    # Namespaced RBAC for the services that talk to the Kubernetes API.
     #   malaise-injection-engine      kills pods, scales deployments, partitions with NetworkPolicies
     #   encabulation-control-console  reads pods and deployments, nothing else
+    #   cardinal-grammeter            reads and patches its own settings ConfigMap, nothing else
     - id: role
       includeWhen:
-        - ${schema.metadata.name in ["malaise-injection-engine", "encabulation-control-console"]}
+        - ${schema.metadata.name in ["malaise-injection-engine", "encabulation-control-console", "cardinal-grammeter"]}
       template:
         apiVersion: rbac.authorization.k8s.io/v1
         kind: Role
@@ -429,6 +438,8 @@ spec:
               {"apiGroups": ["apps"], "resources": ["deployments/scale"], "verbs": ["get", "patch"]},
               {"apiGroups": ["apps"], "resources": ["statefulsets"], "verbs": ["get", "list"]},
               {"apiGroups": ["networking.k8s.io"], "resources": ["networkpolicies"], "verbs": ["get", "list", "create", "delete"]}
+            ] : schema.metadata.name == "cardinal-grammeter" ? [
+              {"apiGroups": [""], "resources": ["configmaps"], "resourceNames": ["cardinal-grammeter-settings"], "verbs": ["get", "patch"]}
             ] : [
               {"apiGroups": [""], "resources": ["pods"], "verbs": ["get", "list"]},
               {"apiGroups": ["apps"], "resources": ["deployments"], "verbs": ["get", "list"]}
@@ -436,7 +447,7 @@ spec:
 
     - id: roleBinding
       includeWhen:
-        - ${schema.metadata.name in ["malaise-injection-engine", "encabulation-control-console"]}
+        - ${schema.metadata.name in ["malaise-injection-engine", "encabulation-control-console", "cardinal-grammeter"]}
       template:
         apiVersion: rbac.authorization.k8s.io/v1
         kind: RoleBinding
@@ -451,3 +462,23 @@ spec:
           - kind: ServiceAccount
             name: ${serviceAccount.metadata.name}
             namespace: ${schema.metadata.namespace}
+
+    # The grammeter's settings ConfigMap, created empty. The grammeter writes the
+    # last traffic settings applied through its API under key settings.json and
+    # reads them back when its pod starts. kro applies only the fields below, so
+    # the saved settings survive every reconcile and every RGD upgrade.
+    - id: settings
+      includeWhen:
+        - ${schema.metadata.name == "cardinal-grammeter"}
+      template:
+        apiVersion: v1
+        kind: ConfigMap
+        metadata:
+          name: cardinal-grammeter-settings
+          labels:
+            app.kubernetes.io/name: ${schema.metadata.name}
+            app.kubernetes.io/instance: encabulator
+            app.kubernetes.io/part-of: encabulator
+            app.kubernetes.io/version: ${schema.spec.tag}
+            app.kubernetes.io/component: settings
+            encabulator.io/plane: ${serviceAccount.metadata.labels["encabulator.io/plane"]}
