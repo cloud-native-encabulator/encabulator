@@ -173,7 +173,7 @@ body.pblack #pv #pvblank{display:inline-block}
   </svg>
  </div>
  <aside class="notes">
-  <p>⏱ 0:00-2:00. Introduce ourselves. Set the format: a cooking show. We cook the important steps live; anything that has to sit in the oven (clusters, databases) we baked earlier.</p>
+  <p>⏱ 0:00-2:00. Introduce ourselves. Set the format: each act does the important steps live; anything that has to wait (clusters, databases) we prepared earlier.</p>
   <p>Keys: → / Space next build, ← back, ↓ / ↑ skip builds, N notes, O slide list, F fullscreen, B black screen.</p>
  </aside>
 </section>
@@ -247,16 +247,16 @@ body.pblack #pv #pvblank{display:inline-block}
  </aside>
 </section>
 
-<section class="slide" data-act="Open" data-mode="none" data-title="On the menu">
- <h2>On the menu</h2>
+<section class="slide" data-act="Open" data-mode="none" data-title="Three acts">
+ <h2>Three acts</h2>
  <div class="menu">
   <div class="course" data-step="1"><div class="n">1</div><h3>Adopt</h3><p>Terraform built it.<br>ACK takes it over.<br>Nothing moves.</p></div>
   <div class="course" data-step="2"><div class="n">2</div><h3>Package</h3><p>One kro API for the workloads <i>and</i> their AWS dependencies.</p></div>
   <div class="course" data-step="3"><div class="n">3</div><h3>Replicate</h3><p>A new region, bootstrapped from one Git commit.</p></div>
  </div>
- <div class="legend" data-step="4"><span><span class="badge live">Cooked live</span></span><span><span class="badge baked">From the oven</span></span><span><span class="badge ide">Switch to IDE</span></span></div>
+ <div class="legend" data-step="4"><span><span class="badge live">Live</span></span><span><span class="badge baked">Prepared earlier</span></span><span><span class="badge ide">Switch to IDE</span></span></div>
  <aside class="notes">
-  <p>⏱ 7:00-8:00. Three courses. The badge at the top right of every slide tells the audience whether we cook it live, take it out of the oven, or switch to the IDE for the full file.</p>
+  <p>⏱ 7:00-8:00. Three acts. The badge at the top right of every slide tells the audience whether we do it live, show what we prepared earlier, or switch to the IDE for the full file.</p>
  </aside>
 </section>
 
@@ -307,7 +307,7 @@ body.pblack #pv #pvblank{display:inline-block}
   </g>
  </svg>
  <aside class="notes">
-  <p>⏱ 8:00-10:00. First, put the second region in the oven: push <code>gitops/hub/cells/use2.yaml</code> (the trigger note in Act 3 says how <code>hub-cells</code> is staged), then start the registry annotation wait in a second terminal. Say it in one sentence: a whole new region is cooking, and we come back to it in Act 3. Then, from the oven: Terraform applied yesterday (<code>terraform/brownfield</code>, about 25 minutes, RDS is the long pole). It built the VPC, the EKS Auto Mode cluster, an RDS for PostgreSQL 18 instance, an ElastiCache Serverless Valkey 8 cache, the <code>encabulator-db</code> security group and the three EKS capabilities. A one-time Job created the three logical databases and their roles. Terraform also wrote the endpoints and passwords into the cluster as the ConfigMap <code>encabulator-aws</code> and the Secret <code>encabulator-db</code>. The app is the Helm chart pointed at those external stores (<code>deploy-app.sh</code>).</p>
+  <p>⏱ 8:00-10:00. First, start the second region early: push <code>gitops/hub/cells/use2.yaml</code> (the trigger note in Act 3 says how <code>hub-cells</code> is staged), then start the registry annotation wait in a second terminal. Say it in one sentence: a whole new region is building, and we come back to it in Act 3. Then, prepared earlier: Terraform applied yesterday (<code>terraform/brownfield</code>, about 25 minutes, RDS is the long pole). It built the VPC, the EKS Auto Mode cluster, an RDS for PostgreSQL 18 instance, an ElastiCache Serverless Valkey 8 cache, the <code>encabulator-db</code> security group and the three EKS capabilities. A one-time Job created the three logical databases and their roles. Terraform also wrote the endpoints and passwords into the cluster as the ConfigMap <code>encabulator-aws</code> and the Secret <code>encabulator-db</code>. The app is the Helm chart pointed at those external stores (<code>deploy-app.sh</code>).</p>
   <p>NATS and InfluxDB stay in-cluster for this talk.</p>
  </aside>
 </section>
@@ -510,7 +510,7 @@ spec:
   </div>
  </div>
  <aside class="notes">
-  <p>⏱ 20:00-24:00. LIVE. Build 1: the removed blocks ship disabled in <code>handoff.tf.example</code>, one per store. Deleting <code>stores.tf</code> and renaming the example is a change you review in a pull request, unlike <code>terraform state rm</code>. Apply shows the three stores leaving state with no destroy: the cache and the DB subnet group were adopted from the oven (next slide). A second <code>terraform plan</code> reports No changes, because the ConfigMap reads data sources and the VPC and security group are still Terraform's. Run the apply only after ACK reports the stores synced.</p>
+  <p>⏱ 20:00-24:00. LIVE. Build 1: the removed blocks ship disabled in <code>handoff.tf.example</code>, one per store. Deleting <code>stores.tf</code> and renaming the example is a change you review in a pull request, unlike <code>terraform state rm</code>. Apply shows the three stores leaving state with no destroy: the cache and the DB subnet group were adopted before the talk (next slide). A second <code>terraform plan</code> reports No changes, because the ConfigMap reads data sources and the VPC and security group are still Terraform's. Run the apply only after ACK reports the stores synced.</p>
   <p>Build 2: the adopted spec, committed under <code>gitops/hub/brownfield</code>, which the <code>hub-brownfield</code> Application already syncs. It sets the same values Terraform used, so ACK finds nothing to change. Build 3: change backup retention from 7 to 14 in Git, push, refresh the Application, and show the RDS console moving to Modifying. That proves the new owner.</p>
  </aside>
 </section>
@@ -552,12 +552,12 @@ resources:
  </div>
  <aside class="notes">
   <p>Show the full files. The explore manifest is deleted after reading the spec: retain keeps the database. Delete it before the committed copy syncs, because both are DBInstance <code>encabulator-pg</code> in namespace <code>encabulator</code>, the same Kubernetes object. The committed <code>postgres.yaml</code> then takes over the same instance with adopt-or-create.</p>
-  <p>The highlighted kustomization line is new in this commit: the revision Argo CD tracked for the bake lists only the subnet group and the cache, so ACK cannot adopt the database before we do it live. After the push, refresh <code>hub-brownfield</code> in the Argo CD UI (Git is polled every 3 minutes) and wait for the DBInstance to report synced before the Terraform apply. Open the RDS console beside the terminal so the audience sees the instance never changes state.</p>
+  <p>The highlighted kustomization line is new in this commit: the revision Argo CD tracked for the preparation lists only the subnet group and the cache, so ACK cannot adopt the database before we do it live. After the push, refresh <code>hub-brownfield</code> in the Argo CD UI (Git is polled every 3 minutes) and wait for the DBInstance to report synced before the Terraform apply. Open the RDS console beside the terminal so the audience sees the instance never changes state.</p>
  </aside>
 </section>
 
-<section class="slide" data-act="1 · Adopt" data-mode="baked" data-title="Same recipe, from the oven">
- <h2>Same recipe, <span class="accent">from the oven</span></h2>
+<section class="slide" data-act="1 · Adopt" data-mode="baked" data-title="Same recipe, prepared earlier">
+ <h2>Same recipe, <span class="accent">prepared earlier</span></h2>
  <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:30px">
   <div class="card" data-step="1" style="border-color:var(--bad)"><div class="pill">rds · DBInstance</div><div class="mono" style="font-size:30px;margin:18px 0 10px">encabulator-pg</div><div style="font-size:24px;color:#ff9aa4">● adopted live</div></div>
   <div class="card" data-step="2"><div class="pill">elasticache · ServerlessCache</div><div class="mono" style="font-size:30px;margin:18px 0 10px">encabulator-valkey</div><div style="font-size:24px;color:var(--ok)">✓ adopted</div></div>
@@ -808,7 +808,7 @@ kubectl get encabulator encabulator -n encabulator -o yaml | yq .status
  </div>
  <aside class="notes">
   <p>⏱ 38:00-40:00. Walk the full encabulator.yaml top to bottom: schema, the AWS resources, the generated Secrets and the db-init Job, the in-cluster stores, the ConfigMap, the forEach. Then encabulator-service.yaml: the lookup tables keyed by service name, the two Deployment variants (the autoscaled ones leave replicas to the HPA), the HPA, PDB and Role. <code>kustomization.yaml</code> is what Argo CD syncs to each cell: <code>rbac/</code> (kro's RBAC, bound to the group <code>encabulator:kro</code>) and <code>nodes/</code> (a tagged Auto Mode NodeClass and NodePool) first, then the RGDs, then the instance.</p>
-  <p>Apply the RGDs on the hub so the CRDs exist; the instance itself is what Argo CD will sync to the new region in Act 3. The hub has no Encabulator instance, so run the last two commands against the baked cell (add <code>--context use2</code>).</p>
+  <p>Apply the RGDs on the hub so the CRDs exist; the instance itself is what Argo CD will sync to the new region in Act 3. The hub has no Encabulator instance, so run the last two commands against the prepared cell (add <code>--context use2</code>).</p>
  </aside>
 </section>
 
@@ -979,10 +979,10 @@ kustomize:
    <g data-step="7"><line x1="1202" y1="300" x2="1378" y2="300" stroke="#ff9900" stroke-width="6"/><circle cx="1400" cy="300" r="22" fill="#ff9900"/><text x="1400" y="220">RDS + ElastiCache</text><text x="1400" y="252" class="sm">ACK · cell</text></g>
    <g data-step="8"><line x1="1422" y1="300" x2="1598" y2="300" stroke="#3ddc97" stroke-width="6"/><circle cx="1620" cy="300" r="22" fill="#3ddc97"/><text x="1640" y="380" text-anchor="end">15 services Ready</text><text x="1640" y="412" text-anchor="end" class="sm">traffic flowing</text></g>
   </g>
-  <g data-step="9"><rect x="430" y="490" width="840" height="84" rx="16" fill="#2e2410" stroke="#ffb547" stroke-width="2"/><text x="850" y="545" text-anchor="middle" style="font-size:30px;fill:#ffd389;font-weight:700">The waits are real: here's one we baked earlier</text></g>
+  <g data-step="9"><rect x="430" y="490" width="840" height="84" rx="16" fill="#2e2410" stroke="#ffb547" stroke-width="2"/><text x="850" y="545" text-anchor="middle" style="font-size:30px;fill:#ffd389;font-weight:700">The waits are real: here's one we prepared earlier</text></g>
  </svg>
  <aside class="notes">
-  <p>⏱ 47:00-50:00. The trigger was the push at 8:00; show it again (the last commit that touches <code>cells/use2.yaml</code>) and refresh <code>hub-cells</code> in the Argo CD UI, where the Application <code>encabulator-use2</code> has been Synced since about 28:00. Walk the builds as a replay of what already happened on the hub. Build 3: ACK on the hub created the VPC and the EKS Auto Mode cluster. Build 4: once the cluster was ACTIVE, the ACK and kro capabilities on it; kro is ready in a minute or two, ACK takes several more and is the step that gates the registration. In two runs of this demo the cell was ACTIVE about 20 minutes after the trigger and the app Healthy 9 to 12 minutes after that (next slide), which is near 28:00 and by about 40:00 on this clock. At build 9 switch to the live cell: Argo CD tree green, <code>kubectl --context use2 get encabulator -n encabulator</code> showing the status hosts, the console in us-east-2 with an order delivered (one placed as soon as the app is Healthy lands near 41:00). If the live cell is not Healthy yet, switch to the baked cell and say so.</p>
+  <p>⏱ 47:00-50:00. The trigger was the push at 8:00; show it again (the last commit that touches <code>cells/use2.yaml</code>) and refresh <code>hub-cells</code> in the Argo CD UI, where the Application <code>encabulator-use2</code> has been Synced since about 28:00. Walk the builds as a replay of what already happened on the hub. Build 3: ACK on the hub created the VPC and the EKS Auto Mode cluster. Build 4: once the cluster was ACTIVE, the ACK and kro capabilities on it; kro is ready in a minute or two, ACK takes several more and is the step that gates the registration. In two runs of this demo the cell was ACTIVE about 20 minutes after the trigger and the app Healthy 9 to 12 minutes after that (next slide), which is near 28:00 and by about 40:00 on this clock. At build 9 switch to the live cell: Argo CD tree green, <code>kubectl --context use2 get encabulator -n encabulator</code> showing the status hosts, the console in us-east-2 with an order delivered (one placed as soon as the app is Healthy lands near 41:00). If the live cell is not Healthy yet, switch to the prepared cell and say so.</p>
   <p>Presenter prep, how the trigger is staged (pushed at 8:00): the push is the trigger only if <code>hub-cells</code> is already applied and tracks a revision without <code>cells/use2.yaml</code> (run of show, open decisions 2 and 3). If use2.yaml is already on that revision, applying <code>hub-cells</code> starts the build instead.</p>
   <p>First sync: the new cell's NodePool reads Degraded for about 10 seconds while its NodeClass validates, so Argo CD's first sync of <code>encabulator-use2</code> fails that wave and the UI shows "Retrying attempt #1". It heals on its own (backoff 30 s, factor 2, a few minutes in all); say so if it is on screen.</p>
  </aside>
@@ -1148,7 +1148,7 @@ kubectl --context use2 get encabulator,dbinstances.rds,serverlesscaches -n encab
   const slides = [...document.querySelectorAll('section.slide')];
   const notesEl = document.getElementById('notes'), counter = document.getElementById('counter');
   const bar = document.getElementById('bar'), ov = document.getElementById('ov');
-  const MODES = {live: ['live', 'Cooked live'], baked: ['baked', 'From the oven'], ide: ['ide', 'Switch to IDE']};
+  const MODES = {live: ['live', 'Live'], baked: ['baked', 'Prepared earlier'], ide: ['ide', 'Switch to IDE']};
   let i = 0, s = 0;
   // The presenter view is this same file opened as ?presenter in a popup (key P in the slide window).
   const PRESENTER = /[?&]presenter(?:[=&]|$)/.test(location.search);

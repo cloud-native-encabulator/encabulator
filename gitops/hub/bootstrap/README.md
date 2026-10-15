@@ -194,7 +194,7 @@ Notes for the stage:
 - Delete the explore CR before the brownfield CR syncs: both are DBInstance `encabulator-pg` in
   namespace `encabulator`, so they are the same Kubernetes object.
 - This branch holds the state AFTER Act 1 (postgres.yaml present and listed in
-  `kustomization.yaml`). The revision Argo CD tracks during the bake must not list
+  `kustomization.yaml`). The revision Argo CD tracks during the preparation must not list
   `postgres.yaml` yet, or ACK adopts the instance the day before and the live `adopt` step collides
   with it. On stage, the commit adds the file and its line in `kustomization.yaml`.
 

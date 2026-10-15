@@ -306,7 +306,7 @@ Only what AWS and Argo CD document; where they give no number, none is given her
 | IAM roles, access entries, security group, cluster Secret | no wait documented | |
 | RDS + ElastiCache on the cell | item C (`gitops/app`) | |
 
-The cluster is the long pole, which is why the talk bakes a cell beforehand.
+The cluster is the long pole, which is why the talk prepares a cell beforehand.
 
 ## Validate locally (no AWS)
 
