@@ -105,7 +105,7 @@ prints how to watch the build:
 kubectl get encabulatorcells -n encabulator-cells -w
 ```
 
-The cell is ACTIVE in about 20 minutes and its app is Healthy about 15 minutes after that.
+The cell is ACTIVE in about 20 minutes and its app is Healthy 9 to 12 minutes after that.
 Running `make add-cell` again is harmless. Every cell in the folder is built, not only `CELL`.
 
 A cell registers with Argo CD only once the hub's cluster Secret exists, because kro reads the

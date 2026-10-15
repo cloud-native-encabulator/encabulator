@@ -218,7 +218,7 @@ add_cell() {
   render cells | "$KUBECTL" apply -f -
   log "Argo CD now builds every cell in gitops/hub/cells/ at $revision${name:+, including $name${region:+ in $region}}."
   log "watch:  kubectl get encabulatorcells -n encabulator-cells -w"
-  log "expect the cell ACTIVE in about 20 minutes and the app Healthy about 15 minutes after that."
+  log "expect the cell ACTIVE in about 20 minutes and the app Healthy 9 to 12 minutes after that."
 }
 
 repo_access() {

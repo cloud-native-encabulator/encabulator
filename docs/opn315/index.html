@@ -750,7 +750,7 @@ FIELDS:
   </div>
  </div>
  <aside class="notes">
-  <p>⏱ 34:00-37:00. Build 1: the stores ConfigMap, built from ACK status: the same <code>encabulator-aws</code> name and four keys Terraform writes on the hub. It also waits for the one-time Job that creates the three databases, so it is published only once they exist. Build 2: forEach turns one template into fifteen EncabulatorService instances, one per name in <code>spec.services</code>. Each one reads the ConfigMap, so no service starts before the endpoints are real, and each gets the instance's <code>imageTag</code> and <code>registry</code>, so its image is <code>&lt;registry&gt;/&lt;name&gt;:&lt;tag&gt;</code>. Build 3: what one EncabulatorService expands to: a ServiceAccount, a Deployment and a Service for every service; an HPA for the processor and the quoter, a PodDisruptionBudget for the eleven that run more than one replica, and a Role for the console and the malaise engine. Per-service settings (plane, replicas, resources, which stores, which services it calls) are lookup tables in <code>encabulator-service.yaml</code>, keyed by name and copied from the chart's values. A name with no entry gets the chart's defaults.</p>
+  <p>⏱ 34:00-37:00. Build 1: the stores ConfigMap, built from ACK status: the same <code>encabulator-aws</code> name and four keys Terraform writes on the hub. It also waits for the one-time Job that creates the three databases, so it is published only once they exist. Build 2: forEach turns one template into fifteen EncabulatorService instances, one per name in <code>spec.services</code>. Each one reads the ConfigMap, so no service starts before the endpoints are real, and each gets the instance's <code>imageTag</code> and <code>registry</code>, so its image is <code>&lt;registry&gt;/&lt;name&gt;:&lt;tag&gt;</code>. Build 3: what one EncabulatorService expands to: a ServiceAccount, a Deployment and a Service for every service; an HPA for the processor and the quoter, a PodDisruptionBudget for the eleven that run more than one replica, and a Role for the console, the malaise engine and the traffic generator (cardinal-grammeter), which keeps its last applied settings in a small ConfigMap and resumes them after a restart. Per-service settings (plane, replicas, resources, which stores, which services it calls) are lookup tables in <code>encabulator-service.yaml</code>, keyed by name and copied from the chart's values. A name with no entry gets the chart's defaults.</p>
  </aside>
 </section>
 
@@ -843,7 +843,7 @@ kubectl get encabulator encabulator -n encabulator -o yaml | yq .status
   </g>
  </svg>
  <aside class="notes">
-  <p>⏱ 40:00-42:00. The hub runs all three capabilities. Build 1: one more kro API on the hub, EncabulatorCell: one object per region, in namespace <code>encabulator-cells</code>. Build 2: ACK on the hub builds the new region in us-east-2: a VPC with public and private subnets and one NAT gateway, the IAM roles, the EKS Auto Mode cluster, its access entries and its ACK and kro capabilities (the EKS controller has Cluster, Capability and AccessEntry kinds), and the <code>encabulator-db</code> security group. Build 3: kro also writes the Argo CD cluster Secret, so the ApplicationSet picks up the new cluster and syncs <code>gitops/app</code> to it, and a second ApplicationSet installs the observability platform from pinned charts. Build 4: ACK on the cell creates RDS and ElastiCache in its own region. Green field: the app has no Helm and no Terraform. The region we started at 8:00 is exactly this: the app there becomes Healthy near 42:00 and the first order is delivered near 43:00, so by the end of this act it is a live result, not a promise.</p>
+  <p>⏱ 40:00-42:00. The hub runs all three capabilities. Build 1: one more kro API on the hub, EncabulatorCell: one object per region, in namespace <code>encabulator-cells</code>. Build 2: ACK on the hub builds the new region in us-east-2: a VPC with public and private subnets and one NAT gateway, the IAM roles, the EKS Auto Mode cluster, its access entries and its ACK and kro capabilities (the EKS controller has Cluster, Capability and AccessEntry kinds), and the <code>encabulator-db</code> security group. Build 3: kro also writes the Argo CD cluster Secret, so the ApplicationSet picks up the new cluster and syncs <code>gitops/app</code> to it, and a second ApplicationSet installs the observability platform from pinned charts. Build 4: ACK on the cell creates RDS and ElastiCache in its own region. Green field: the app has no Helm and no Terraform. The region we started at 8:00 is exactly this: the app there becomes Healthy by about 40:00 and an order placed then is delivered within a minute, so by the end of this act it is a live result, not a promise.</p>
  </aside>
 </section>
 
@@ -982,7 +982,7 @@ kustomize:
   <g data-step="9"><rect x="430" y="490" width="840" height="84" rx="16" fill="#2e2410" stroke="#ffb547" stroke-width="2"/><text x="850" y="545" text-anchor="middle" style="font-size:30px;fill:#ffd389;font-weight:700">The waits are real: here's one we baked earlier</text></g>
  </svg>
  <aside class="notes">
-  <p>⏱ 47:00-50:00. The trigger was the push at 8:00; show it again (the last commit that touches <code>cells/use2.yaml</code>) and refresh <code>hub-cells</code> in the Argo CD UI, where the Application <code>encabulator-use2</code> has been Synced since about 28:00. Walk the builds as a replay of what already happened on the hub. Build 3: ACK on the hub created the VPC and the EKS Auto Mode cluster. Build 4: once the cluster was ACTIVE, the ACK and kro capabilities on it; kro is ready in a minute or two, ACK takes several more and is the step that gates the registration. In a run of this demo the cell was ACTIVE about 20 minutes after the trigger and the app Healthy about 14 minutes after that (next slide), which is near 28:00 and 42:00 on this clock. At build 9 switch to the live cell: Argo CD tree green, <code>kubectl --context use2 get encabulator -n encabulator</code> showing the status hosts, the console in us-east-2 with an order delivered near 43:00. If the live cell is not Healthy yet, switch to the baked cell and say so.</p>
+  <p>⏱ 47:00-50:00. The trigger was the push at 8:00; show it again (the last commit that touches <code>cells/use2.yaml</code>) and refresh <code>hub-cells</code> in the Argo CD UI, where the Application <code>encabulator-use2</code> has been Synced since about 28:00. Walk the builds as a replay of what already happened on the hub. Build 3: ACK on the hub created the VPC and the EKS Auto Mode cluster. Build 4: once the cluster was ACTIVE, the ACK and kro capabilities on it; kro is ready in a minute or two, ACK takes several more and is the step that gates the registration. In two runs of this demo the cell was ACTIVE about 20 minutes after the trigger and the app Healthy 9 to 12 minutes after that (next slide), which is near 28:00 and by about 40:00 on this clock. At build 9 switch to the live cell: Argo CD tree green, <code>kubectl --context use2 get encabulator -n encabulator</code> showing the status hosts, the console in us-east-2 with an order delivered (one placed as soon as the app is Healthy lands near 41:00). If the live cell is not Healthy yet, switch to the baked cell and say so.</p>
   <p>Presenter prep, how the trigger is staged (pushed at 8:00): the push is the trigger only if <code>hub-cells</code> is already applied and tracks a revision without <code>cells/use2.yaml</code> (run of show, open decisions 2 and 3). If use2.yaml is already on that revision, applying <code>hub-cells</code> starts the build instead.</p>
   <p>First sync: the new cell's NodePool reads Degraded for about 10 seconds while its NodeClass validates, so Argo CD's first sync of <code>encabulator-use2</code> fails that wave and the UI shows "Retrying attempt #1". It heals on its own (backoff 30 s, factor 2, a few minutes in all); say so if it is on screen.</p>
  </aside>
@@ -992,51 +992,51 @@ kustomize:
  <h2>Where the time goes</h2>
  <svg class="dia" viewBox="0 0 1700 590">
   <g class="sm" text-anchor="middle" style="font-size:20px">
-   <text x="430" y="26">0</text><text x="600" y="26">5</text><text x="770" y="26">10</text><text x="940" y="26">15</text>
-   <text x="1110" y="26">20</text><text x="1280" y="26">25</text><text x="1450" y="26">30</text><text x="1620" y="26">35 min</text>
+   <text x="430" y="26">0</text><text x="580" y="26">5</text><text x="730" y="26">10</text><text x="880" y="26">15</text>
+   <text x="1030" y="26">20</text><text x="1180" y="26">25</text><text x="1330" y="26">30</text><text x="1480" y="26">35</text><text x="1630" y="26">40 min</text>
   </g>
   <g stroke="#2a3658" stroke-width="2">
-   <line x1="600" y1="40" x2="600" y2="452"/><line x1="770" y1="40" x2="770" y2="452"/><line x1="940" y1="40" x2="940" y2="452"/>
-   <line x1="1110" y1="40" x2="1110" y2="452"/><line x1="1280" y1="40" x2="1280" y2="452"/><line x1="1450" y1="40" x2="1450" y2="452"/><line x1="1620" y1="40" x2="1620" y2="452"/>
+   <line x1="580" y1="40" x2="580" y2="452"/><line x1="730" y1="40" x2="730" y2="452"/><line x1="880" y1="40" x2="880" y2="452"/>
+   <line x1="1030" y1="40" x2="1030" y2="452"/><line x1="1180" y1="40" x2="1180" y2="452"/><line x1="1330" y1="40" x2="1330" y2="452"/><line x1="1480" y1="40" x2="1480" y2="452"/><line x1="1630" y1="40" x2="1630" y2="452"/>
   </g>
   <line x1="430" y1="40" x2="430" y2="540" stroke="#ffb547" stroke-width="4"/>
   <text x="430" y="572" style="font-size:24px;font-weight:700;fill:#ffd389">git push</text>
   <g data-step="1">
    <text class="lbl-s" x="400" y="84" text-anchor="end">VPC and NAT gateway</text>
-   <rect x="439" y="56" width="93" height="40" rx="8" fill="#ff9900"/><text class="sm" x="546" y="84" style="font-size:22px;paint-order:stroke;stroke:#0a0f1e;stroke-width:10px;stroke-linejoin:round">≈ 3 min</text>
+   <rect x="441" y="56" width="86" height="40" rx="8" fill="#ff9900"/><text class="sm" x="541" y="84" style="font-size:22px;paint-order:stroke;stroke:#0a0f1e;stroke-width:10px;stroke-linejoin:round">≈ 3 min</text>
    <text class="lbl-s" x="400" y="142" text-anchor="end">EKS Auto Mode cluster</text>
-   <rect x="443" y="114" width="384" height="40" rx="8" fill="#ff9900"/><text class="sm" x="841" y="142" style="font-size:22px;paint-order:stroke;stroke:#0a0f1e;stroke-width:10px;stroke-linejoin:round">≈ 11 min</text>
+   <rect x="531" y="114" width="291" height="40" rx="8" fill="#ff9900"/><text class="sm" x="836" y="142" style="font-size:22px;paint-order:stroke;stroke:#0a0f1e;stroke-width:10px;stroke-linejoin:round">≈ 10 min</text>
   </g>
   <g data-step="2">
    <text class="lbl-s" x="400" y="200" text-anchor="end">kro capability</text>
-   <rect x="827" y="172" width="57" height="40" rx="8" fill="#3ddcb0"/><text class="sm" x="898" y="200" style="font-size:22px;paint-order:stroke;stroke:#0a0f1e;stroke-width:10px;stroke-linejoin:round">≈ 1.5 min</text>
+   <rect x="822" y="172" width="53" height="40" rx="8" fill="#3ddcb0"/><text class="sm" x="889" y="200" style="font-size:22px;paint-order:stroke;stroke:#0a0f1e;stroke-width:10px;stroke-linejoin:round">≈ 2 min</text>
    <text class="lbl-s" x="400" y="258" text-anchor="end">ACK capability</text>
-   <rect x="827" y="230" width="266" height="40" rx="8" fill="#ff9900"/><text class="sm" x="1107" y="258" style="font-size:22px;paint-order:stroke;stroke:#0a0f1e;stroke-width:10px;stroke-linejoin:round">≈ 7.5 min</text>
+   <rect x="822" y="230" width="202" height="40" rx="8" fill="#ff9900"/><text class="sm" x="1038" y="258" style="font-size:22px;paint-order:stroke;stroke:#0a0f1e;stroke-width:10px;stroke-linejoin:round">≈ 7 min</text>
   </g>
   <g data-step="3">
-   <line x1="1094" y1="40" x2="1094" y2="540" stroke="#ffb547" stroke-width="3" stroke-dasharray="10 8"/>
-   <text x="1094" y="572" text-anchor="middle" style="font-size:24px;font-weight:700;fill:#ffd389">cell ACTIVE ≈ 20 min</text>
+   <line x1="1024" y1="40" x2="1024" y2="540" stroke="#ffb547" stroke-width="3" stroke-dasharray="10 8"/>
+   <text x="1024" y="572" text-anchor="middle" style="font-size:24px;font-weight:700;fill:#ffd389">cell ACTIVE ≈ 20 min</text>
    <text class="lbl-s" x="400" y="316" text-anchor="end">Argo CD sync</text>
-   <rect x="1106" y="288" width="153" height="40" rx="8" fill="#ef7b4d"/><text class="sm" x="1273" y="316" style="font-size:22px;paint-order:stroke;stroke:#0a0f1e;stroke-width:10px;stroke-linejoin:round">≈ 4.5 min</text>
+   <rect x="1038" y="288" width="154" height="40" rx="8" fill="#ef7b4d"/><text class="sm" x="1206" y="316" style="font-size:22px;paint-order:stroke;stroke:#0a0f1e;stroke-width:10px;stroke-linejoin:round">≈ 5 min</text>
   </g>
   <g data-step="4">
    <text class="lbl-s" x="400" y="374" text-anchor="end">ElastiCache Serverless</text>
-   <rect x="1260" y="346" width="53" height="40" rx="8" fill="#ff9900"/><text class="sm" x="1327" y="374" style="font-size:22px;paint-order:stroke;stroke:#0a0f1e;stroke-width:10px;stroke-linejoin:round">≈ 1.5 min</text>
+   <rect x="1199" y="346" width="37" height="40" rx="8" fill="#ff9900"/><text class="sm" x="1250" y="374" style="font-size:22px;paint-order:stroke;stroke:#0a0f1e;stroke-width:10px;stroke-linejoin:round">≈ 1.5 min</text>
    <text class="lbl-s" x="400" y="432" text-anchor="end">RDS for PostgreSQL</text>
-   <rect x="1276" y="404" width="294" height="40" rx="8" fill="#ff9900"/><text class="sm" x="1584" y="432" style="font-size:22px;paint-order:stroke;stroke:#0a0f1e;stroke-width:10px;stroke-linejoin:round">≈ 8.5 min</text>
+   <rect x="1197" y="404" width="170" height="40" rx="8" fill="#ff9900"/><text class="sm" x="1381" y="432" style="font-size:22px;paint-order:stroke;stroke:#0a0f1e;stroke-width:10px;stroke-linejoin:round">≈ 5.5 min</text>
   </g>
   <g data-step="5">
-   <path d="M1094 466 V482 H1577 V466" fill="none" stroke="#3ddc97" stroke-width="3"/>
-   <text x="1335" y="514" text-anchor="middle" style="font-size:22px;fill:#3ddc97">app Healthy ≈ 14 min after the cell</text>
-   <line x1="1634" y1="452" x2="1634" y2="540" stroke="#3ddc97" stroke-width="3" stroke-dasharray="10 8"/>
-   <text x="1690" y="572" text-anchor="end" style="font-size:24px;font-weight:700;fill:#3ddc97">first order ≈ 35 min</text>
+   <path d="M1024 466 V482 H1380 V466" fill="none" stroke="#3ddc97" stroke-width="3"/>
+   <text x="1214" y="514" text-anchor="middle" style="font-size:22px;fill:#3ddc97">app Healthy ≈ 12 min after the cell</text>
+   <line x1="1526" y1="452" x2="1526" y2="540" stroke="#3ddc97" stroke-width="3" stroke-dasharray="10 8"/>
+   <text x="1690" y="572" text-anchor="end" style="font-size:24px;font-weight:700;fill:#3ddc97">first order ≈ 36.5 min</text>
   </g>
  </svg>
  <div class="tip" data-step="6" style="margin-top:18px">The cluster, the ACK capability and RDS set the pace: create a region before you need it.</div>
  <div style="margin-top:12px;font-size:20px;color:var(--muted)">Captured from a run of this demo</div>
  <aside class="notes">
-  <p>⏱ 50:00-51:00. Where the time went in a run of this demo, counted from the trigger. Build 1: ACK on the hub has the network (VPC, subnets, NAT gateway) in about 3 minutes and the EKS Auto Mode cluster in about 11. Build 2: then the capabilities on the new cluster: kro about 1.5 minutes after the cluster, ACK about 7.5. Build 3: about 20 minutes in, kro marks the cell ACTIVE and writes the cluster Secret; the Application appears the same second and Argo CD syncs the RGDs, the NodeClass and the instance. Build 4: ACK on the cell creates ElastiCache Serverless (about 1.5 minutes) and RDS (about 8.5 minutes). RDS takes less time than the cluster; it finishes last because it starts only after the cell and the first sync. Build 5: the app is Healthy about 14 minutes after the cell, and the first order through the cell's gateway is delivered at about 35 minutes. With the trigger at 8:00 on this talk's clock: ACTIVE near 28:00, Healthy near 42:00, first order near 43:00.</p>
-  <p>Presenter-only detail: the Argo CD bar includes the first sync's retries while the NodePool settles (previous slide's notes), about 4.5 minutes of the critical path. Do not promise these numbers as a guarantee: they are one run in us-east-2.</p>
+  <p>⏱ 50:00-51:00. Where the time went in a run of this demo, counted from the trigger. Build 1: ACK on the hub has the network (VPC, subnets, NAT gateway) in about 3 minutes. The private route table, the private subnets and the cluster wait for the NAT gateway, so the cell VPC ends with exactly one private route table. The EKS Auto Mode cluster then takes about 10 minutes. Build 2: then the capabilities on the new cluster: kro about 2 minutes after the cluster, ACK about 7. Build 3: about 20 minutes in, kro marks the cell ACTIVE and writes the cluster Secret; the Application appears the same second and Argo CD syncs the RGDs, the NodeClass and the instance. Build 4: ACK on the cell creates ElastiCache Serverless (about 1.5 minutes) and RDS (about 5.5 minutes). RDS takes less time than the cluster; it finishes last because it starts only after the cell and the first sync. Build 5: the app is Healthy about 12 minutes after the cell. The first order through the cell's gateway was delivered at about 36.5 minutes: the order itself takes under a minute, and in this run it was placed a few minutes after the app was Healthy. With the trigger at 8:00 on this talk's clock: ACTIVE near 28:00, Healthy by about 40:00, an order placed then delivered near 41:00.</p>
+  <p>Presenter-only detail: the Argo CD bar includes the first sync's retries while the NodePool settles (previous slide's notes), 3 to 5 minutes of the critical path. Do not promise these numbers as a guarantee: the bars are the slower of two runs of this demo; the other had the app Healthy at 29 minutes and the first order at 34.</p>
  </aside>
 </section>
 
