@@ -130,6 +130,38 @@ curl -X PUT localhost:8080/v1/traffic -H 'content-type: application/json' -d '{
 Rejections return `400 invalid_traffic` and change nothing. The phase clock restarts when a run
 starts or the pattern or period changes, so a `ramp` really does begin at zero.
 
+### Settings survive a restart
+
+Every accepted `PUT /v1/traffic` is also saved, as the JSON of the six fields above, under key
+`settings.json` of the ConfigMap named by `SETTINGS_CONFIGMAP` (`cardinal-grammeter-settings` in
+the chart and the cell definition). A new pod reads it once at startup, so after a
+`kubectl delete pod`, a node roll or an image update the generator comes back with the last
+settings an operator or a scenario applied, running if it was running.
+
+- **Saving never slows the API.** The PUT returns as soon as the new settings are in effect; a
+  background writer saves only the newest settings and retries a failed write with backoff.
+- **No surprises on start.** A missing or empty ConfigMap, a saved value that does not parse or
+  is out of range, or an API server that does not answer within a few seconds all mean the
+  declared defaults (`AUTOSTART`, `AUTOSTART_RPS`), with a warning in the log. The grammeter
+  never fails to start because of its saved settings.
+- **No burst on restart.** The schedule starts fresh: nothing is made up for the time the pod
+  was down, and a `ramp` climbs from zero again.
+- **One generator at a time.** On SIGTERM the grammeter stops starting journeys at once, lets the
+  ones in flight finish and writes any pending save. The Deployment uses the `Recreate`
+  strategy, so an update never runs the old and new pod side by side.
+- **Least privilege.** The grammeter only reads and patches that one ConfigMap by name; the
+  chart or the cell definition creates it, empty, and deletes it with the rest of the app.
+
+To start from the declared defaults again, clear the saved settings:
+
+```bash
+kubectl -n encabulator patch configmap cardinal-grammeter-settings --type=merge -p '{"data":null}'
+kubectl -n encabulator rollout restart deployment cardinal-grammeter
+```
+
+With `SETTINGS_CONFIGMAP` unset, as in `make run` and the compose stack, the settings live in
+memory only.
+
 **The target cannot be changed.** It is fixed by `DINGLE_ARM_GATEWAY_URL` and there is no API for
 it, by design: a traffic generator that can be pointed anywhere is a footgun.
 
@@ -150,8 +182,10 @@ do not have to hard-code them.
 | `CUSTOMER_PASSWORD_SEED` | **required** | Secret; synthetic passwords are derived from it |
 | `CUSTOMERS` | `50` | 1 to 1000 |
 | `MAX_IN_FLIGHT` | `256` | Journeys in flight before dropping |
-| `AUTOSTART` | `false` | Start generating immediately |
-| `AUTOSTART_RPS` | `5` | The initial rate, used whether or not it autostarts |
+| `AUTOSTART` | `false` | Start generating immediately, when no saved settings are found |
+| `AUTOSTART_RPS` | `5` | The initial rate when no saved settings are found, whether or not it autostarts |
+| `SETTINGS_CONFIGMAP` | unset | ConfigMap that keeps the last applied settings; unset keeps them in memory only |
+| `POD_NAMESPACE` | unset | Namespace of that ConfigMap, from the downward API |
 
 `MALAISE_ENGINE_URL` is deliberately ignored: the grammeter does not induce malaise in itself, since
 it would only be measuring its own limp.
@@ -193,9 +227,11 @@ curl -sX PUT localhost:8080/v1/traffic -H 'content-type: application/json' \
 
 **Single replica.** The rate schedule, the in-flight cap and the customer pool are all per-process,
 so two replicas would silently generate twice the requested traffic. Do not set an HPA on it and do
-not give it a PodDisruptionBudget it cannot satisfy.
+not give it a PodDisruptionBudget it cannot satisfy. Updates use the `Recreate` strategy for the
+same reason.
 
-It needs no service account token, no volumes, and no backing store.
+It has no volumes and no backing store. Its service account token is used for one thing: `get`
+and `patch` on its own settings ConfigMap, which its Role names.
 
 ## Layout
 
@@ -207,5 +243,6 @@ It needs no service account token, no volumes, and no backing store.
 | `internal/gateway` | The no-retry JSON client for the gateway |
 | `internal/engine` | The 50 ms tick, the in-flight cap, and the traffic configuration |
 | `internal/stats` | Rolling 60-second per-journey statistics and status counts |
+| `internal/settings` | Saving and restoring the traffic configuration in its ConfigMap |
 | `internal/metrics` | Prometheus surface |
 | `internal/api` | `/v1/traffic` and `/v1/journeys` |

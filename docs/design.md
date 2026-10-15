@@ -66,7 +66,7 @@ application workloads and backing stores run in the `encabulator` namespace; the
 | Service | Plane | Lang | Role | Owns |
 |---|---|---|---|---|
 | `encabulation-control-console` | control | TypeScript (Vue + Fastify BFF) | The web portal: topology, traffic, malaise, scenarios, flags, storefront | none |
-| `cardinal-grammeter` | control | Go | Synthetic customer traffic generator | none |
+| `cardinal-grammeter` | control | Go | Synthetic customer traffic generator | ConfigMap `cardinal-grammeter-settings` (last applied traffic settings) |
 | `malaise-injection-engine` | control | Go | Fault injection, app-level and Kubernetes-level | Valkey keys `{malaise}:*` |
 | `demo-scenario-orchestrator` | control | Python | Runs scripted demo scenarios with narration | in-memory run history |
 | `dingle-arm-gateway` | processing | Go | Edge API gateway: JWT auth, rate limiting, routing | none |
@@ -618,7 +618,16 @@ Automatically synchronizes cardinal grammeters, which is to say it generates cus
   (default 256); excess is counted as `dropped`, not queued.
 - The target is fixed by `DINGLE_ARM_GATEWAY_URL`. There is no API to change it.
 - Starts stopped unless `AUTOSTART=true` (with `AUTOSTART_RPS`, default 5). Runs as a single
-  replica.
+  replica, updated with the `Recreate` strategy.
+- Settings survive a restart: every accepted `PUT /v1/traffic` is saved from a background writer
+  (newest wins, retried with backoff, never delaying the response) as JSON under key
+  `settings.json` of the ConfigMap `SETTINGS_CONFIGMAP` (`cardinal-grammeter-settings`), which the
+  deployment creates empty. A new pod reads it once at startup and resumes those settings, running
+  if they were running, with the schedule starting fresh (no catch-up, no burst). Missing, empty,
+  unparsable or out-of-range saved settings, or an API server that does not answer, mean the
+  `AUTOSTART` defaults and a warning, never a failed start. On SIGTERM it starts no new journeys and
+  writes any pending save. RBAC: a namespaced Role with get and patch on that one ConfigMap by name.
+  With `SETTINGS_CONFIGMAP` unset the settings are in memory only.
 - Metrics: `encabulator_grammeter_requests_total{journey,status}`, `encabulator_grammeter_target_rps`.
 
 ### 8.13 malaise-injection-engine (Go)
@@ -801,7 +810,7 @@ Chart structure:
   install with `randAlphaNum` and `genPrivateKey`, and preserved on upgrade with `lookup`.
 - Every pod runs with `runAsNonRoot`, `readOnlyRootFilesystem`, all capabilities dropped,
   `seccompProfile: RuntimeDefault`, and no service account token unless it needs the Kubernetes API
-  (console, malaise engine).
+  (console, malaise engine, grammeter).
 - Labels: `app.kubernetes.io/name`, `app.kubernetes.io/part-of=encabulator`,
   `app.kubernetes.io/version`, `encabulator.io/plane`, `encabulator.io/malaise-target=true`.
 - The console is exposed by `ClusterIP` plus port-forward by default, with an optional `Ingress`
@@ -878,7 +887,7 @@ Service-specific:
 |---|---|
 | unilateral-phase-detractor | `JWT_PRIVATE_KEY` (PEM), `JWT_TTL_SECONDS` (3600), `BOOTSTRAP_ADMIN_PASSWORD`, `BOOTSTRAP_OPERATOR_PASSWORD` |
 | logarithmic-casing-line | `LINE_CAPACITY` (2), `SINUSOIDAL_RECORDER_URL`, `PREFABULATED_AMULITE_DEPOT_URL` |
-| cardinal-grammeter | `DINGLE_ARM_GATEWAY_URL`, `CUSTOMERS` (50), `CUSTOMER_PASSWORD_SEED` (secret; synthetic customer passwords are derived from it), `MAX_IN_FLIGHT` (256), `AUTOSTART` (false), `AUTOSTART_RPS` (5) |
+| cardinal-grammeter | `DINGLE_ARM_GATEWAY_URL`, `CUSTOMERS` (50), `CUSTOMER_PASSWORD_SEED` (secret; synthetic customer passwords are derived from it), `MAX_IN_FLIGHT` (256), `AUTOSTART` (false), `AUTOSTART_RPS` (5), `SETTINGS_CONFIGMAP` (`cardinal-grammeter-settings`; unset keeps settings in memory only), `POD_NAMESPACE` (downward API) |
 | malaise-injection-engine | `VALKEY_URL`, `POD_NAMESPACE` (downward API), `OBSERVABILITY_NAMESPACE` (`encabulator-observability`) |
 | demo-scenario-orchestrator | `CARDINAL_GRAMMETER_URL`, `MALAISE_ENGINE_URL`, `DIFFERENTIAL_GIRDLESPRING_URL`, `PREFABULATED_AMULITE_DEPOT_URL`, `PROMETHEUS_URL`, `SCENARIO_DIR` (`/etc/scenarios`) |
 | encabulation-control-console | every service URL, `PROMETHEUS_URL`, `GRAFANA_EXTERNAL_URL`, `JAEGER_EXTERNAL_URL`, `SESSION_SECRET`, `POD_NAMESPACE`, `COOKIE_SECURE` (false) |
