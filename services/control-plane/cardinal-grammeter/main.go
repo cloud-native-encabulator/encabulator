@@ -158,7 +158,7 @@ func run(ctx context.Context) error {
 	api.New(eng, rt.Log).Register(rt.Server)
 
 	rt.Log.Info("cardinal grammeters standing by",
-		"target", gatewayURL, "customers", customers, "autostart", autostart,
+		"target", gatewayURL, "customers", initial.Customers, "autostart", autostart,
 		"running", initial.Running, "keepsSettings", saver != nil)
 
 	// The schedule keeps ticking through the drain so that in-flight journeys
