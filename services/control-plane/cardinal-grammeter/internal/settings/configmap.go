@@ -27,6 +27,10 @@ const (
 // maxResponse bounds what is read back from the API server: one small ConfigMap.
 const maxResponse = 1 << 20
 
+// fieldManager names the grammeter in the ConfigMap's managedFields, next to the
+// deployer's own entry for the labels.
+const fieldManager = "cardinal-grammeter"
+
 // ErrNotInCluster means the process has no in-cluster API server address or
 // service account token to talk to it with.
 var ErrNotInCluster = errors.New("not running in a Kubernetes pod with a service account token")
@@ -103,7 +107,7 @@ func InCluster(namespace, name string) (*ConfigMap, error) {
 
 // Load implements Store. A missing ConfigMap, or one without Key, is ErrNotSaved.
 func (c *ConfigMap) Load(ctx context.Context) ([]byte, error) {
-	body, status, err := c.do(ctx, http.MethodGet, nil, "")
+	body, status, err := c.do(ctx, http.MethodGet, "", nil, "")
 	if err != nil {
 		return nil, err
 	}
@@ -133,7 +137,7 @@ func (c *ConfigMap) Save(ctx context.Context, data []byte) error {
 	if err != nil {
 		return err
 	}
-	body, status, err := c.do(ctx, http.MethodPatch, patch, "application/merge-patch+json")
+	body, status, err := c.do(ctx, http.MethodPatch, "?fieldManager="+fieldManager, patch, "application/merge-patch+json")
 	if err != nil {
 		return err
 	}
@@ -143,16 +147,17 @@ func (c *ConfigMap) Save(ctx context.Context, data []byte) error {
 	return nil
 }
 
-func (c *ConfigMap) do(ctx context.Context, method string, payload []byte, contentType string) ([]byte, int, error) {
+func (c *ConfigMap) do(ctx context.Context, method, query string, payload []byte, contentType string) ([]byte, int, error) {
 	var reader io.Reader
 	if payload != nil {
 		reader = bytes.NewReader(payload)
 	}
-	req, err := http.NewRequestWithContext(ctx, method, c.url, reader)
+	req, err := http.NewRequestWithContext(ctx, method, c.url+query, reader)
 	if err != nil {
 		return nil, 0, err
 	}
 	req.Header.Set("Accept", "application/json")
+	req.Header.Set("User-Agent", fieldManager)
 	if contentType != "" {
 		req.Header.Set("Content-Type", contentType)
 	}

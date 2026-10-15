@@ -380,6 +380,9 @@ func (a *fakeAPI) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		if ct := r.Header.Get("Content-Type"); ct != "application/merge-patch+json" {
 			a.t.Errorf("patch content type = %q", ct)
 		}
+		if fm := r.URL.Query().Get("fieldManager"); fm != "cardinal-grammeter" {
+			a.t.Errorf("patch fieldManager = %q, want cardinal-grammeter", fm)
+		}
 		var patch struct {
 			Data map[string]string `json:"data"`
 		}
