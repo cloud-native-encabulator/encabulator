@@ -548,3 +548,79 @@ func TestRunTicksOnRealTimeAndStopsWithTheContext(t *testing.T) {
 }
 
 func ptr[T any](v T) *T { return &v }
+
+func TestOnChangeSeesEveryAcceptedUpdateInOrder(t *testing.T) {
+	var seen []Config
+	c := newClock()
+	e, err := New(Options{
+		Runner:   newFakeRunner(),
+		Pool:     &fakePool{},
+		Stats:    stats.NewRecorder(c.Now),
+		Source:   rng.Seeded(1),
+		Logger:   slog.New(slog.NewTextHandler(io.Discard, nil)),
+		Initial:  Config{RPS: 5, Customers: 50},
+		Now:      c.Now,
+		OnChange: func(cfg Config) { seen = append(seen, cfg) },
+	})
+	if err != nil {
+		t.Fatalf("New: %v", err)
+	}
+	if len(seen) != 0 {
+		t.Fatalf("New must not report the initial configuration as a change: %+v", seen)
+	}
+	if _, err := e.Update(Patch{RPS: ptr(25.0), Pattern: ptr(traffic.PatternBurst)}); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := e.Update(Patch{RPS: ptr(9999.0)}); err == nil {
+		t.Fatal("an out-of-range rate was accepted")
+	}
+	if _, err := e.Update(Patch{Running: ptr(true)}); err != nil {
+		t.Fatal(err)
+	}
+	if len(seen) != 2 {
+		t.Fatalf("OnChange calls = %d, want 2 (the rejected patch must not count)", len(seen))
+	}
+	if seen[0].Running || seen[0].RPS != 25 || seen[0].Pattern != traffic.PatternBurst {
+		t.Errorf("first change = %+v", seen[0])
+	}
+	if !seen[1].Running || seen[1].RPS != 25 {
+		t.Errorf("second change = %+v", seen[1])
+	}
+	seen[1].Mix["browse"] = 0
+	if e.Config().Mix["browse"] == 0 {
+		t.Error("OnChange received the engine's own mix map instead of a copy")
+	}
+}
+
+func TestDrainStopsNewJourneysAndKeepsTheConfiguration(t *testing.T) {
+	ctx := context.Background()
+	f := newFixture(t, running(20, traffic.PatternSteady, 60), 256)
+	if started, _ := f.ticks(ctx, 20); started == 0 {
+		t.Fatal("a running engine started nothing before the drain")
+	}
+	f.engine.Drain()
+	if started, _ := f.ticks(ctx, 100); started != 0 {
+		t.Errorf("started %d journeys after Drain, want 0", started)
+	}
+	if f.gauge.value() != 0 {
+		t.Errorf("target rate after Drain = %v, want 0", f.gauge.value())
+	}
+	if cfg := f.engine.Config(); !cfg.Running || cfg.RPS != 20 {
+		t.Errorf("Drain changed the configuration: %+v", cfg)
+	}
+	f.waitIdle(t)
+}
+
+func TestWithAppliesOnlyTheNamedFields(t *testing.T) {
+	base := running(5, traffic.PatternSteady, 60)
+	next := base.With(Patch{RPS: ptr(12.0), Mix: map[string]int{"order": 1}})
+	if next.RPS != 12 || next.Pattern != traffic.PatternSteady || next.PeriodSeconds != 60 || !next.Running {
+		t.Errorf("With = %+v", next)
+	}
+	if len(next.Mix) != 1 || next.Mix["order"] != 1 {
+		t.Errorf("mix = %v, want only order", next.Mix)
+	}
+	if len(base.Mix) != 4 {
+		t.Errorf("With changed the receiver's mix: %v", base.Mix)
+	}
+}

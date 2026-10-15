@@ -10,6 +10,8 @@ import (
 	"log/slog"
 	"net/http"
 	"os"
+	"os/signal"
+	"syscall"
 	"time"
 
 	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
@@ -24,6 +26,7 @@ import (
 	"github.com/jlbutler/cloud-native-encabulator/services/control-plane/cardinal-grammeter/internal/journey"
 	"github.com/jlbutler/cloud-native-encabulator/services/control-plane/cardinal-grammeter/internal/metrics"
 	"github.com/jlbutler/cloud-native-encabulator/services/control-plane/cardinal-grammeter/internal/rng"
+	"github.com/jlbutler/cloud-native-encabulator/services/control-plane/cardinal-grammeter/internal/settings"
 	"github.com/jlbutler/cloud-native-encabulator/services/control-plane/cardinal-grammeter/internal/stats"
 	"github.com/jlbutler/cloud-native-encabulator/services/control-plane/cardinal-grammeter/internal/traffic"
 )
@@ -41,6 +44,10 @@ const journeyTimeout = 20 * time.Second
 // console changes it through PUT /v1/traffic; there is no environment variable
 // for it in the design.
 const defaultPeriodSeconds = 60
+
+// settingsFlushTimeout bounds the last save on shutdown. The drain takes up to
+// 21 s of the pod's 30 s grace period, which leaves room for this.
+const settingsFlushTimeout = 5 * time.Second
 
 func main() {
 	if err := run(context.Background()); err != nil {
@@ -104,24 +111,44 @@ func run(ctx context.Context) error {
 	})
 
 	autostart := config.Bool("AUTOSTART", false)
+	initial := engine.Config{
+		Running:       autostart,
+		RPS:           config.Float("AUTOSTART_RPS", 5),
+		Pattern:       traffic.PatternSteady,
+		PeriodSeconds: defaultPeriodSeconds,
+		Mix:           journey.DefaultMix(),
+		Customers:     customers,
+	}
+
+	// The last settings applied through the API outlive the pod when the
+	// deployment names a ConfigMap for them; otherwise they are in memory only.
+	var saver *settings.Saver
+	if name := config.String("SETTINGS_CONFIGMAP", ""); name != "" {
+		store, err := settings.InCluster(config.String("POD_NAMESPACE", ""), name)
+		if err != nil {
+			rt.Log.Warn("traffic settings will not survive a restart", "error", err.Error())
+		} else {
+			initial = settings.Restore(ctx, store, initial, rt.Log)
+			saver = settings.NewSaver(store, rt.Log)
+		}
+	}
+	var onChange func(engine.Config)
+	if saver != nil {
+		onChange = saver.Submit
+	}
+
 	eng, err := engine.New(engine.Options{
-		Runner:      runner,
-		Pool:        pool,
-		Stats:       recorder,
-		Source:      rng.Global(),
-		Logger:      rt.Log,
-		Target:      gatewayURL,
-		MaxInFlight: config.Int("MAX_IN_FLIGHT", 256),
-		Initial: engine.Config{
-			Running:       autostart,
-			RPS:           config.Float("AUTOSTART_RPS", 5),
-			Pattern:       traffic.PatternSteady,
-			PeriodSeconds: defaultPeriodSeconds,
-			Mix:           journey.DefaultMix(),
-			Customers:     customers,
-		},
+		Runner:         runner,
+		Pool:           pool,
+		Stats:          recorder,
+		Source:         rng.Global(),
+		Logger:         rt.Log,
+		Target:         gatewayURL,
+		MaxInFlight:    config.Int("MAX_IN_FLIGHT", 256),
+		Initial:        initial,
 		TargetRPSGauge: met.TargetRPS(),
 		DroppedCounter: met.Dropped(),
+		OnChange:       onChange,
 	})
 	if err != nil {
 		return err
@@ -131,13 +158,32 @@ func run(ctx context.Context) error {
 	api.New(eng, rt.Log).Register(rt.Server)
 
 	rt.Log.Info("cardinal grammeters standing by",
-		"target", gatewayURL, "customers", customers, "autostart", autostart)
+		"target", gatewayURL, "customers", initial.Customers, "autostart", autostart,
+		"running", initial.Running, "keepsSettings", saver != nil)
 
-	// The schedule keeps running through the drain so that in-flight journeys
-	// finish; it stops when the process context is cancelled.
+	// The schedule keeps ticking through the drain so that in-flight journeys
+	// finish, and stops when the process context is cancelled. It starts no new
+	// journey once SIGTERM arrives, so a replacement pod that resumes the saved
+	// traffic never runs alongside this one.
 	loopCtx, stopLoop := context.WithCancel(context.WithoutCancel(ctx))
 	defer stopLoop()
 	go eng.Run(loopCtx)
+
+	sigCtx, stopSignals := signal.NotifyContext(ctx, syscall.SIGTERM, syscall.SIGINT)
+	defer stopSignals()
+	go func() {
+		<-sigCtx.Done()
+		eng.Drain()
+	}()
+
+	if saver != nil {
+		go saver.Run()
+		defer func() {
+			flushCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), settingsFlushTimeout)
+			defer cancel()
+			_ = saver.Close(flushCtx)
+		}()
+	}
 
 	return rt.Run(ctx)
 }
