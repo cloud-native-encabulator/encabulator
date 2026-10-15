@@ -1,4 +1,4 @@
-# The Act 1 "from the oven" starting point: what a team built with Terraform before the
+# The Act 1 "prepared earlier" starting point: what a team built with Terraform before the
 # talk. VPC, hub EKS Auto Mode cluster, RDS for PostgreSQL, ElastiCache serverless Valkey,
 # the EKS capabilities (Argo CD, ACK, kro), and a ConfigMap + Secret hand-off that the
 # Helm chart reads. Names come from the shared OPN315 contract.
