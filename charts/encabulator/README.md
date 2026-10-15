@@ -42,6 +42,7 @@ change to the Deployment template changes all fifteen at once.
 | 4 `StatefulSet`s + 8 `Service`s (VIP and headless per store) | each store's `enabled` and not `external.enabled` |
 | `Secret`s: app, postgres, valkey, influxdb | `secrets.create` |
 | `Role`/`RoleBinding` for the malaise engine and the console | those services are enabled |
+| `Role`/`RoleBinding` and the empty settings `ConfigMap` for the grammeter | the grammeter is enabled with `SETTINGS_CONFIGMAP` set (the default) |
 | `ScaledObject` for `logarithmic-casing-line` | `keda.enabled` |
 | `Ingress` for the console | `ingress.enabled` |
 | `ConfigMap` for extra demo scenarios | the orchestrator is enabled |
@@ -135,8 +136,8 @@ containerSecurityContext: { allowPrivilegeEscalation: false, readOnlyRootFilesys
 ```
 
 Because the root filesystem is read-only, every pod gets a `/tmp` `emptyDir`. Service accounts
-have `automountServiceAccountToken: false` except the console and the malaise engine, the only
-two workloads that talk to the Kubernetes API.
+have `automountServiceAccountToken: false` except the console, the malaise engine and the
+grammeter, the only workloads that talk to the Kubernetes API.
 
 The stores run as the uid their images expect (postgres 999, valkey 999, influxdb 1500) and nats,
 whose image has no `USER`, as 10000. They get the extra writable `emptyDir`s their software
@@ -153,6 +154,7 @@ Namespaced `Role`s only. Nothing in the Encabulator holds a `ClusterRole`.
 | | `deployments/scale` | get, patch |
 | | `networkpolicies` | get, list, create, delete |
 | `encabulation-control-console` | `pods`, `deployments` | get, list, watch |
+| `cardinal-grammeter` | `configmaps`, only `cardinal-grammeter-settings` | get, patch |
 
 ## Secrets
 
