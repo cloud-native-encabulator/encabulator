@@ -56,7 +56,11 @@ scripts/tag-check.py --record tmp/tag-check-live.json  # also save the responses
 ```
 
 Read-only AWS CLI calls (describe and list) with whatever credentials the CLI finds. One line per
-resource; exit 1 naming every resource without `auto-delete=no`. Run it at least 10 minutes after
+resource; exit 1 naming every resource without `auto-delete=no`. A stack that is not there at all
+(neither its VPC nor its EKS cluster: the cell before `make add-cell`, or a stack already removed)
+is reported as `absent` and is not a failure, while a stack that is only partly there is. When no
+stack is found at all, it exits 3: nothing was checked, so check the account and region. Run it
+at least 10 minutes after
 the last change so the tagger has had a pass. It finds resources by structure (the VPC tagged
 `Name=<stack>` and what is in it, the EKS cluster `<stack>`, roles `<stack>-*`), never by the tag
 it checks. ECR repositories named `encabulator/*` in each stack's region are checked too (once per
