@@ -241,8 +241,10 @@ enabled and a group in it whose members will be Argo CD admins (Argo CD signs us
 Identity Center), and AWS credentials in your shell (a profile, `aws sso login`, or environment
 variables). It has to be a group, not a user: if Identity Center has no group yet, create one and
 add yourself to it (in the Identity Center console under Groups, or with the commands in
-`.env.example`), and `make prereqs` tells you when there is none. The few values specific to your
-account go in one gitignored file:
+`.env.example`), and `make prereqs` tells you when there is none. If your Terraform comes from a
+version manager such as mise, run `export TERRAFORM="mise exec terraform@1.14.9 -- terraform"` once
+in that shell: every make command (`prereqs`, `hub`, `kubeconfig`, `teardown`) then uses it. The few
+values specific to your account go in one gitignored file:
 
 ```bash
 cp .env.example .env     # fill in IDC_INSTANCE_ARN and ARGOCD_ADMIN_GROUP_ID; the file says how to find (or create) them
@@ -266,8 +268,8 @@ make tag-check           # read-only, 10 minutes after the last step: no AWS res
 
 It stops at the first step that fails, names it, and is safe to run again. `CONFIRM=yes` answers
 its question for you. A value on the make command line or in your shell wins over `.env`, so
-`make hub REGISTRY=...` works too. `TERRAFORM` is the one setting that is not read from `.env`: if
-your Terraform comes from a version manager, pass it on the command line, for example
+`make hub REGISTRY=...` works too. `TERRAFORM` is the one setting that is not read from `.env`: it
+comes from your shell (the `export` above) or the make command line, for example
 `make hub TERRAFORM="mise exec terraform@1.14.9 -- terraform"`. To deploy from your own fork or
 branch, set `GIT_REPO_URL` and `GIT_REVISION` in `.env` (and `GIT_TOKEN_FILE` for a private
 repository).
@@ -312,7 +314,22 @@ sentence that names it, and is safe to run again: it looks at what is still ther
 it stopped. `make -n teardown` (or `make -n remove-cell CELL=use2`) prints the steps and runs
 nothing. `CONFIRM=<name>` answers the question for you. The stores are deleted with their data and
 no final snapshot. `make teardown` ends with `make gone-check`; `make mirror-images-delete` on its
-own deletes only the ECR repositories `make mirror-images` created.
+own deletes only the ECR repositories `make mirror-images` created. `make teardown` has been run
+end to end against a hub with one cell, and its closing `make gone-check` reported nothing of the
+project left in the account.
+
+`make remove-cell` and `make teardown` work on the hub through kubectl, so point kubectl at the
+hub first. From a new shell, the whole sequence is:
+
+```bash
+export AWS_PROFILE=<your profile>                           # if you use one
+export TERRAFORM="mise exec terraform@1.14.9 -- terraform"  # if Terraform comes from a version manager
+make kubeconfig                                             # kubectl points at the hub
+make teardown
+```
+
+The `export TERRAFORM` line is needed once per shell: every make command (`prereqs`, `hub`,
+`kubeconfig`, `teardown`) then uses it.
 
 After `make remove-cell`, take the cell's file out of Git (`git rm gitops/hub/cells/use2.yaml`,
 commit, push), or Argo CD builds the cell again the next time `hub-cells` is applied. The command
