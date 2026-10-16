@@ -240,6 +240,318 @@ python3 tagger/test_sweep.py   # the tagger against a fake boto3
 
 ## Teardown
 
-Before the hand-off, `terraform destroy` removes everything. After it, the three stores belong to
-ACK with `deletion-policy: retain`: delete their ACK resources and then the RDS instance, cache and
-subnet group yourself, then `terraform destroy` the rest.
+Cells first, then the hub. Each step needs the one before it:
+
+1. [Remove every cell](#remove-a-cell) while the hub still runs. The hub's kro and ACK are what
+   delete a cell. Once the hub is gone, nothing deletes the cell's VPC, NAT gateway, cluster and
+   roles, and each one has to be found and deleted by hand.
+2. [Stop Argo CD on the hub](#stop-argo-cd-on-the-hub), so it does not re-apply what you delete
+   next.
+3. [Remove the app, its volumes and the platform](#the-app-its-volumes-and-the-platform).
+4. [Delete the hub's stores](#the-hubs-stores) and their snapshots.
+5. [Delete the ECR repositories](#ecr-repositories) that `make mirror-images` created.
+6. [`terraform destroy -refresh=false`](#terraform-destroy).
+7. [Prove the account is clean](#prove-the-account-is-clean).
+
+The commands run from the repository root, with the AWS CLI v2, credentials for the account and
+kubectl pointed at the hub (`make kubeconfig`: context `encabulator-usw2`, namespace
+`encabulator`). They name the cell `encabulator-use2` in us-east-2 (`gitops/hub/cells/use2.yaml`);
+for another cell, change the name and the region. The whole teardown takes about an hour, most of
+it waiting. It deletes the data: no final snapshot of any store is kept.
+
+Before the hand-off (`stores.tf` in place, no `handoff.tf`), Terraform still owns the three
+stores: do every step except [The hub's stores](#the-hubs-stores), and `terraform destroy`
+deletes them with the rest, without `-refresh=false` (not exercised).
+
+### Remove a cell
+
+kubectl on the cell: `make cell-access CELL=use2` gives your AWS identity cluster admin on the
+cell's cluster, then
+`aws eks update-kubeconfig --region us-east-2 --name encabulator-use2 --alias use2`. The steps
+below need no more than permission to delete StatefulSets and PersistentVolumeClaims in the
+cell's namespace `encabulator`, so a narrower access entry works too.
+
+First, look for untracked route tables. The cell graph creates the private route table only once
+the NAT gateway is available ([`gitops/hub/rgds/README.md`](../../gitops/hub/rgds/README.md#the-graph)).
+A cell built without that wait can hold extra `encabulator-use2-private` route tables, one per
+failed attempt, with no subnet association and only the local route. ACK does not track them,
+and the VPC delete fails while they exist. Compare the VPC's tables with the one the hub tracks:
+
+```bash
+vpc=$(aws ec2 describe-vpcs --region us-east-2 --filters Name=tag:Name,Values=encabulator-use2 \
+  --query 'Vpcs[].VpcId' --output text)
+kubectl -n encabulator-cells get routetables.ec2.services.k8s.aws encabulator-use2-private \
+  -o jsonpath='{.status.routeTableID}{"\n"}'
+aws ec2 describe-route-tables --region us-east-2 \
+  --filters Name=vpc-id,Values="$vpc" Name=tag:Name,Values=encabulator-use2-private \
+  --query 'RouteTables[].[RouteTableId,length(Associations)]' --output text
+```
+
+Delete every other table with 0 associations before you delete the cell: adopt it with
+[`docs/teardown/adopt-route-table.yaml`](../../docs/teardown/adopt-route-table.yaml)
+(`deletion-policy: delete`), wait for `ACK.ResourceSynced`, and delete the object.
+`aws ec2 delete-route-table --region us-east-2 --route-table-id <rtb-id>` does the same
+(not exercised).
+
+Then remove the cell:
+
+```bash
+# 1. On the hub: keep the node role and the node access entry when kro deletes the cell.
+kubectl -n encabulator-cells annotate roles.iam.services.k8s.aws encabulator-use2-node \
+  services.k8s.aws/deletion-policy=retain
+kubectl -n encabulator-cells annotate accessentries.eks.services.k8s.aws encabulator-use2-node \
+  services.k8s.aws/deletion-policy=retain
+
+# 2. Stop Argo CD from re-creating the cell, then delete it. hub-cells has no resources
+#    finalizer, so deleting it leaves the EncabulatorCell (and every other cell) in place.
+kubectl -n argocd delete application hub-cells
+kubectl -n encabulator-cells delete encabulatorcells encabulator-use2 --wait=false
+
+# 3. Within a minute or two kro has removed the cell's Argo CD cluster Secret (the cell's
+#    Applications go, the app keeps running) and the cell's kro and ACK capabilities.
+aws eks list-capabilities --region us-east-2 --cluster-name encabulator-use2   # no KRO, no ACK
+kubectl -n argocd get applications                                              # no encabulator-use2*
+
+# 4. On the cell: nothing re-creates the StatefulSets now. Delete them, then their volumes.
+kubectl --context use2 -n encabulator delete statefulset nats influxdb
+kubectl --context use2 -n encabulator delete pvc data-nats-0 data-influxdb-0
+kubectl --context use2 get pv                    # repeat until it lists nothing
+
+# 5. The cell's stores, once list-capabilities shows no ACK capability.
+aws rds delete-db-instance --region us-east-2 --db-instance-identifier encabulator-pg \
+  --skip-final-snapshot --delete-automated-backups
+aws elasticache delete-serverless-cache --region us-east-2 --serverless-cache-name encabulator-valkey
+aws rds wait db-instance-deleted --region us-east-2 --db-instance-identifier encabulator-pg
+aws rds delete-db-subnet-group --region us-east-2 --db-subnet-group-name encabulator
+
+# 6. Wait until the cell is gone, about 20 minutes after step 2.
+kubectl -n encabulator-cells get encabulatorcells        # encabulator-use2 is no longer listed
+
+# 7. The node role, now that the cluster is gone: adopt it into the hub's ACK with
+#    deletion-policy delete, then delete the object, and ACK deletes the role.
+kubectl apply -f docs/teardown/adopt-node-role.yaml
+kubectl -n encabulator-cells wait --for=condition=ACK.ResourceSynced \
+  roles.iam.services.k8s.aws/encabulator-use2-node
+kubectl delete -f docs/teardown/adopt-node-role.yaml
+```
+
+Why each step is there:
+
+- Node role (steps 1 and 7). kro deletes the hub's Role object before the cluster, while EKS
+  Auto Mode still holds the role in the cluster's instance profile, and the hub's ACK role may
+  not remove a role from an instance profile (`capabilities.tf`). Without `retain`, kro waits on
+  the role and the cell is never deleted. The instance profile goes with the cluster, and step 7
+  deletes the role. With the IAM CLI instead of step 7: `aws iam detach-role-policy` for its two
+  policies, then `aws iam delete-role --role-name encabulator-use2-node` (not exercised).
+- Node access entry (step 1). kro deletes it early. With `retain`, EKS keeps it, so the nodes
+  keep their API access and the volumes in step 4 can still be detached and deleted. The entry
+  goes with the cluster.
+- Volumes (step 4). `encabulator-gp3` deletes a volume with its PVC, but a volume still bound
+  when the cluster goes stays in EC2 as `available` and keeps costing money. While the cell's
+  kro and Argo CD run, they re-create a deleted StatefulSet, and the StatefulSet re-creates a
+  deleted PVC with a new volume. After step 3 neither runs. With cluster admin on the cell
+  (`make cell-access` grants it; `AmazonEKSEditPolicy` does not), a ResourceQuota is the other
+  way: apply it in the cell's `encabulator` namespace before step 2, then delete the PVCs and
+  their pods, and the PVCs cannot come back.
+
+  ```yaml
+  apiVersion: v1
+  kind: ResourceQuota
+  metadata:
+    name: no-pvc
+    namespace: encabulator
+  spec:
+    hard:
+      count/persistentvolumeclaims: "0"
+  ```
+
+- Stores (step 5). The cell's ACK created them with `deletion-policy: retain`, so they stay
+  after the cell is removed, and they keep the cell's `encabulator-db` security group in use
+  (kro waits on it, which leaves time for this step). While the cell's ACK runs,
+  `adoption-policy: adopt-or-create` re-creates a deleted store, so step 5 waits for step 3.
+  The cache's automatic snapshot stays: see [Snapshots](#snapshots).
+- To remove one cell and keep the others, remove its file (`gitops/hub/cells/use2.yaml`) from
+  the revision `hub-cells` tracks instead of deleting `hub-cells`, and Argo CD prunes the
+  `EncabulatorCell` (not exercised). Do step 1 before that commit lands.
+
+### Stop Argo CD on the hub
+
+```bash
+kubectl -n argocd delete applicationset hub-brownfield     # its Application and the three store objects go
+kubectl -n argocd delete application hub-cells hub-cell-apps hub-rgds --ignore-not-found
+kubectl -n argocd delete applicationset encabulator encabulator-platform
+kubectl -n argocd get applications,applicationsets         # No resources found
+kubectl -n encabulator get dbinstances.rds,serverlesscaches,dbsubnetgroups.rds   # none, and none a few minutes later
+```
+
+Every hub Application syncs automatically with `selfHeal`, so a store object or an
+`EncabulatorCell` deleted by hand comes back within seconds. The three store objects use
+`adoption-policy: adopt-or-create`: one that Argo CD re-applies after its store is deleted makes
+ACK create a new, empty store
+([how adoption works](../../gitops/hub/bootstrap/README.md#verified-in-the-controller-source)).
+The ApplicationSet renders the Application `hub-brownfield` with the resources finalizer, so
+deleting the ApplicationSet deletes the three store objects too (about 4 minutes), and
+`deletion-policy: retain` keeps RDS and the cache running for [The hub's stores](#the-hubs-stores).
+`hub-cell-apps` and `hub-rgds` have no finalizer: the RGD, the RBAC and the two cell
+ApplicationSets stay. Delete `hub-cell-apps` before the ApplicationSets, or it re-creates them;
+with no cell left they have no Applications (`preserveResourcesOnDeletion`). Delete `hub-rgds`
+only once every cell is gone.
+
+### The app, its volumes and the platform
+
+```bash
+make undeploy                                                                # the Helm release encabulator
+kubectl -n encabulator delete pvc -l app.kubernetes.io/part-of=encabulator   # the selector make undeploy prints
+make platform-uninstall                                                      # Prometheus, Grafana, Jaeger, the collector, KEDA
+kubectl get pv                                                               # repeat until it lists nothing
+kubectl get svc -A                                                           # no Service of type LoadBalancer
+```
+
+`make undeploy` and `make platform-uninstall` leave the PVCs on purpose. The hub's
+`data-nats-0` (8 GiB) and `data-influxdb-0` (16 GiB) are EBS volumes: deleting the PVCs while
+the cluster runs deletes them, and a volume left when the cluster goes stays in EC2. A
+`LoadBalancer` Service's load balancer and its network interfaces would keep the VPC from being
+deleted. The Helm release `encabulator-nodes` stays: Terraform removes it.
+
+### The hub's stores
+
+After the hand-off nothing owns them. In us-west-2:
+
+```bash
+aws rds delete-db-instance --region us-west-2 --db-instance-identifier encabulator-pg \
+  --skip-final-snapshot --delete-automated-backups
+aws elasticache delete-serverless-cache --region us-west-2 --serverless-cache-name encabulator-valkey
+aws rds wait db-instance-deleted --region us-west-2 --db-instance-identifier encabulator-pg
+aws rds delete-db-subnet-group --region us-west-2 --db-subnet-group-name encabulator
+```
+
+RDS refuses to delete the subnet group while the instance exists, hence the wait (about 7
+minutes). `--delete-automated-backups` removes the instance's automated backups; they stay listed
+for a few minutes after the instance is gone.
+
+When your credentials may not delete RDS or ElastiCache resources, the hub's ACK can, while the
+hub runs. [`docs/teardown/adopt-hub-stores.yaml`](../../docs/teardown/adopt-hub-stores.yaml)
+adopts the instance and the cache with `adoption-policy: adopt` (read the existing resource,
+never create one) and `deletion-policy: delete`, plus
+`rds.services.k8s.aws/skip-final-snapshot: "true"` and
+`rds.services.k8s.aws/delete-automated-backups: "true"` (the rds controller keeps the automated
+backups unless told otherwise). Fill in the ids each file names in its header, then:
+
+```bash
+kubectl apply -f docs/teardown/adopt-hub-stores.yaml
+kubectl -n encabulator wait --for=condition=ACK.ResourceSynced \
+  dbinstances.rds/encabulator-pg serverlesscaches/encabulator-valkey
+kubectl delete -f docs/teardown/adopt-hub-stores.yaml
+aws rds wait db-instance-deleted --region us-west-2 --db-instance-identifier encabulator-pg
+kubectl apply -f docs/teardown/adopt-hub-subnet-group.yaml
+kubectl -n encabulator wait --for=condition=ACK.ResourceSynced dbsubnetgroups.rds/encabulator
+kubectl delete -f docs/teardown/adopt-hub-subnet-group.yaml
+```
+
+#### Snapshots
+
+Each Valkey cache takes an automatic snapshot every day at 09:00 UTC and keeps it for one day
+(`snapshotRetentionLimit: 1`). The snapshot stays after the cache is deleted, until it expires.
+List them in us-west-2 and in every cell's region:
+
+```bash
+aws elasticache describe-serverless-cache-snapshots --region us-west-2 \
+  --query 'ServerlessCacheSnapshots[?contains(ServerlessCacheSnapshotName, `encabulator`)].ServerlessCacheSnapshotName' \
+  --output text
+```
+
+Let each one expire, or delete it through the hub's ACK with
+[`docs/teardown/adopt-cache-snapshot.yaml`](../../docs/teardown/adopt-cache-snapshot.yaml)
+(fill in the region and the snapshot name, apply, wait for `ACK.ResourceSynced`, delete the
+object), or with
+`aws elasticache delete-serverless-cache-snapshot --region <region> --serverless-cache-snapshot-name <name>`
+(not exercised).
+
+### ECR repositories
+
+`make mirror-images` creates one repository per service (`encabulator/<service>`) in us-west-2
+when the release is not on GitHub Container Registry, and nothing else owns or deletes them.
+`--force` deletes the images with each repository. The loop deletes every repository whose name
+starts with `encabulator/`, so read the list first if the account has others:
+
+```bash
+for r in $(aws ecr describe-repositories --region us-west-2 \
+    --query 'repositories[?starts_with(repositoryName, `encabulator/`)].repositoryName' --output text); do
+  aws ecr delete-repository --region us-west-2 --repository-name "$r" --force
+done
+```
+
+### Terraform destroy
+
+```bash
+terraform -chdir=terraform/brownfield state list               # prints nothing: already destroyed
+terraform -chdir=terraform/brownfield destroy -refresh=false   # about 6 minutes
+chmod 600 terraform/brownfield/terraform.tfstate*
+```
+
+- `-refresh=false`: after the hand-off the stack still reads the two stores by name
+  (`data.aws_db_instance.pg` and `data.aws_elasticache_serverless_cache.valkey`, for the
+  ConfigMap `encabulator-aws`). With the stores deleted, a refresh fails with
+  `couldn't find resource`. The stores cannot go last instead: they use the stack's subnets and
+  its `encabulator-db` security group, so the VPC delete would wait on them. With
+  `-refresh=false`, Terraform plans from the state alone and deletes every resource in it.
+- Terraform needs the variables the stack was built with. `make hub` passes `IDC_INSTANCE_ARN`
+  from `.env` as `TF_VAR_idc_instance_arn`, so set it the same way
+  (`TF_VAR_idc_instance_arn=<IDC_INSTANCE_ARN> terraform -chdir=terraform/brownfield destroy -refresh=false`);
+  a stack built from `encabulator.auto.tfvars` reads it from that file.
+- A `terraform state list` that prints nothing means the hub is already destroyed, and
+  `terraform plan -destroy` reports `No changes`: that is the expected end state.
+- The state holds the generated database and app passwords. Keep `terraform.tfstate` and
+  `terraform.tfstate.backup` at mode 600, and copy them with `install -m 600`, because a
+  `cp -p` copy keeps the source's mode.
+
+### Prove the account is clean
+
+No single command says "clean": ask each service. For us-west-2 and every cell's region, each
+of these prints nothing when nothing of the project is left:
+
+```bash
+r=us-west-2
+aws eks list-clusters --region $r --query 'clusters[?starts_with(@, `encabulator`)]' --output text
+aws ec2 describe-vpcs --region $r --filters Name=tag:project,Values=encabulator --query 'Vpcs[].VpcId' --output text
+aws ec2 describe-instances --region $r --include-managed-resources \
+  --filters Name=tag:project,Values=encabulator Name=instance-state-name,Values=pending,running,stopping,stopped,shutting-down \
+  --query 'Reservations[].Instances[].InstanceId' --output text
+aws ec2 describe-volumes --region $r --include-managed-resources \
+  --filters Name=tag:project,Values=encabulator --query 'Volumes[].VolumeId' --output text
+aws ec2 describe-network-interfaces --region $r --include-managed-resources \
+  --filters Name=tag:project,Values=encabulator --query 'NetworkInterfaces[].NetworkInterfaceId' --output text
+aws rds describe-db-instances --region $r \
+  --query 'DBInstances[?starts_with(DBInstanceIdentifier, `encabulator`)].DBInstanceIdentifier' --output text
+aws rds describe-db-instance-automated-backups --region $r \
+  --query 'DBInstanceAutomatedBackups[?starts_with(DBInstanceIdentifier, `encabulator`)].DBInstanceIdentifier' --output text
+aws elasticache describe-serverless-caches --region $r \
+  --query 'ServerlessCaches[?starts_with(ServerlessCacheName, `encabulator`)].ServerlessCacheName' --output text
+aws elasticache describe-serverless-cache-snapshots --region $r \
+  --query 'ServerlessCacheSnapshots[?contains(ServerlessCacheSnapshotName, `encabulator`)].ServerlessCacheSnapshotName' --output text
+aws ecr describe-repositories --region $r \
+  --query 'repositories[?starts_with(repositoryName, `encabulator`)].repositoryName' --output text
+aws resourcegroupstaggingapi get-resources --region $r --tag-filters Key=project,Values=encabulator \
+  --query 'ResourceTagMappingList[].ResourceARN' --output text
+# global
+aws iam list-roles --query 'Roles[?starts_with(RoleName, `encabulator`)].RoleName' --output text
+aws iam list-instance-profiles \
+  --query 'InstanceProfiles[?contains(InstanceProfileName, `encabulator`) || contains(Path, `encabulator`)].InstanceProfileName' \
+  --output text
+```
+
+The same goes for subnets, route tables, NAT and internet gateways, Elastic IPs, VPC endpoints,
+security groups, EBS snapshots, RDS subnet groups and snapshots, log groups and load balancers,
+for the tagging index of every other enabled region, and for the Identity Center application of
+the Argo CD capability. Read the answers this way:
+
+- `--include-managed-resources` on the EC2 instance, volume and network interface calls: without
+  it EC2 leaves out what EKS Auto Mode manages, and the check reads clean while nodes still run.
+- An AWS error (expired credentials, access denied, throttling) is a failure, never "gone".
+- The tagging index lags by hours: it can still list instances, network interfaces, VPC
+  endpoints and snapshots that are gone. Check each ARN it lists in its own service; a not-found
+  answer there means gone. An instance terminated long ago answers
+  `aws ec2 describe-instances --instance-ids` with no reservation and no error: gone too.
+- `fleet/` entries in the index are the EC2 instant fleets EKS Auto Mode records for each node
+  launch. They stay listed, hold no instances and cost nothing; there is nothing to delete.
+- `make tag-check` checks the tags of the stacks it finds. It does not prove that nothing is left.

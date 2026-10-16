@@ -1,0 +1,76 @@
+# Delete the hub's RDS instance and Valkey cache through the hub's own ACK, for credentials
+# that may not delete them directly. Apply on the hub only after the ApplicationSet
+# hub-brownfield is deleted and its three store objects are gone
+# (terraform/brownfield/README.md, Teardown, "The hub's stores").
+#
+# adoption-policy adopt reads the existing resource and never creates one. deletion-policy
+# delete makes ACK delete the AWS resource when this object is deleted. The rds controller
+# skips the final snapshot by default but keeps the automated backups, so both RDS
+# annotations are set.
+#
+# Fill in the cache's subnet ids and the encabulator-db security group id first:
+#   aws elasticache describe-serverless-caches --region us-west-2 \
+#     --serverless-cache-name encabulator-valkey --query 'ServerlessCaches[0].[SubnetIds,SecurityGroupIds]'
+apiVersion: rds.services.k8s.aws/v1alpha1
+kind: DBInstance
+metadata:
+  name: encabulator-pg
+  namespace: encabulator
+  annotations:
+    services.k8s.aws/region: us-west-2
+    services.k8s.aws/adoption-policy: adopt
+    services.k8s.aws/adoption-fields: '{"dbInstanceIdentifier":"encabulator-pg"}'
+    services.k8s.aws/deletion-policy: delete
+    rds.services.k8s.aws/skip-final-snapshot: "true"
+    rds.services.k8s.aws/delete-automated-backups: "true"
+spec:
+  dbInstanceIdentifier: encabulator-pg
+  engine: postgres
+  engineVersion: "18"
+  dbInstanceClass: db.t4g.medium
+  allocatedStorage: 20
+  storageType: gp3
+  storageEncrypted: true
+  publiclyAccessible: false
+  multiAZ: false
+  backupRetentionPeriod: 7
+  masterUsername: postgres
+  dbSubnetGroupName: encabulator
+  tags:
+    - key: auto-delete
+      value: "no"
+    - key: project
+      value: encabulator
+    - key: talk
+      value: opn315
+---
+apiVersion: elasticache.services.k8s.aws/v1alpha1
+kind: ServerlessCache
+metadata:
+  name: encabulator-valkey
+  namespace: encabulator
+  annotations:
+    services.k8s.aws/region: us-west-2
+    services.k8s.aws/adoption-policy: adopt
+    services.k8s.aws/adoption-fields: '{"serverlessCacheName":"encabulator-valkey"}'
+    services.k8s.aws/deletion-policy: delete
+spec:
+  serverlessCacheName: encabulator-valkey
+  engine: valkey
+  majorEngineVersion: "8"
+  description: Encabulator Valkey cache
+  dailySnapshotTime: "09:00"
+  snapshotRetentionLimit: 1
+  subnetIDs:
+    - <subnet-id-1>
+    - <subnet-id-2>
+    - <subnet-id-3>
+  securityGroupIDs:
+    - <encabulator-db-security-group-id>
+  tags:
+    - key: auto-delete
+      value: "no"
+    - key: project
+      value: encabulator
+    - key: talk
+      value: opn315

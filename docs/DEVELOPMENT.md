@@ -190,8 +190,9 @@ make talk                # serve the OPN315 slides on http://localhost:8000
 ```
 
 Set `TERRAFORM` to use a wrapper such as `mise exec terraform@1.14.9 -- terraform`. These targets
-create billable resources; see the README for what and for the clean-up note. To build the whole
-hub from one gitignored `.env` file instead (`make prereqs`, then `make hub`), follow the
+create billable resources; see the README for what, and its [Tear down](../README.md#tear-down)
+section for removing them. To build the whole hub from one gitignored `.env` file instead
+(`make prereqs`, then `make hub`), follow the
 [README quick start](../README.md#on-aws-from-terraform-to-gitops).
 
 `make platform` is for the hub only. A cell that the hub builds from `gitops/hub/cells` gets the

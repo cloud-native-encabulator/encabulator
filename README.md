@@ -273,11 +273,52 @@ the database by hand before Git owns it, and the exact order of the live steps a
 [`terraform/brownfield/README.md`](terraform/brownfield/README.md) and
 [`gitops/hub/bootstrap/README.md`](gitops/hub/bootstrap/README.md). Run `make help` for every target.
 
-Clean-up note: once ACK owns the databases, deleting their Kubernetes objects leaves them in AWS
-on purpose (`deletion-policy: retain`), and Terraform no longer tracks them, so remove them
-explicitly when you are finished; the order is in the
-[Teardown section](terraform/brownfield/README.md#teardown). If `make mirror-images` created ECR
-repositories (`encabulator/*` in us-west-2), delete those too: nothing else owns them.
+## Tear down
+
+The AWS path costs money until it is deleted, and once ACK owns the stores, deleting their
+Kubernetes objects leaves them in AWS on purpose (`deletion-policy: retain`). Tear it down in this
+order, cells first. Every step, with its commands and the reason for it, is in the
+[Teardown section of `terraform/brownfield/README.md`](terraform/brownfield/README.md#teardown).
+
+1. **Remove every cell, while the hub runs.** The hub's kro and ACK are what delete a cell;
+   without the hub, the cell's VPC, cluster and roles have to be found and deleted by hand. On
+   the hub, annotate the Role and the AccessEntry `<cell>-node` with
+   `services.k8s.aws/deletion-policy=retain`, delete the Application `hub-cells`, then the
+   `EncabulatorCell`. Once the cell's kro and ACK capabilities are gone, delete its StatefulSets
+   `nats` and `influxdb`, then their PVCs, then its RDS instance, cache and DB subnet group. When
+   the `EncabulatorCell` is gone (about 20 minutes), delete the node role.
+   ([Remove a cell](terraform/brownfield/README.md#remove-a-cell))
+2. **Stop Argo CD on the hub.** Delete the ApplicationSet `hub-brownfield`, the Applications
+   `hub-cell-apps` and `hub-rgds`, then the ApplicationSets `encabulator` and
+   `encabulator-platform`, and check that the store objects stay gone. Argo CD re-applies a
+   deleted object within seconds, and a store object re-applied after its store is deleted
+   (`adoption-policy: adopt-or-create`) makes ACK create a new, empty one.
+   ([Stop Argo CD](terraform/brownfield/README.md#stop-argo-cd-on-the-hub))
+3. **The app, its volumes and the platform.** `make undeploy`, then
+   `kubectl -n encabulator delete pvc -l app.kubernetes.io/part-of=encabulator`, then
+   `make platform-uninstall`, and wait until `kubectl get pv` lists nothing: a volume still bound
+   when the cluster goes stays in EC2.
+   ([The app and the platform](terraform/brownfield/README.md#the-app-its-volumes-and-the-platform))
+4. **The hub's stores**, in us-west-2: `encabulator-pg` (with
+   `--skip-final-snapshot --delete-automated-backups`), `encabulator-valkey`, then the DB subnet
+   group `encabulator`, with the AWS CLI or through the hub's ACK. Each cache's automatic snapshot
+   outlives it by up to a day: delete it or let it expire.
+   ([The hub's stores](terraform/brownfield/README.md#the-hubs-stores))
+5. **ECR repositories**, if `make mirror-images` created them:
+   `aws ecr delete-repository --force` for each `encabulator/*` repository in us-west-2.
+   ([ECR repositories](terraform/brownfield/README.md#ecr-repositories))
+6. **Terraform:** `terraform -chdir=terraform/brownfield destroy -refresh=false`. The stack reads
+   the deleted stores by name, so a refresh fails. A `terraform state list` that prints nothing
+   means the hub is already destroyed. The state holds the generated passwords: keep it at mode
+   600. ([Terraform destroy](terraform/brownfield/README.md#terraform-destroy))
+7. **Prove the account is clean**, service by service. Pass `--include-managed-resources` to the
+   EC2 describe calls (EKS Auto Mode nodes are left out without it), count an AWS error as a
+   failure rather than "gone", and confirm each tagging-index entry in its own service, because
+   the index lags by hours. The EC2 instant-fleet records EKS Auto Mode leaves stay listed and
+   cost nothing. ([Prove the account is clean](terraform/brownfield/README.md#prove-the-account-is-clean))
+
+Before the hand-off, Terraform still owns the stores: skip step 4, and `terraform destroy`
+deletes them with the rest.
 
 ## The console
 

@@ -1,0 +1,23 @@
+# Delete one automatic Valkey snapshot through the hub's own ACK. ElastiCache keeps a
+# cache's automatic snapshot after the cache is deleted, until it expires (one day here).
+# The hub's ACK may act in us-west-2 and us-east-2.
+#
+# List them first, in the hub's region and in every cell's region:
+#   aws elasticache describe-serverless-cache-snapshots --region <region> \
+#     --query 'ServerlessCacheSnapshots[?contains(ServerlessCacheSnapshotName, `encabulator`)].ServerlessCacheSnapshotName' --output text
+#
+# Only the snapshot name goes in adoption-fields: with serverlessCacheName as well, adoption
+# fails with ServerlessCacheNotFoundFault once the cache is gone. Without the cache, the object
+# reports ACK.ReferencesResolved=Unknown; deleting it still deletes the snapshot.
+apiVersion: elasticache.services.k8s.aws/v1alpha1
+kind: ServerlessCacheSnapshot
+metadata:
+  name: encabulator-valkey-snapshot
+  namespace: encabulator
+  annotations:
+    services.k8s.aws/region: <region>
+    services.k8s.aws/adoption-policy: adopt
+    services.k8s.aws/adoption-fields: '{"serverlessCacheSnapshotName":"<snapshot-name>"}'
+    services.k8s.aws/deletion-policy: delete
+spec:
+  serverlessCacheSnapshotName: <snapshot-name>

@@ -1,0 +1,31 @@
+# Delete the hub's DB subnet group through the hub's own ACK. Apply only after the RDS
+# instance encabulator-pg is gone: RDS refuses to delete a subnet group an instance uses.
+#   aws rds wait db-instance-deleted --region us-west-2 --db-instance-identifier encabulator-pg
+#
+# Fill in the subnet ids first:
+#   aws rds describe-db-subnet-groups --region us-west-2 --db-subnet-group-name encabulator \
+#     --query 'DBSubnetGroups[0].Subnets[].SubnetIdentifier' --output text
+apiVersion: rds.services.k8s.aws/v1alpha1
+kind: DBSubnetGroup
+metadata:
+  name: encabulator
+  namespace: encabulator
+  annotations:
+    services.k8s.aws/region: us-west-2
+    services.k8s.aws/adoption-policy: adopt
+    services.k8s.aws/adoption-fields: '{"name":"encabulator"}'
+    services.k8s.aws/deletion-policy: delete
+spec:
+  name: encabulator
+  description: Encabulator databases
+  subnetIDs:
+    - <subnet-id-1>
+    - <subnet-id-2>
+    - <subnet-id-3>
+  tags:
+    - key: auto-delete
+      value: "no"
+    - key: project
+      value: encabulator
+    - key: talk
+      value: opn315
