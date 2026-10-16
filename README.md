@@ -298,18 +298,43 @@ the database by hand before Git owns it, and the exact order of the live steps a
 
 ## Tear down
 
-The AWS path costs money until it is deleted, and once ACK owns the stores, deleting their
-Kubernetes objects leaves them in AWS on purpose (`deletion-policy: retain`). Tear it down in this
-order, cells first. Every step, with its commands and the reason for it, is in the
-[Teardown section of `terraform/brownfield/README.md`](terraform/brownfield/README.md#teardown).
+The AWS path costs money until it is deleted. Three commands take it down, from the same
+checkout and shell as `make hub`:
 
-1. **Remove every cell, while the hub runs.** The hub's kro and ACK are what delete a cell;
-   without the hub, the cell's VPC, cluster and roles have to be found and deleted by hand. On
-   the hub, annotate the Role and the AccessEntry `<cell>-node` with
+```bash
+make remove-cell CELL=use2   # one cell, while the hub runs (about 25 minutes); asks you to type its name
+make teardown                # the whole project, cells first (about an hour); asks you to type the hub's name
+make gone-check              # read-only: lists anything of the project left in the account
+```
+
+Each one prints its step number and the time as it goes, stops at the first problem with one
+sentence that names it, and is safe to run again: it looks at what is still there and goes on where
+it stopped. `make -n teardown` (or `make -n remove-cell CELL=use2`) prints the steps and runs
+nothing. `CONFIRM=<name>` answers the question for you. The stores are deleted with their data and
+no final snapshot. `make teardown` ends with `make gone-check`; `make mirror-images-delete` on its
+own deletes only the ECR repositories `make mirror-images` created.
+
+After `make remove-cell`, take the cell's file out of Git (`git rm gitops/hub/cells/use2.yaml`,
+commit, push), or Argo CD builds the cell again the next time `hub-cells` is applied. The command
+prints this, and which other cells keep running.
+
+### What it does, step by step (and how to do it by hand)
+
+Once ACK owns the stores, deleting their Kubernetes objects leaves them in AWS on purpose
+(`deletion-policy: retain`), so the order matters, cells first. Every step, with its commands and
+the reason for it, is in the
+[Teardown section of `terraform/brownfield/README.md`](terraform/brownfield/README.md#teardown).
+The make targets run exactly these steps; the adopt-then-delete objects they apply on the hub are
+the files in [`docs/teardown/`](docs/teardown/), filled in from what AWS reports.
+
+1. **Remove every cell, while the hub runs** (`make remove-cell`). The hub's kro and ACK are what
+   delete a cell; without the hub, the cell's VPC, cluster and roles have to be found and deleted
+   by hand. On the hub, annotate the Role and the AccessEntry `<cell>-node` with
    `services.k8s.aws/deletion-policy=retain`, delete the Application `hub-cells`, then the
    `EncabulatorCell`. Once the cell's kro and ACK capabilities are gone, delete its StatefulSets
    `nats` and `influxdb`, then their PVCs, then its RDS instance, cache and DB subnet group. When
-   the `EncabulatorCell` is gone (about 20 minutes), delete the node role.
+   the `EncabulatorCell` is gone (about 20 minutes), delete the node role. A cell built before the
+   NAT gateway fix can also hold untracked private route tables; the command deletes them first.
    ([Remove a cell](terraform/brownfield/README.md#remove-a-cell))
 2. **Stop Argo CD on the hub.** Delete the ApplicationSet `hub-brownfield`, the Applications
    `hub-cell-apps` and `hub-rgds`, then the ApplicationSets `encabulator` and
@@ -320,28 +345,37 @@ order, cells first. Every step, with its commands and the reason for it, is in t
 3. **The app, its volumes and the platform.** `make undeploy`, then
    `kubectl -n encabulator delete pvc -l app.kubernetes.io/part-of=encabulator`, then
    `make platform-uninstall`, and wait until `kubectl get pv` lists nothing: a volume still bound
-   when the cluster goes stays in EC2.
+   when the cluster goes stays in EC2. A Service of type `LoadBalancer` would keep the VPC from
+   being deleted, so `make teardown` stops if it finds one.
    ([The app and the platform](terraform/brownfield/README.md#the-app-its-volumes-and-the-platform))
 4. **The hub's stores**, in us-west-2: `encabulator-pg` (with
    `--skip-final-snapshot --delete-automated-backups`), `encabulator-valkey`, then the DB subnet
-   group `encabulator`, with the AWS CLI or through the hub's ACK. Each cache's automatic snapshot
-   outlives it by up to a day: delete it or let it expire.
+   group `encabulator`, through the hub's ACK (the default) or with the AWS CLI
+   (`make teardown TEARDOWN_STORES=cli`). Each cache's automatic snapshot outlives it by up to a
+   day, so it goes too.
    ([The hub's stores](terraform/brownfield/README.md#the-hubs-stores))
-5. **ECR repositories**, if `make mirror-images` created them:
-   `aws ecr delete-repository --force` for each `encabulator/*` repository in us-west-2.
+5. **ECR repositories**, if `make mirror-images` created them (`make mirror-images-delete`):
+   `aws ecr delete-repository --force` for each `encabulator/*` repository in us-west-2 that
+   carries the tag `project=encabulator`. One without the tag stops it before anything is deleted.
    ([ECR repositories](terraform/brownfield/README.md#ecr-repositories))
 6. **Terraform:** `terraform -chdir=terraform/brownfield destroy -refresh=false`. The stack reads
-   the deleted stores by name, so a refresh fails. A `terraform state list` that prints nothing
-   means the hub is already destroyed. The state holds the generated passwords: keep it at mode
-   600. ([Terraform destroy](terraform/brownfield/README.md#terraform-destroy))
-7. **Prove the account is clean**, service by service. Pass `--include-managed-resources` to the
-   EC2 describe calls (EKS Auto Mode nodes are left out without it), count an AWS error as a
-   failure rather than "gone", and confirm each tagging-index entry in its own service, because
-   the index lags by hours. The EC2 instant-fleet records EKS Auto Mode leaves stay listed and
-   cost nothing. ([Prove the account is clean](terraform/brownfield/README.md#prove-the-account-is-clean))
+   the deleted stores by name, so a refresh fails. `make teardown` plans the destroy first and
+   applies it only when every planned change deletes a tagged resource of this stack, in this
+   account and region. A `terraform state list` that prints nothing means the hub is already
+   destroyed. The state holds the generated passwords: keep it at mode 600 (the command keeps a
+   copy, `terraform.tfstate.pre-destroy-<time>`, at mode 600).
+   ([Terraform destroy](terraform/brownfield/README.md#terraform-destroy))
+7. **Prove the account is clean** (`make gone-check`), service by service. Pass
+   `--include-managed-resources` to the EC2 describe calls (EKS Auto Mode nodes are left out
+   without it), count an AWS error as a failure rather than "gone", and confirm each tagging-index
+   entry in its own service, because the index lags by hours. The EC2 instant-fleet records EKS
+   Auto Mode leaves stay listed and cost nothing. `make gone-check` looks in the hub region, every
+   region in `gitops/hub/cells/`, `GONE_REGIONS` and the tagging index of every other enabled
+   region. ([Prove the account is clean](terraform/brownfield/README.md#prove-the-account-is-clean))
 
 Before the hand-off, Terraform still owns the stores: skip step 4, and `terraform destroy`
-deletes them with the rest.
+deletes them with the rest. `make teardown` sees this in the state and deletes only the cache's
+snapshots in step 4.
 
 ## The console
 

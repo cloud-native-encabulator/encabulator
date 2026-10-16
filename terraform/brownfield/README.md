@@ -240,6 +240,11 @@ python3 tagger/test_sweep.py   # the tagger against a fake boto3
 
 ## Teardown
 
+`make teardown` runs every step below in this order, `make remove-cell CELL=<cell>` runs the
+cell steps for one cell, and `make gone-check` is the last step on its own (the
+[Tear down section of the top-level README](../../README.md#tear-down)). This section is what they
+do, with the commands to do it by hand.
+
 Cells first, then the hub. Each step needs the one before it:
 
 1. [Remove every cell](#remove-a-cell) while the hub still runs. The hub's kro and ACK are what

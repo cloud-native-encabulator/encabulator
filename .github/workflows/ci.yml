@@ -293,6 +293,11 @@ jobs:
         run: |
           shellcheck --severity=warning scripts/make-flow-fixtures/stub.sh
           ./scripts/make-flow_test.sh
+      - name: the teardown, offline
+        # make remove-cell, make teardown, make gone-check and make mirror-images-delete with
+        # aws, kubectl, helm and terraform stubbed by a simulated account and hub: the step
+        # order, the guards, a stop and a re-run, an empty Terraform state, the destroy-plan guard.
+        run: ./scripts/teardown_test.sh
 
   # -------------------------------------------------------------------------- gitops
   gitops:
