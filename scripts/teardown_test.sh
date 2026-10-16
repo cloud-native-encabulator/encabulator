@@ -18,6 +18,9 @@
 #   - teardown: the whole run in order, Argo CD stopped before the stores, an empty Terraform
 #     state as a clean "nothing to do", the destroy-plan guard refusing a foreign address,
 #     another account or region, a replace, an untagged resource, state backups at mode 600
+#   - teardown, Terraform: the destroy shows a line a minute while a resource takes longer than
+#     a minute (both ways Terraform prints the time so far) and a failing apply stops it; a
+#     Terraform that does not run (a version manager's shim) stops it at step 1 with its error
 #   - mirror-images-delete: refuses when one repository lacks the tag or is in another account
 #   - gone-check: --include-managed-resources, an AWS error is a FAIL, stale tagging-index
 #     entries confirmed in their own service, instant fleets as WARN
@@ -341,6 +344,7 @@ case_teardown_refusals() {
     expect_status "it stops" 2 "$status" "$out"
     expect_in "names why" "$out" "$want"
     expect_in "says Terraform deleted nothing" "$out" "The guard refused the destroy plan (the REFUSED lines above), so Terraform deleted nothing."
+    expect_eq "and reports the stop once" "$(count_in "$out" "Stopped at step")" "1"
     expect_not_in "and never applies" "$log" "terraform -chdir=terraform/brownfield apply"
     expect_eq "the hub is still there" "$(world '"encabulator-usw2" in w["eks"]["us-west-2"]')" "True"
   done
@@ -361,6 +365,66 @@ case_teardown_resume() {
   expect_eq "no ECR repository is deleted twice" "$(count_in "$log" "ecr delete-repository")" "0"
   expect_in "Terraform finishes" "$out" "Apply complete!"
   expect_in "and the gone-check passes" "$out" "Nothing of the project is left"
+}
+
+# The destroy plan's apply: a line a minute while a resource takes longer than a minute, a line
+# when it is destroyed, Terraform's last line; its exit status decides.
+apply_progress_want="  terraform apply of the destroy plan (about 6 minutes)
+  <time>  still destroying aws_eks_capability.argocd (1 min)
+  <time>  still destroying module.vpc.aws_nat_gateway.this[0] (1 min)
+  <time>  module.vpc.aws_nat_gateway.this[0] destroyed after 1m11s
+  <time>  aws_eks_capability.argocd destroyed after 1m50s
+  <time>  still destroying aws_eks_cluster.hub (1 min)
+  <time>  still destroying aws_eks_cluster.hub (2 min)
+  <time>  still destroying aws_eks_cluster.hub (3 min)
+  <time>  still destroying aws_eks_cluster.hub (4 min)
+  <time>  aws_eks_cluster.hub destroyed after 4m10s
+  Apply complete! Resources: 0 added, 0 changed, 30 destroyed."
+# apply_section: step 7's apply in $out, up to Terraform's last line, each ET time as <time>.
+apply_section() {
+  awk '/terraform apply of the destroy plan/ { on = 1 } on { print } on && /Apply complete!/ { exit }' "$out" \
+    | sed -E 's/^  [0-9]{1,2}:[0-9]{2} [AP]M ET  /  <time>  /'
+}
+
+case_teardown_progress() {
+  local v elapsed
+  for v in "the time so far as Terraform 1.14 prints it" "as older Terraform versions print it"; do
+    elapsed=""; [[ "$v" == *older* ]] && elapsed=go
+    new_case "make teardown: the destroy shows a line a minute ($v)" cells= tf_elapsed="$elapsed"
+    run CONFIRM=encabulator-usw2 -- make teardown
+    expect_status "teardown succeeds" 0 "$status" "$out"
+    expect_eq "a line a minute for each slow resource, a line when it is destroyed, then Terraform's last line" \
+      "$(apply_section)" "$apply_progress_want"
+    expect_eq "each of those lines has the time in ET" \
+      "$(grep -cE '^  [0-9]{1,2}:[0-9]{2} [AP]M ET  (still destroying |[^ ]+ destroyed after )' "$out")" "9"
+    expect_not_in "none of Terraform's lines every 10 seconds" "$out" "elapsed]"
+    expect_not_in "no line for a resource that takes under a minute" "$out" "aws_eks_access_entry.admin"
+  done
+
+  new_case "make teardown: a failing terraform apply stops it with Terraform's error" cells= apply=fail
+  run CONFIRM=encabulator-usw2 -- make teardown
+  expect_status "it stops" 2 "$status" "$out"
+  expect_in "the progress up to the error is shown" "$out" "still destroying aws_eks_cluster.hub (1 min)"
+  expect_in "Terraform's error is shown" "$out" "  Error: deleting EKS Cluster (encabulator-usw2)"
+  expect_in "the exit status decides" "$out" "terraform apply of the destroy plan failed (exit 1)."
+  expect_in "names the step" "$out" "Stopped at step 7 at"
+  expect_eq "and reports the stop once" "$(count_in "$out" "Stopped at step")" "1"
+  expect_in "and what is left" "$out" "Left: steps 7 to 8:"
+  expect_not_in "never says the apply finished" "$out" "Apply complete!"
+  expect_not_in "and does not go on to the gone-check" "$out" "Nothing of the project is left"
+  expect_eq "the hub is still there" "$(world '"encabulator-usw2" in w["eks"]["us-west-2"]')" "True"
+}
+
+# A Terraform that does not run, as a version manager's shim with no version set fails.
+case_teardown_no_terraform() {
+  new_case "make teardown: a Terraform that does not run stops it before anything is deleted"
+  run CONFIRM=encabulator-usw2 STUB_TF_NO_VERSION=1 -- make teardown
+  expect_status "it stops" 2 "$status" "$out"
+  expect_in "with the shim's own error" "$out" "terraform state list failed: mise ERROR No version is set for shim: terraform."
+  expect_in "and the TERRAFORM setting that fixes it" "$out" 'export TERRAFORM="mise exec terraform@1.14.9 -- terraform"'
+  expect_in "at step 1" "$out" "Stopped at step 1 at"
+  expect_eq "nothing is changed" "$(grep -cE ' delete | annotate | apply |delete-' "$log")" "0"
+  expect_eq "the cell is still there" "$(world '"encabulator-use2" in w["eks"]["us-east-2"]')" "True"
 }
 
 # The destroy-plan guard on its own, on the plans the stub's terraform would print.
@@ -502,7 +566,8 @@ case_unexpected() {
 }
 
 all_cases=(case_plans case_helper case_plan_guard case_remove_cell case_remove_cell_guards case_remove_cell_resume
-           case_teardown case_teardown_guards case_teardown_refusals case_teardown_resume case_ecr case_gone_check)
+           case_teardown case_teardown_guards case_teardown_refusals case_teardown_resume case_teardown_progress
+           case_teardown_no_terraform case_ecr case_gone_check)
 # scripts/teardown_test.sh case_gone_check ...: only those cases, no mutations, work kept.
 if [[ "${1:-}" == case_* ]]; then all_cases=("$@"); mutations=false; trap - EXIT; echo "work: $work"; fi
 make_version="$(make --version 2>/dev/null)"
@@ -552,6 +617,11 @@ case_ecr|scripts/teardown.sh|s/\|\| bad\+=\("\$name: not in this account and reg
 case_gone_check|scripts/gone-check.sh|s/--include-managed-resources \\\n    --filters "\$q" "Name=instance-state-name/\\\n    --filters "\$q" "Name=instance-state-name/
 case_gone_check|scripts/gone-check.sh|s/if \[\[ "\$2" -ne 0 \]\]; then fail/if false; then fail/
 case_gone_check|scripts/gone-check.sh|s/\[\[ -n "\$s" \]\] \|\| s=terminated/true/
+case_teardown_progress|scripts/teardown.sh|s/m0\{1,2\}s elapsed/m[0-9]+s elapsed/
+case_teardown_progress|scripts/teardown.sh|s/\[\[ \$min -lt 1 \]\] \|\| printf '  %s  %s destroyed/printf '  %s  %s destroyed/
+case_teardown_progress|scripts/teardown.sh|s/\| apply_progress \|\| rc=\$\{PIPESTATUS\[0\]\}/| apply_progress || rc=0/
+case_teardown_no_terraform|scripts/teardown.sh|s/list="\$\(state_list\)"\n  n="\$\(grep -c \. <<<"\$list" \|\| true\)"/n="\$(state_list | grep -c . || true)"/
+case_teardown_no_terraform|scripts/terraform-error.sh|s/NF && hit == "" && tolower/NF && 0 && tolower/
 EOF
 }
 

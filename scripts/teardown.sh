@@ -24,6 +24,8 @@ cells_dir="$repo_root/gitops/hub/cells"
 templates="$repo_root/docs/teardown"
 helper="$repo_root/scripts/teardown-helper.py"
 guard="$repo_root/scripts/teardown-plan-guard.py"
+# shellcheck source=terraform-error.sh
+source "$repo_root/scripts/terraform-error.sh"
 
 : "${HUB_REGION:=us-west-2}"
 : "${HUB_CLUSTER:=encabulator-usw2}"
@@ -545,12 +547,13 @@ hub_cells() {
 tf() { "${terraform[@]}" -chdir="$TF_DIR" "$@"; }
 state_list() {
   local out
-  out="$(tf state list 2>&1)" || die "terraform state list failed: $(tail -n 1 <<<"$out"). Run make brownfield-init first."
+  out="$(tf state list 2>&1)" \
+    || die "terraform state list failed: $(terraform_error <<<"$out"). Run make brownfield-init first; $(terraform_hint)."
   printf '%s' "$out"
 }
 
 hub_check() {
-  local cells c name region n r status
+  local cells c name region n r status list
   account_id >/dev/null
   status="$(cluster_status "$HUB_REGION" "$HUB_CLUSTER")"
   if [[ -n "$status" ]]; then
@@ -572,7 +575,9 @@ hub_check() {
   say "hub $HUB_CLUSTER ($HUB_REGION): Argo CD's Applications, the app, the platform, the stores"
   n="$(aws ecr describe-repositories --region "$HUB_REGION" --query 'length(repositories[?starts_with(repositoryName, `encabulator/`)])' --output text)"
   say "$n ECR repositories encabulator/* in $HUB_REGION, with their images"
-  n="$(state_list | grep -c . || true)"
+  # A Terraform that does not run stops it here, before anything is deleted: steps 5 and 7 need it.
+  list="$(state_list)"
+  n="$(grep -c . <<<"$list" || true)"
   say "$n resources in the Terraform state of $TF_DIR: the cluster, its VPC and NAT gateway, the IAM roles"
   for r in "$HUB_REGION" $(awk '/^spec:/ { s = 1; next } /^[^ #]/ { s = 0 } s && /^  region:/ { print $2 }' "$cells_dir"/*.yaml 2>/dev/null | sort -u); do
     name="$(aws_or_none DBInstanceNotFound rds describe-db-instances --region "$r" --db-instance-identifier encabulator-pg --query 'DBInstances[0].DBInstanceIdentifier' --output text)"
@@ -700,18 +705,41 @@ hub_terraform() {
   tf plan -destroy -refresh=false -input=false -no-color -out="$plan" >"$work/plan.log" 2>&1 \
     || { tail -n 20 "$work/plan.log" >&2; die "terraform plan -destroy failed. Set IDC_INSTANCE_ARN in .env as for make hub."; }
   tf show -json "$plan" >"$work/plan.json"
-  set +e
-  python3 "$guard" --account "$account" --region "$HUB_REGION" --cluster "$HUB_CLUSTER" <"$work/plan.json" | sed 's/^/  /'
-  rc=${PIPESTATUS[0]}
-  set -e
+  # rc is the first command's exit status. A pipeline on the left of || leaves the ERR trap
+  # alone, so a failure is reported once, by die.
+  rc=0
+  python3 "$guard" --account "$account" --region "$HUB_REGION" --cluster "$HUB_CLUSTER" <"$work/plan.json" \
+    | sed 's/^/  /' || rc=${PIPESTATUS[0]}
   [[ $rc -eq 0 ]] || die "The guard refused the destroy plan (the REFUSED lines above), so Terraform deleted nothing."
   say "terraform apply of the destroy plan (about 6 minutes)"
-  set +e
-  tf apply -input=false -no-color "$plan" 2>&1 | grep -E '^(Apply complete|Error|Destroy complete)' | sed 's/^/  /'
-  rc=${PIPESTATUS[0]}
-  set -e
+  rc=0
+  tf apply -input=false -no-color "$plan" 2>&1 | apply_progress || rc=${PIPESTATUS[0]}
   protect_state
   [[ $rc -eq 0 ]] || die "terraform apply of the destroy plan failed (exit $rc)."
+}
+
+# apply_progress: terraform apply's output, cut to the lines that show it moving: a line a
+# minute for each resource that takes longer than a minute, a line when such a resource is
+# destroyed, and Terraform's final and error lines. Terraform prints "Still destroying...
+# [id=<id>, 03m10s elapsed]" every 10 seconds (older versions print 3m10s); only the whole
+# minutes pass.
+apply_progress() {
+  local line min
+  local still_re='^(.+): Still destroying\.\.\. \[(id=.*, )?(([0-9]+)h)?([0-9]+)m0{1,2}s elapsed\]$'
+  local done_re='^(.+): Destruction complete after (([0-9]+)h)?(([0-9]+)m)?[0-9]+s$'
+  local final_re='^(Apply complete|Error|Destroy complete)'
+  while IFS= read -r line || [[ -n "$line" ]]; do
+    if [[ "$line" =~ $still_re ]]; then
+      min=$((10#${BASH_REMATCH[4]:-0} * 60 + 10#${BASH_REMATCH[5]}))
+      [[ $min -lt 1 ]] || printf '  %s  still destroying %s (%s min)\n' "$(et)" "${BASH_REMATCH[1]}" "$min"
+    elif [[ "$line" =~ $done_re ]]; then
+      min=$((10#${BASH_REMATCH[3]:-0} * 60 + 10#${BASH_REMATCH[5]:-0}))
+      [[ $min -lt 1 ]] || printf '  %s  %s destroyed after %s\n' "$(et)" "${BASH_REMATCH[1]}" "${line##* complete after }"
+    elif [[ "$line" =~ $final_re ]]; then
+      printf '  %s\n' "$line"
+    fi
+  done
+  return 0
 }
 
 hub_gone_check() {

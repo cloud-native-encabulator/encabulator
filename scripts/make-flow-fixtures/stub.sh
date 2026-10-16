@@ -92,6 +92,14 @@ case "$tool" in
   # ------------------------------------------------------------------- terraform
   terraform)
     log "terraform $* | $(env | grep '^TF_VAR_' | sort | paste -sd' ' -)"
+    if [[ "${STUB_TF_NO_VERSION:-}" == 1 ]]; then
+      # A version manager's shim with no version set (mise 2026.9): Terraform never runs.
+      printf '%s\n' "mise ERROR No version is set for shim: terraform" \
+        "Set a global default version with one of the following:" "mise use -g terraform@1.14.9" \
+        "mise ERROR Version: 2026.9.18 linux-x64 (2026-09-30)" \
+        "mise ERROR Run with --verbose or MISE_VERBOSE=1 for more information" >&2
+      exit 1
+    fi
     if [[ "${1:-}" == "version" ]]; then
       [[ "${STUB_TF_VERSION_FAILS:-}" == 1 ]] && { echo "No version is set for terraform" >&2; exit 126; }
       echo "Terraform ${STUB_TF_VERSION:-v1.14.9}"; echo "on linux_amd64"; exit 0
@@ -102,6 +110,31 @@ case "$tool" in
       apply) [[ "${STUB_TF_APPLY_FAIL:-}" == 1 ]] && { echo "Error: stub apply failed" >&2; exit 1; } ;;
       output)
         [[ "${3:-} ${4:-}" == "-raw kubeconfig_command" ]] || unknown "$@"
+        # STUB_TF_OUTPUT: none (no outputs in the state: a warning, exit 0), missing (the output
+        # is not in the state: an error) or backend (another Terraform error), each framed and
+        # colored as Terraform prints it.
+        esc=$'\033'
+        case "${STUB_TF_OUTPUT:-}" in
+          none)
+            printf '%s\n' "${esc}[33m╷${esc}[0m${esc}[0m" "${esc}[33m│${esc}[0m ${esc}[0m${esc}[1m${esc}[33mWarning: ${esc}[0m${esc}[0m${esc}[1mNo outputs found${esc}[0m" \
+              "${esc}[33m│${esc}[0m ${esc}[0m" "${esc}[33m│${esc}[0m ${esc}[0m${esc}[0mThe state file either has no outputs defined, or all the defined outputs are empty.${esc}[0m" \
+              "${esc}[33m╵${esc}[0m${esc}[0m" >&2
+            exit 0
+            ;;
+          missing|backend)
+            if [[ "$STUB_TF_OUTPUT" == missing ]]; then
+              summary='Output "kubeconfig_command" not found'
+              detail='The output variable requested could not be found in the state file.'
+            else
+              summary='Backend initialization required, please run "terraform init"'
+              detail='Reason: Initial configuration of the requested backend "s3"'
+            fi
+            printf '%s\n' "${esc}[31m╷${esc}[0m${esc}[0m" "${esc}[31m│${esc}[0m ${esc}[0m${esc}[1m${esc}[31mError: ${esc}[0m${esc}[0m${esc}[1m$summary${esc}[0m" \
+              "${esc}[31m│${esc}[0m ${esc}[0m" "${esc}[31m│${esc}[0m ${esc}[0m${esc}[0m$detail${esc}[0m" \
+              "${esc}[31m╵${esc}[0m${esc}[0m" >&2
+            exit 1
+            ;;
+        esac
         echo "aws eks update-kubeconfig --region us-west-2 --name encabulator-usw2"
         ;;
       *) unknown "$@" ;;

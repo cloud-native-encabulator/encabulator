@@ -20,8 +20,9 @@ depends on, in the order the real ones need:
 
 Every call is appended to $STUB_LOG as "<tool> <args>". A call it does not know fails with
 exit 99 and an UNEXPECTED line. STUB_FAIL_ONCE=<regex> fails the first matching call (for the
-resume tests), STUB_FAIL=<regex> every matching one. `stub.py init [key=value...]` writes a
-fresh world. Nothing here reaches a network or a cloud.
+resume tests), STUB_FAIL=<regex> every matching one. STUB_TF_NO_VERSION=1 makes every terraform
+call fail as a version manager's shim with no version set does. `stub.py init [key=value...]`
+writes a fresh world. Nothing here reaches a network or a cloud.
 """
 import json
 import os
@@ -111,6 +112,10 @@ def init(opts):
     if opts.get("state") == "empty":
         w["tf_state"] = []
     w["plan_variant"] = opts.get("plan", "")
+    # apply=fail: terraform apply of the destroy plan fails partway with an error and exit 1.
+    # tf_elapsed=go: its progress lines show the time so far as older Terraform versions do.
+    w["apply"] = opts.get("apply", "")
+    w["tf_elapsed"] = opts.get("tf_elapsed", "")
     if opts.get("hub") == "gone":
         w["eks"]["us-west-2"].pop(HUB)
         w["vpcs"]["us-west-2"].pop("vpc-hub")
@@ -924,6 +929,46 @@ def make_plan(w):
     return {"resource_changes": changes, "configuration": config}
 
 
+# What terraform apply prints while it destroys the hub, for the resources that show its timing:
+# (address, id, start second, seconds it takes). The capabilities go first, the cluster after.
+APPLY_TIMELINE = [
+    ("aws_eks_access_entry.admin", f"{HUB}:arn:aws:iam::{ACCOUNT}:role/Admin", 0, 1),
+    ("aws_eks_capability.argocd", None, 0, 110),
+    ("module.vpc.aws_nat_gateway.this[0]", "nat-1", 0, 71),
+    ("aws_eks_cluster.hub", HUB, 110, 250),
+]
+# How a version manager's shim fails when no version is set (mise 2026.9).
+NO_VERSION = """mise ERROR No version is set for shim: terraform
+Set a global default version with one of the following:
+mise use -g terraform@1.14.9
+mise ERROR Version: 2026.9.18 linux-x64 (2026-09-30)
+mise ERROR Run with --verbose or MISE_VERBOSE=1 for more information"""
+
+
+def apply_lines(go_format=False, stop_at=None):
+    """The lines of APPLY_TIMELINE in time order. Every 10 seconds a resource still going prints
+    Still destroying with the time so far: [01m10s elapsed] as Terraform 1.14 prints it, [1m10s
+    elapsed] with go_format, as older Terraform versions do. stop_at ends the timeline at that second."""
+    def elapsed(s):
+        m, sec = divmod(s, 60)
+        if go_format:
+            return f"{m}m{sec}s" if m else f"{sec}s"
+        return f"{m:02d}m{sec:02d}s"
+
+    def took(s):
+        m, sec = divmod(s, 60)
+        return f"{m}m{sec}s" if m else f"{sec}s"
+
+    events = []
+    for i, (addr, ident, start, length) in enumerate(APPLY_TIMELINE):
+        id_part = f"id={ident}, " if ident else ""
+        events.append((start, i, 0, f"{addr}: Destroying..." + (f" [id={ident}]" if ident else "")))
+        for s in range(10, length, 10):
+            events.append((start + s, i, 1, f"{addr}: Still destroying... [{id_part}{elapsed(s)} elapsed]"))
+        events.append((start + length, i, 2, f"{addr}: Destruction complete after {took(length)}"))
+    return [line for t, _, _, line in sorted(events) if stop_at is None or t < stop_at]
+
+
 def terraform(w, args):
     if args[:1] == ["version"]:
         return out("Terraform v1.14.9")
@@ -945,6 +990,16 @@ def terraform(w, args):
             return out(f.read())
     if a[:1] == ["apply"]:
         n = len(w["tf_state"])
+        go_format = w.get("tf_elapsed") == "go"
+        if w.get("apply") == "fail":
+            # The cluster fails a minute in; nothing of the hub is deleted.
+            for line in apply_lines(go_format, stop_at=175):
+                print(line, flush=True)
+            fail("\nError: deleting EKS Cluster (encabulator-usw2): operation error EKS: DeleteCluster, "
+                 "https response error StatusCode: 409, ResourceInUseException: Cluster has resources attached\n\n"
+                 "  with aws_eks_cluster.hub,\n  on main.tf line 1, in resource \"aws_eks_cluster\" \"hub\":\n", 1)
+        for line in apply_lines(go_format):
+            print(line, flush=True)
         if "aws_db_instance.pg" in w["tf_state"]:
             # Before the hand-off Terraform owns the stores; the cache's snapshots outlive it.
             for table, name in (("rds", "encabulator-pg"), ("caches", "encabulator-valkey"), ("subnet_groups", "encabulator")):
@@ -1006,6 +1061,8 @@ def main():
             fail("An error occurred (ExpiredToken) when calling the operation: The security token included in the request is expired", 254)
         if os.environ.get("STUB_FAIL") and re.search(os.environ["STUB_FAIL"], line):
             fail("An error occurred (AccessDenied) when calling the operation: stub", 254)
+        if tool == "terraform" and os.environ.get("STUB_TF_NO_VERSION"):
+            fail(NO_VERSION, 1)
         {"aws": aws, "kubectl": kubectl, "helm": helm, "terraform": terraform}[tool](w, args)
         rc = 0
     except Done as d:

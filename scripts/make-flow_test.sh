@@ -18,7 +18,9 @@
 #   - make mirror-images: skipped when GHCR has every image, ECR repositories created with
 #     the three tags (and scripts/tag-check.py passing on them), an existing version tag never
 #     overwritten (FORCE too), REGISTRY recorded in .env with a .env.bak
-#   - make kubeconfig and make wait-capabilities
+#   - make kubeconfig and make wait-capabilities; make kubeconfig and make prereqs pass on the
+#     error of a Terraform that does not run (a version manager's shim) with the TERRAFORM fix,
+#     and say "run make brownfield-apply" only when the state has no such output
 set -uo pipefail
 
 root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -249,6 +251,11 @@ mk STUB_TF_VERSION=v2.0.0 -- make prereqs
 expect_in "Terraform 2 refused" "$out" "Terraform 1.7 or newer 1.x needed"
 mk STUB_TF_VERSION_FAILS=1 -- make prereqs
 expect_in "a terraform that is on PATH but does not run is named" "$out" "'terraform version' fails"
+mk STUB_TF_NO_VERSION=1 -- make prereqs
+expect_in "a version manager's shim with no version set is named, with its own error" "$out" \
+  "'terraform version' fails: mise ERROR No version is set for shim: terraform"
+expect_in "and the TERRAFORM setting that fixes it" "$out" \
+  'fix: if Terraform comes from a version manager, export TERRAFORM="mise exec terraform@1.14.9 -- terraform" (it is read from the environment or the make command line, never from .env) and run make prereqs again'
 mk STUB_HELM_VERSION=v3.21.3+g1234567 -- make prereqs
 expect_in "Helm 3 refused" "$out" "Helm 4 needed"
 mk STUB_IDC_REGION=us-east-1 -- make prereqs
@@ -474,6 +481,30 @@ expect_in "and names the capability that is not ACTIVE" "$out" "not ACTIVE: ack 
 mk STUB_CAP_KRO=CREATE_FAILED -- make wait-capabilities
 expect_status "a failed capability stops it at once" 2 "$status" "$out"
 expect_in "and names it" "$out" "failed: kro (CREATE_FAILED)"
+
+new_case "make kubeconfig: says why Terraform gave no command"
+write_env
+mk STUB_TF_NO_VERSION=1 -- make kubeconfig
+expect_status "a Terraform that does not run fails" 2 "$status" "$out"
+expect_in "with the line of its error that names it" "$out" "kubeconfig: Terraform failed: mise ERROR No version is set for shim: terraform"
+expect_in "and the TERRAFORM setting that fixes it" "$out" \
+  'kubeconfig: if Terraform comes from a version manager, export TERRAFORM="mise exec terraform@1.14.9 -- terraform" (it is read from the environment or the make command line, never from .env), and run make kubeconfig again'
+expect_not_in "never blames a hub that is not built" "$out" "brownfield-apply"
+expect_not_in "and points kubectl nowhere" "$log" "update-kubeconfig"
+mk STUB_TF_OUTPUT=none -- make kubeconfig
+expect_status "a state with no outputs fails" 2 "$status" "$out"
+expect_in "and says to build the hub" "$out" "Terraform has no kubeconfig_command output yet: run make brownfield-apply first"
+expect_not_in "with no TERRAFORM setting" "$out" "export TERRAFORM"
+mk STUB_TF_OUTPUT=missing -- make kubeconfig
+expect_status "a state without the output fails" 2 "$status" "$out"
+expect_in "and says to build the hub" "$out" "Terraform has no kubeconfig_command output yet: run make brownfield-apply first"
+expect_not_in "with no TERRAFORM setting" "$out" "export TERRAFORM"
+mk STUB_TF_OUTPUT=backend -- make kubeconfig
+expect_status "another Terraform error fails" 2 "$status" "$out"
+expect_in "and is shown as Terraform says it" "$out" 'kubeconfig: Terraform failed: Error: Backend initialization required, please run "terraform init"'
+expect_not_in "without Terraform's colors" "$out" $'\033'
+expect_not_in "or its frame" "$out" "│"
+expect_not_in "and points kubectl nowhere" "$log" "update-kubeconfig"
 
 # ========================================================================== end
 new_case "every stub call was one the stubs know"
