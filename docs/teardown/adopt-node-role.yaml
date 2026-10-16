@@ -1,0 +1,39 @@
+# Delete a removed cell's node role through the hub's own ACK. The role is kept on purpose
+# while the cell is deleted (deletion-policy retain on the hub's Role object): EKS Auto Mode
+# keeps it in the cluster's instance profile until the cluster is gone, and the hub's ACK role
+# cannot remove a role from an instance profile. Apply on the hub only once the cell's
+# EncabulatorCell is gone; the spec equals the role the cell graph created.
+# For another cell, replace encabulator-use2 with its name.
+apiVersion: iam.services.k8s.aws/v1alpha1
+kind: Role
+metadata:
+  name: encabulator-use2-node
+  namespace: encabulator-cells
+  annotations:
+    services.k8s.aws/adoption-policy: adopt
+    services.k8s.aws/adoption-fields: '{"name":"encabulator-use2-node"}'
+    services.k8s.aws/deletion-policy: delete
+spec:
+  name: encabulator-use2-node
+  path: /
+  maxSessionDuration: 3600
+  description: EKS Auto Mode node role for encabulator-use2
+  assumeRolePolicyDocument: |
+    {
+      "Version": "2012-10-17",
+      "Statement": [{
+        "Effect": "Allow",
+        "Principal": { "Service": "ec2.amazonaws.com" },
+        "Action": "sts:AssumeRole"
+      }]
+    }
+  policies:
+    - arn:aws:iam::aws:policy/AmazonEKSWorkerNodeMinimalPolicy
+    - arn:aws:iam::aws:policy/AmazonEC2ContainerRegistryPullOnly
+  tags:
+    - key: auto-delete
+      value: "no"
+    - key: project
+      value: encabulator
+    - key: talk
+      value: opn315

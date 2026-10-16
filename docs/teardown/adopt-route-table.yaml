@@ -1,0 +1,27 @@
+# Delete one untracked private route table of a cell through the hub's own ACK: a table named
+# <cell>-private in the cell's VPC that the hub's RouteTable object does not track, with no
+# subnet association and only the local route. Such a table blocks the VPC delete.
+# (terraform/brownfield/README.md, Teardown, "Remove a cell".) One object per table: fill in
+# the table id (twice) and the VPC id, apply, wait for ACK.ResourceSynced, then delete it.
+# For another cell, replace encabulator-use2 and us-east-2.
+apiVersion: ec2.services.k8s.aws/v1alpha1
+kind: RouteTable
+metadata:
+  name: leaked-<rtb-id>
+  namespace: encabulator-cells
+  annotations:
+    services.k8s.aws/region: us-east-2
+    services.k8s.aws/adoption-policy: adopt
+    services.k8s.aws/adoption-fields: '{"routeTableID":"<rtb-id>"}'
+    services.k8s.aws/deletion-policy: delete
+spec:
+  vpcID: <vpc-id>
+  tags:
+    - key: Name
+      value: encabulator-use2-private
+    - key: auto-delete
+      value: "no"
+    - key: project
+      value: encabulator
+    - key: talk
+      value: opn315

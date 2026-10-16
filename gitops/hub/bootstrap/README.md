@@ -107,6 +107,8 @@ kubectl get encabulatorcells -n encabulator-cells -w
 
 The cell is ACTIVE in about 20 minutes and its app is Healthy 9 to 12 minutes after that.
 Running `make add-cell` again is harmless. Every cell in the folder is built, not only `CELL`.
+Removing a cell takes more than deleting its file; the order is in
+[Remove a cell](../../../terraform/brownfield/README.md#remove-a-cell).
 
 A cell registers with Argo CD only once the hub's cluster Secret exists, because kro reads the
 settings from it: run `make gitops-register` first. Without it, kro still builds the cell's AWS

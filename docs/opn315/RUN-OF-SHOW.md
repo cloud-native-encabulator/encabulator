@@ -266,7 +266,17 @@ Still open:
 
 ## Teardown
 
-Every ACK resource that holds data uses `deletion-policy: retain`, so deleting its custom resource
-never deletes the AWS resource. Delete the ACK resources, then the RDS instances, caches and
-subnet groups yourself, then `terraform destroy` the hub (`terraform/brownfield/README.md`,
-Teardown). The generated Secrets on the cell stay until you delete them.
+Tear down in the order in
+[`terraform/brownfield/README.md`, Teardown](../../terraform/brownfield/README.md#teardown), cells
+first, while the hub runs. The cell: on the hub, the Role and the AccessEntry
+`encabulator-use2-node` set to `services.k8s.aws/deletion-policy=retain`, then `hub-cells` and the
+`EncabulatorCell` deleted; on the cell, the StatefulSets `nats` and `influxdb` and their PVCs once
+its kro is gone, and its RDS instance, cache and DB subnet group once its ACK is gone; the node
+role last, once the `EncabulatorCell` is gone. Then the hub: stop Argo CD (`hub-brownfield`,
+`hub-cell-apps`, `hub-rgds`, the two cell ApplicationSets), `make undeploy` with its PVCs and
+`make platform-uninstall`, the RDS instance, the cache, the DB subnet group and each cache's
+automatic snapshot (`automatic.encabulator-valkey-*`, in us-west-2 and in us-east-2, kept up to a day
+after its cache), the ECR mirror repositories, and
+`terraform -chdir=terraform/brownfield destroy -refresh=false`. Every ACK resource that holds data
+uses `deletion-policy: retain`, so deleting its custom resource never deletes the AWS resource.
+The generated Secrets on the cell go with the cell's cluster.
