@@ -50,6 +50,7 @@ case "$tool" in
           || not_found ResourceNotFoundException DescribeGroup
         echo "Encabulator admins"
         ;;
+      "identitystore list-groups") echo "${STUB_GROUP_COUNT:-1}" ;;
       "eks describe-capability")
         name="$(arg capability-name "$@")"
         var="STUB_CAP_$(printf '%s' "$name" | tr '[:lower:]' '[:upper:]')"

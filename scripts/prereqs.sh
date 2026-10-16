@@ -85,15 +85,15 @@ if have "${terraform[0]}" && tf_version="$(first_line "${terraform[@]}" version)
     if [[ "$major" -eq 1 && "$minor" -ge 7 ]]; then
       ok "$tf_version (1.14.9 is the version tested)"
     else
-      problem "Terraform 1.7 or newer 1.x needed, found ${tf_version#Terraform }" "install Terraform 1.14.9, or set TERRAFORM to a wrapper, for example TERRAFORM=\"mise exec terraform@1.14.9 -- terraform\""
+      problem "Terraform 1.7 or newer 1.x needed, found ${tf_version#Terraform }" "install Terraform 1.14.9, or set TERRAFORM to a wrapper on the make command line or in your shell (it is not read from .env), for example make hub TERRAFORM=\"mise exec terraform@1.14.9 -- terraform\""
     fi
   else
     problem "could not read the Terraform version from: $tf_version" "check that '$TERRAFORM version' works"
   fi
 elif have "${terraform[0]}"; then
-  problem "'$TERRAFORM version' fails" "check the Terraform install, or set TERRAFORM to a wrapper, for example TERRAFORM=\"mise exec terraform@1.14.9 -- terraform\""
+  problem "'$TERRAFORM version' fails" "check the Terraform install, or set TERRAFORM to a wrapper on the make command line or in your shell (it is not read from .env), for example make hub TERRAFORM=\"mise exec terraform@1.14.9 -- terraform\""
 else
-  problem "Terraform not found ($TERRAFORM)" "install Terraform 1.14.9 (https://developer.hashicorp.com/terraform/install), or set TERRAFORM to a wrapper"
+  problem "Terraform not found ($TERRAFORM)" "install Terraform 1.14.9 (https://developer.hashicorp.com/terraform/install), or set TERRAFORM to a wrapper on the make command line or in your shell"
 fi
 
 if have kubectl; then
@@ -128,9 +128,9 @@ fi
 arn_pattern='^arn:aws[a-z-]*:sso:::instance/ssoins-[0-9a-f]+$'
 arn_ok=false
 if [[ -z "$IDC_INSTANCE_ARN" ]]; then
-  problem "IDC_INSTANCE_ARN is not set" "set it in $DOTENV_FILE: aws sso-admin list-instances --region <identity-center-region> --query 'Instances[0].InstanceArn' --output text"
+  problem "IDC_INSTANCE_ARN is not set" "set it in $DOTENV_FILE: aws sso-admin list-instances --region <identity-center-region> --no-paginate --query 'Instances[0].InstanceArn' --output text"
 elif [[ "$IDC_INSTANCE_ARN" == "$placeholder_arn" ]]; then
-  problem "IDC_INSTANCE_ARN is still the placeholder from .env.example" "replace it in $DOTENV_FILE with your instance: aws sso-admin list-instances --region <identity-center-region> --query 'Instances[0].InstanceArn' --output text"
+  problem "IDC_INSTANCE_ARN is still the placeholder from .env.example" "replace it in $DOTENV_FILE with your instance: aws sso-admin list-instances --region <identity-center-region> --no-paginate --query 'Instances[0].InstanceArn' --output text"
 elif [[ ! "$IDC_INSTANCE_ARN" =~ $arn_pattern ]]; then
   problem "IDC_INSTANCE_ARN does not look like arn:aws:sso:::instance/ssoins-..." "copy the InstanceArn from aws sso-admin list-instances into $DOTENV_FILE"
 else
@@ -141,11 +141,11 @@ fi
 group_pattern='^([0-9a-f]{10}-)?[A-Fa-f0-9]{8}-[A-Fa-f0-9]{4}-[A-Fa-f0-9]{4}-[A-Fa-f0-9]{4}-[A-Fa-f0-9]{12}$'
 group_ok=false
 if [[ -z "$ARGOCD_ADMIN_GROUP_ID" ]]; then
-  problem "ARGOCD_ADMIN_GROUP_ID is not set" "set it in $DOTENV_FILE to the GroupId of an Identity Center group (aws identitystore list-groups)"
+  problem "ARGOCD_ADMIN_GROUP_ID is not set" "set it in $DOTENV_FILE to the GroupId of an Identity Center group, not a user (.env.example shows how to list the groups or create one)"
 elif [[ "$ARGOCD_ADMIN_GROUP_ID" == "$placeholder_group" ]]; then
-  problem "ARGOCD_ADMIN_GROUP_ID is still the placeholder from .env.example" "replace it in $DOTENV_FILE with a GroupId from aws identitystore list-groups"
+  problem "ARGOCD_ADMIN_GROUP_ID is still the placeholder from .env.example" "replace it in $DOTENV_FILE with the GroupId of an Identity Center group, not a user (.env.example shows how to list the groups or create one)"
 elif [[ ! "$ARGOCD_ADMIN_GROUP_ID" =~ $group_pattern ]]; then
-  problem "ARGOCD_ADMIN_GROUP_ID does not look like an Identity Center group id" "copy the GroupId from aws identitystore list-groups into $DOTENV_FILE"
+  problem "ARGOCD_ADMIN_GROUP_ID does not look like an Identity Center group id" "copy the GroupId of an Identity Center group into $DOTENV_FILE (.env.example shows how to list the groups or create one)"
 else
   ok "ARGOCD_ADMIN_GROUP_ID is set"
   group_ok=true
@@ -164,10 +164,15 @@ if $creds_ok && $arn_ok; then
             --query DisplayName --output text 2>&1)"; then
           ok "Argo CD admin group: $group_name"
         elif [[ "$group_name" == *ResourceNotFoundException* || "$group_name" == *ValidationException* ]]; then
-          problem "group $ARGOCD_ADMIN_GROUP_ID not found in that Identity Center" "copy a GroupId from: aws identitystore list-groups --region $idc_region --identity-store-id $store"
+          problem "group $ARGOCD_ADMIN_GROUP_ID not found in that Identity Center" "it must be a group id, not a user id; copy one from: aws identitystore list-groups --region $idc_region --no-paginate --identity-store-id $store"
         else
           warn "could not check the group (identitystore:DescribeGroup)" "make sure $ARGOCD_ADMIN_GROUP_ID is a group in that Identity Center"
         fi
+      elif groups="$(aws identitystore list-groups --region "$idc_region" --no-paginate \
+          --identity-store-id "$store" --query 'length(Groups)' --output text 2>/dev/null)" \
+          && [[ "$groups" == "0" ]]; then
+        # No usable group id yet, and nothing to copy one from: say what to do about it.
+        problem "that Identity Center has no groups yet" "create a group, add yourself to it and put its GroupId in $DOTENV_FILE (the ARGOCD_ADMIN_GROUP_ID comment in .env.example has the commands)"
       fi
     else
       problem "no Identity Center instance $IDC_INSTANCE_ARN in $idc_region" "check IDC_INSTANCE_ARN, or set IDC_REGION in $DOTENV_FILE to the region Identity Center runs in"
