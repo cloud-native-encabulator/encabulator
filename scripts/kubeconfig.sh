@@ -20,12 +20,26 @@ cd "$repo_root"
 : "${HUB_CLUSTER:=encabulator-usw2}"
 
 die() { echo "kubeconfig: $*" >&2; exit 1; }
+# shellcheck source=terraform-error.sh
+source "$repo_root/scripts/terraform-error.sh"
 
 read -r -a terraform <<<"$TERRAFORM"
 read -r -a kubectl <<<"$KUBECTL"
 
-command="$("${terraform[@]}" -chdir="$TF_DIR" output -raw kubeconfig_command 2>/dev/null)" \
-  || die "Terraform has no kubeconfig_command output yet: run make brownfield-apply first"
+# Terraform's error output is kept: "no such output" means the hub is not built yet, anything
+# else (a version manager's shim with no version set, a backend that is not initialized) is
+# passed on as Terraform says it.
+errors="$(mktemp)"
+trap 'rm -f "$errors"' EXIT
+tf_rc=0
+command="$("${terraform[@]}" -chdir="$TF_DIR" output -raw kubeconfig_command 2>"$errors")" || tf_rc=$?
+if [[ $tf_rc -eq 0 && -z "$command" ]] \
+  || { [[ $tf_rc -ne 0 ]] && grep -qiE 'no outputs found|output( "[^"]*")? not found' "$errors"; }; then
+  die "Terraform has no kubeconfig_command output yet: run make brownfield-apply first"
+elif [[ $tf_rc -ne 0 ]]; then
+  echo "kubeconfig: Terraform failed: $(terraform_error "$errors")" >&2
+  die "$(terraform_hint), and run make kubeconfig again"
+fi
 
 # Run only the command shape this stack prints, never arbitrary output.
 pattern='^aws eks update-kubeconfig --region ([a-z0-9-]+) --name ([A-Za-z0-9_-]+)$'

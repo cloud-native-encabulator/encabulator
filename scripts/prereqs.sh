@@ -41,6 +41,8 @@ warn()    { printf '  %swarn%s  %s\n' "$yellow" "$off" "$1"; warnings+=("$1"$'\n
 have()    { command -v "$1" >/dev/null 2>&1; }
 # first_line COMMAND...: the first line of COMMAND's output (read whole, so no SIGPIPE).
 first_line() { local o; o="$("$@" 2>/dev/null)" || return 1; printf '%s' "${o%%$'\n'*}"; }
+# shellcheck source=terraform-error.sh
+source "$repo_root/scripts/terraform-error.sh"
 
 printf '%s==> make prereqs%s\n' "$bold" "$off"
 
@@ -79,21 +81,29 @@ if $aws_ok; then
 fi
 
 read -r -a terraform <<<"$TERRAFORM"
-if have "${terraform[0]}" && tf_version="$(first_line "${terraform[@]}" version)"; then
+# Terraform's error output is kept, so a version manager's shim with no version set is named.
+tf_rc=1 tf_version="" tf_errors=""
+if have "${terraform[0]}"; then
+  tf_errors="$(mktemp)"
+  trap 'rm -f "$tf_errors"' EXIT
+  tf_out="$("${terraform[@]}" version 2>"$tf_errors")" && tf_rc=0
+  tf_version="${tf_out%%$'\n'*}"
+fi
+if [[ $tf_rc -eq 0 ]]; then
   if [[ "$tf_version" =~ ^Terraform\ v([0-9]+)\.([0-9]+)\.([0-9]+) ]]; then
     major="${BASH_REMATCH[1]}" minor="${BASH_REMATCH[2]}"
     if [[ "$major" -eq 1 && "$minor" -ge 7 ]]; then
       ok "$tf_version (1.14.9 is the version tested)"
     else
-      problem "Terraform 1.7 or newer 1.x needed, found ${tf_version#Terraform }" "install Terraform 1.14.9, or set TERRAFORM to a wrapper on the make command line or in your shell (it is not read from .env), for example make hub TERRAFORM=\"mise exec terraform@1.14.9 -- terraform\""
+      problem "Terraform 1.7 or newer 1.x needed, found ${tf_version#Terraform }" "install Terraform 1.14.9, or $(terraform_hint)"
     fi
   else
     problem "could not read the Terraform version from: $tf_version" "check that '$TERRAFORM version' works"
   fi
 elif have "${terraform[0]}"; then
-  problem "'$TERRAFORM version' fails" "check the Terraform install, or set TERRAFORM to a wrapper on the make command line or in your shell (it is not read from .env), for example make hub TERRAFORM=\"mise exec terraform@1.14.9 -- terraform\""
+  problem "'$TERRAFORM version' fails: $(terraform_error "$tf_errors")" "$(terraform_hint) and run make prereqs again; otherwise check the Terraform install"
 else
-  problem "Terraform not found ($TERRAFORM)" "install Terraform 1.14.9 (https://developer.hashicorp.com/terraform/install), or set TERRAFORM to a wrapper on the make command line or in your shell"
+  problem "Terraform not found ($TERRAFORM)" "install Terraform 1.14.9 (https://developer.hashicorp.com/terraform/install), or $(terraform_hint)"
 fi
 
 if have kubectl; then
