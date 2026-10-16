@@ -31,12 +31,14 @@ for the NAT gateway, so the cell VPC ends with exactly one private route table; 
 about 10 minutes and is ACTIVE about 13 minutes after the trigger; kro capability about 2 minutes
 and ACK capability about 7 minutes after the cluster; the cell is ACTIVE about 20 minutes after
 the trigger (19:44 and 19:48); Argo CD's first sync takes 3 to 5 minutes with its retries;
-ElastiCache Serverless about 1.5 minutes, RDS about 5.5 minutes; the app is Healthy 9 to 12
-minutes after the cell (28:46 and 31:40 after the trigger). An order then takes under a minute;
-the runs delivered their first order at 34:23 and 36:31, each placed a few minutes after the app
-was Healthy. The critical path is the cluster, the ACK capability, the first sync's retries and
-RDS. The "Where the time goes" slide shows the slower run as a captured run. The second run's
-trigger reached the hub within seconds (its `hub-cells` revision was changed directly); on talk
+ElastiCache Serverless about 1.5 minutes, RDS about 5.5 minutes; the app is Healthy about 12
+minutes after the cell, about 32 minutes after the trigger (28:46 and 31:40 in the two runs). The
+slide's captured run delivered its first order about 36.5 minutes after the trigger; the two runs
+delivered theirs at 34:23 and 36:31, each placed a few minutes after the app was Healthy, and an
+order placed right at Healthy takes under a minute. The critical path is the cluster, the ACK
+capability, the first sync's retries and RDS. The "Where the time goes" slide shows the slower run
+as a captured run. The second run's trigger reached the hub within seconds (its `hub-cells`
+revision was changed directly); on talk
 day the push waits for Argo CD's Git poll (2:17 in the first run, up to about 3 minutes) unless
 `hub-cells` is refreshed right after the push, and that wait comes on top of the second run's
 figures.
@@ -45,8 +47,9 @@ Early start, at 8:00: push `gitops/hub/cells/use2.yaml` at the start of Act 1, s
 builds while we adopt the stores and explain kro, and Act 3 shows it live. It starts the build only
 if `hub-cells` is staged as in "Act 3 trigger" below. On the clock of the talk, using the runs above:
 the cell is ACTIVE near 28:00 (during the Act 2 opening), registered with Argo CD the same second,
-the app Healthy by about 40:00 (36:46 and 39:40), and an order placed then is delivered within a
-minute, near 41:00, at the start of Act 3. The latest push that still shows a delivered order
+the app Healthy by about 40:00 (36:46 and 39:40), and the first order near 44:00, in Act 3 (36.5
+minutes after the push in the slide's captured run; an order placed right at Healthy is delivered
+within a minute, near 41:00). The latest push that still shows a delivered order
 before the Act 3 build slides (47:00) is about 14:00: on the slower run the app was Healthy 31:40
 after the push, so a 14:00 push is Healthy near 46:00 and an order placed at once lands before
 47:00. If the push waits for the Git poll, the latest push is about 11:00. Keep the prepared cell
@@ -182,7 +185,10 @@ Decided (OPN315 build contract, lead decisions D1-D10):
 
 Still open:
 
-1. Who drives which act, and who types.
+1. Who drives which act: decided. Carlos leads the Open and Act 2, Jesse leads Act 1 and Act 3
+   (Carlos pushes the new region at 8:00, Jesse shows it finished in Act 3), and they close
+   together. The other speaker asks the questions an audience would. Who types at each screen is
+   still open.
 2. Prepared revision. The hub Applications track one revision, where `gitops/hub/brownfield/kustomization.yaml`
    already lists `postgres.yaml`. The preparation needs a revision without that line, or ACK adopts the
    instance the day before and the live `adopt` step collides with it; the live commit then has to
@@ -197,7 +203,7 @@ Still open:
    is created without creator admin permissions, so `kubectl --context use2` is refused until the
    cell you show sets it or has an access entry for your role made by hand.
 5. Early start timing: decided. The push is at 8:00 (start of Act 1). The cell is ACTIVE near 28:00,
-   the app Healthy by about 40:00 and an order delivered near 41:00, so Act 3 shows the live result. The
+   the app Healthy by about 40:00 and the first order near 44:00, so Act 3 shows the live result. The
    prepared cell stays as the fallback. Rehearse it once, because the cell build runs alongside the
    live adoption and the live kro apply (see "Early start").
 
