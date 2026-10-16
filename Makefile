@@ -253,6 +253,28 @@ wait-capabilities: ## Wait until the hub's Argo CD, ACK and kro capabilities are
 mirror-images: ## Copy the VERSION images into Amazon ECR when GHCR lacks them, and record REGISTRY in .env
 	@$(HUB_ENV) ./scripts/mirror-images.sh
 
+## Tear down (asks first; deletes the data; make -n <target> shows the steps)
+.PHONY: remove-cell teardown gone-check mirror-images-delete
+# ack (the hub's ACK deletes the stores) or cli (the AWS CLI does).
+TEARDOWN_STORES   ?= ack
+# More regions for gone-check to look in, e.g. GONE_REGIONS="eu-west-1 ap-south-1".
+GONE_REGIONS      ?=
+TEARDOWN_ENV = $(HUB_ENV) MAKE='$(MAKE)' CONFIRM=$(call sh_quote,$(CONFIRM)) \
+               TEARDOWN_STORES=$(call sh_quote,$(TEARDOWN_STORES)) GONE_REGIONS=$(call sh_quote,$(GONE_REGIONS))
+
+# The `+` runs the script under make -n too, where it only prints its steps.
+remove-cell: ## Remove one cell while the hub runs, stores and volumes included (CELL=<cell>; about 25 minutes)
+	+@$(TEARDOWN_ENV) ./scripts/teardown.sh remove-cell
+
+teardown: ## Delete the whole project: every cell, Argo CD's apps, the app, the stores, ECR, Terraform (about an hour)
+	+@$(TEARDOWN_ENV) $(TF_ENV) ./scripts/teardown.sh teardown
+
+gone-check: ## Read-only: list anything of the project left in the account; exits 0 only when nothing is
+	@$(HUB_ENV) GONE_REGIONS=$(call sh_quote,$(GONE_REGIONS)) ./scripts/gone-check.sh
+
+mirror-images-delete: ## Delete the ECR repositories encabulator/* that make mirror-images created, with their images
+	+@$(TEARDOWN_ENV) ./scripts/teardown.sh ecr-delete
+
 ## Brownfield to GitOps (Terraform, ACK, Argo CD, kro)
 .PHONY: brownfield-init brownfield-test brownfield-plan brownfield-apply brownfield-deploy gitops-register gitops-bootstrap gitops-validate tag-check talk
 brownfield-init: ## terraform init for terraform/brownfield, the hub's starting point
