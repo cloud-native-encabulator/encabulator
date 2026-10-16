@@ -13,10 +13,10 @@ import (
 	"github.com/testcontainers/testcontainers-go"
 	"github.com/testcontainers/testcontainers-go/wait"
 
-	"github.com/jlbutler/cloud-native-encabulator/libs/go/kit/testsupport"
+	"github.com/cloud-native-encabulator/encabulator/libs/go/kit/testsupport"
 
-	"github.com/jlbutler/cloud-native-encabulator/services/control-plane/malaise-injection-engine/internal/malaise"
-	"github.com/jlbutler/cloud-native-encabulator/services/control-plane/malaise-injection-engine/internal/store"
+	"github.com/cloud-native-encabulator/encabulator/services/control-plane/malaise-injection-engine/internal/malaise"
+	"github.com/cloud-native-encabulator/encabulator/services/control-plane/malaise-injection-engine/internal/store"
 )
 
 // valkeyImage is the backing store image from design section 2.

@@ -10,11 +10,11 @@ import (
 
 	"github.com/testcontainers/testcontainers-go/wait"
 
-	"github.com/jlbutler/cloud-native-encabulator/libs/go/kit/flags"
-	"github.com/jlbutler/cloud-native-encabulator/libs/go/kit/testsupport"
+	"github.com/cloud-native-encabulator/encabulator/libs/go/kit/flags"
+	"github.com/cloud-native-encabulator/encabulator/libs/go/kit/testsupport"
 
-	"github.com/jlbutler/cloud-native-encabulator/services/support-plane/differential-girdlespring/internal/api"
-	"github.com/jlbutler/cloud-native-encabulator/services/support-plane/differential-girdlespring/internal/store"
+	"github.com/cloud-native-encabulator/encabulator/services/support-plane/differential-girdlespring/internal/api"
+	"github.com/cloud-native-encabulator/encabulator/services/support-plane/differential-girdlespring/internal/store"
 )
 
 // newStore brings up a real postgres:18 and returns a migrated store.

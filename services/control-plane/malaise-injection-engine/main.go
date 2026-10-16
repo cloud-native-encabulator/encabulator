@@ -8,13 +8,13 @@ import (
 	"os"
 	"time"
 
-	"github.com/jlbutler/cloud-native-encabulator/libs/go/kit"
-	"github.com/jlbutler/cloud-native-encabulator/libs/go/kit/config"
+	"github.com/cloud-native-encabulator/encabulator/libs/go/kit"
+	"github.com/cloud-native-encabulator/encabulator/libs/go/kit/config"
 
-	"github.com/jlbutler/cloud-native-encabulator/services/control-plane/malaise-injection-engine/internal/api"
-	"github.com/jlbutler/cloud-native-encabulator/services/control-plane/malaise-injection-engine/internal/engine"
-	"github.com/jlbutler/cloud-native-encabulator/services/control-plane/malaise-injection-engine/internal/kube"
-	"github.com/jlbutler/cloud-native-encabulator/services/control-plane/malaise-injection-engine/internal/store"
+	"github.com/cloud-native-encabulator/encabulator/services/control-plane/malaise-injection-engine/internal/api"
+	"github.com/cloud-native-encabulator/encabulator/services/control-plane/malaise-injection-engine/internal/engine"
+	"github.com/cloud-native-encabulator/encabulator/services/control-plane/malaise-injection-engine/internal/kube"
+	"github.com/cloud-native-encabulator/encabulator/services/control-plane/malaise-injection-engine/internal/store"
 )
 
 const serviceName = "malaise-injection-engine"

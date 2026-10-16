@@ -5,7 +5,7 @@ export GOTOOLCHAIN ?= auto
 
 # Image coordinates. The build context is the repository root so that the Go kit
 # can be copied in.
-REGISTRY ?= ghcr.io/jlbutler/cloud-native-encabulator
+REGISTRY ?= ghcr.io/cloud-native-encabulator/encabulator
 VERSION ?= $(shell cat ../../../VERSION 2>/dev/null || echo dev)
 IMAGE := $(REGISTRY)/$(SERVICE):$(VERSION)
 CONTAINER_RUNTIME ?= finch

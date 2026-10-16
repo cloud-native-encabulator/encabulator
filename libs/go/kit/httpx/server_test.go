@@ -13,7 +13,7 @@ import (
 
 	"github.com/prometheus/client_golang/prometheus/testutil"
 
-	"github.com/jlbutler/cloud-native-encabulator/libs/go/kit/httpx"
+	"github.com/cloud-native-encabulator/encabulator/libs/go/kit/httpx"
 )
 
 func newServer(t *testing.T) *httpx.Server {

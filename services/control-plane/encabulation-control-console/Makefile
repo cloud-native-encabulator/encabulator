@@ -4,7 +4,7 @@
 # Every target here works from this directory.
 
 SERVICE      := encabulation-control-console
-REGISTRY     ?= ghcr.io/jlbutler/cloud-native-encabulator
+REGISTRY     ?= ghcr.io/cloud-native-encabulator/encabulator
 VERSION      ?= $(shell node -p "require('./package.json').version")
 IMAGE        ?= $(REGISTRY)/$(SERVICE):$(VERSION)
 PLATFORMS    ?= linux/amd64,linux/arm64

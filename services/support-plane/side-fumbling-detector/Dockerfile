@@ -26,7 +26,7 @@ RUN --mount=type=cache,target=/root/.cache/uv \
 FROM python:${PYTHON_VERSION}-slim AS runtime
 LABEL org.opencontainers.image.title="side-fumbling-detector" \
       org.opencontainers.image.description="Anomaly detection over unit telemetry." \
-      org.opencontainers.image.source="https://github.com/jlbutler/cloud-native-encabulator"
+      org.opencontainers.image.source="https://github.com/cloud-native-encabulator/encabulator"
 
 ENV PATH="/app/.venv/bin:${PATH}" \
     PYTHONUNBUFFERED=1 \

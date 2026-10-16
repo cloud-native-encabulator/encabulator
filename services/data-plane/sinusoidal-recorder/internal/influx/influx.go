@@ -26,7 +26,7 @@ import (
 const Table = "readings"
 
 // tracerName names the instrumentation scope of the InfluxDB client spans.
-const tracerName = "github.com/jlbutler/cloud-native-encabulator/services/data-plane/sinusoidal-recorder/internal/influx"
+const tracerName = "github.com/cloud-native-encabulator/encabulator/services/data-plane/sinusoidal-recorder/internal/influx"
 
 // DBSystem is the db.system.name on every InfluxDB client span. The collector's
 // service_graph connector names the server of a database edge after it, which is

@@ -76,7 +76,7 @@ uiconfig:
             [
               {
                 "label": "Design",
-                "url": "https://github.com/jlbutler/cloud-native-encabulator/blob/main/docs/design.md",
+                "url": "https://github.com/cloud-native-encabulator/encabulator/blob/main/docs/design.md",
               },
             ],
         },

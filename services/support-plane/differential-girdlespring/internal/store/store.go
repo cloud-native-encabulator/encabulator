@@ -12,7 +12,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 
-	"github.com/jlbutler/cloud-native-encabulator/libs/go/kit/flags"
+	"github.com/cloud-native-encabulator/encabulator/libs/go/kit/flags"
 )
 
 // ErrNotFound is returned when a flag key does not exist.

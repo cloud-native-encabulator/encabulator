@@ -101,7 +101,7 @@ the engine rather than obey it.
 
 ```yaml
 global:
-  registry: ghcr.io/jlbutler/cloud-native-encabulator
+  registry: ghcr.io/cloud-native-encabulator/encabulator
   imageTag: ""     # empty means Chart.appVersion
 ```
 

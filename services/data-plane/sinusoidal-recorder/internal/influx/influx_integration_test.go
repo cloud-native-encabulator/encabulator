@@ -17,9 +17,9 @@ import (
 	"go.opentelemetry.io/otel/sdk/trace/tracetest"
 	"go.opentelemetry.io/otel/trace"
 
-	"github.com/jlbutler/cloud-native-encabulator/libs/go/kit/testsupport"
+	"github.com/cloud-native-encabulator/encabulator/libs/go/kit/testsupport"
 
-	"github.com/jlbutler/cloud-native-encabulator/services/data-plane/sinusoidal-recorder/internal/influx"
+	"github.com/cloud-native-encabulator/encabulator/services/data-plane/sinusoidal-recorder/internal/influx"
 )
 
 // newClient brings up a real influxdb:3-core with auth disabled and an

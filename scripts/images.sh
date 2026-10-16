@@ -19,7 +19,7 @@ repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$repo_root" || exit 1
 
 : "${CONTAINER_RUNTIME:=finch}"
-: "${REGISTRY:=ghcr.io/jlbutler/cloud-native-encabulator}"
+: "${REGISTRY:=ghcr.io/cloud-native-encabulator/encabulator}"
 : "${VERSION:=$(tr -d '[:space:]' <VERSION)}"
 : "${PLATFORMS:=}"
 : "${PUSH:=false}"
@@ -65,7 +65,7 @@ while read -r name dir; do
         --label "org.opencontainers.image.title=$name"
         --label "org.opencontainers.image.version=$VERSION"
         --label "org.opencontainers.image.revision=$sha"
-        --label "org.opencontainers.image.source=https://github.com/jlbutler/cloud-native-encabulator")
+        --label "org.opencontainers.image.source=https://github.com/cloud-native-encabulator/encabulator")
   # Some corporate resolvers cannot see proxy.golang.org. Set BUILD_GOPROXY to a
   # reachable mirror (e.g. https://goproxy.io) without changing the host's own
   # GOPROXY. Ignored by services that are not written in Go.

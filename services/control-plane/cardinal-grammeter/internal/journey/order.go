@@ -1,6 +1,6 @@
 package journey
 
-import "github.com/jlbutler/cloud-native-encabulator/services/control-plane/cardinal-grammeter/internal/rng"
+import "github.com/cloud-native-encabulator/encabulator/services/control-plane/cardinal-grammeter/internal/rng"
 
 // Options mirrors the order and quote option block.
 type Options struct {

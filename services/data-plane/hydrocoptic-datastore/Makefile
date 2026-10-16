@@ -1,7 +1,7 @@
 # hydrocoptic-datastore
 SERVICE   := hydrocoptic-datastore
 REPO_ROOT := ../../..
-REGISTRY  ?= ghcr.io/jlbutler/cloud-native-encabulator
+REGISTRY  ?= ghcr.io/cloud-native-encabulator/encabulator
 VERSION   ?= $(shell cat $(REPO_ROOT)/VERSION 2>/dev/null || echo dev)
 IMAGE     := $(REGISTRY)/$(SERVICE):$(VERSION)
 PLATFORMS ?= linux/amd64,linux/arm64

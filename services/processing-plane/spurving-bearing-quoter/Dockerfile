@@ -8,7 +8,7 @@
 #   docker buildx build \
 #     --platform linux/amd64,linux/arm64 \
 #     -f services/processing-plane/spurving-bearing-quoter/Dockerfile \
-#     -t ghcr.io/jlbutler/cloud-native-encabulator/spurving-bearing-quoter:1.0.0 .
+#     -t ghcr.io/cloud-native-encabulator/encabulator/spurving-bearing-quoter:1.0.0 .
 #
 # or just `make image` from the service directory.
 #
@@ -64,7 +64,7 @@ LABEL org.opencontainers.image.title="spurving-bearing-quoter" \
       org.opencontainers.image.description="Pricing engine for the Cloud Native Encabulator: aligns the spurving bearings with the pentametric fan, economically." \
       org.opencontainers.image.version="${VERSION}" \
       org.opencontainers.image.licenses="Apache-2.0" \
-      org.opencontainers.image.source="https://github.com/jlbutler/cloud-native-encabulator"
+      org.opencontainers.image.source="https://github.com/cloud-native-encabulator/encabulator"
 
 COPY --from=builder /src/target/release/spurving-bearing-quoter /usr/local/bin/spurving-bearing-quoter
 

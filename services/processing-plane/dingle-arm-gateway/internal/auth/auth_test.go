@@ -16,7 +16,7 @@ import (
 
 	"github.com/golang-jwt/jwt/v5"
 
-	"github.com/jlbutler/cloud-native-encabulator/services/processing-plane/dingle-arm-gateway/internal/auth"
+	"github.com/cloud-native-encabulator/encabulator/services/processing-plane/dingle-arm-gateway/internal/auth"
 )
 
 // detractor is a stand-in for the unilateral phase detractor's JWKS endpoint.

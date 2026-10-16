@@ -11,8 +11,8 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 
-	"github.com/jlbutler/cloud-native-encabulator/libs/go/kit/httpx"
-	"github.com/jlbutler/cloud-native-encabulator/libs/go/kit/identity"
+	"github.com/cloud-native-encabulator/encabulator/libs/go/kit/httpx"
+	"github.com/cloud-native-encabulator/encabulator/libs/go/kit/identity"
 )
 
 func TestClientJSONRoundTrip(t *testing.T) {

@@ -1,6 +1,6 @@
 SHELL := /bin/bash
 SERVICE := $(notdir $(CURDIR))
-REGISTRY ?= ghcr.io/jlbutler/cloud-native-encabulator
+REGISTRY ?= ghcr.io/cloud-native-encabulator/encabulator
 VERSION ?= $(shell cat ../../../VERSION 2>/dev/null || echo dev)
 KIT := ../../../libs/ts/kit
 REPO_ROOT := ../../..

@@ -214,8 +214,8 @@ Requires a Kubernetes cluster (Amazon EKS or [kind](https://kind.sigs.k8s.io/)),
 and a container runtime ([Finch](https://runfinch.com/) or Docker) if you intend to build images.
 
 ```bash
-git clone https://github.com/jlbutler/cloud-native-encabulator.git
-cd cloud-native-encabulator
+git clone https://github.com/cloud-native-encabulator/encabulator.git
+cd encabulator
 
 make platform     # Prometheus, Grafana, Jaeger, OpenTelemetry Collector, KEDA
 make deploy       # the Encabulator itself, into namespace "encabulator"

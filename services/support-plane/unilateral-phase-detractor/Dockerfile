@@ -26,7 +26,7 @@ RUN --mount=type=cache,target=/root/.cache/uv \
 FROM python:${PYTHON_VERSION}-slim AS runtime
 LABEL org.opencontainers.image.title="unilateral-phase-detractor" \
       org.opencontainers.image.description="Supplies inverse reactive credentials." \
-      org.opencontainers.image.source="https://github.com/jlbutler/cloud-native-encabulator"
+      org.opencontainers.image.source="https://github.com/cloud-native-encabulator/encabulator"
 
 ENV PATH="/app/.venv/bin:${PATH}" \
     PYTHONUNBUFFERED=1 \

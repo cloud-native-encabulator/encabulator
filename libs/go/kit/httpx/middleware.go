@@ -11,7 +11,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/prometheus/client_golang/prometheus"
 
-	"github.com/jlbutler/cloud-native-encabulator/libs/go/kit/logging"
+	"github.com/cloud-native-encabulator/encabulator/libs/go/kit/logging"
 )
 
 // RequestIDHeader carries the correlation id accepted from, or generated for,

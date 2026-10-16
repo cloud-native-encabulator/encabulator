@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"sort"
 
-	"github.com/jlbutler/cloud-native-encabulator/services/control-plane/cardinal-grammeter/internal/rng"
+	"github.com/cloud-native-encabulator/encabulator/services/control-plane/cardinal-grammeter/internal/rng"
 )
 
 // Journey names. These are the labels that appear in metrics and stats.

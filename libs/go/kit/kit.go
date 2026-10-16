@@ -22,12 +22,12 @@ import (
 
 	"github.com/prometheus/client_golang/prometheus"
 
-	"github.com/jlbutler/cloud-native-encabulator/libs/go/kit/config"
-	"github.com/jlbutler/cloud-native-encabulator/libs/go/kit/flags"
-	"github.com/jlbutler/cloud-native-encabulator/libs/go/kit/httpx"
-	"github.com/jlbutler/cloud-native-encabulator/libs/go/kit/logging"
-	"github.com/jlbutler/cloud-native-encabulator/libs/go/kit/malaise"
-	"github.com/jlbutler/cloud-native-encabulator/libs/go/kit/telemetry"
+	"github.com/cloud-native-encabulator/encabulator/libs/go/kit/config"
+	"github.com/cloud-native-encabulator/encabulator/libs/go/kit/flags"
+	"github.com/cloud-native-encabulator/encabulator/libs/go/kit/httpx"
+	"github.com/cloud-native-encabulator/encabulator/libs/go/kit/logging"
+	"github.com/cloud-native-encabulator/encabulator/libs/go/kit/malaise"
+	"github.com/cloud-native-encabulator/encabulator/libs/go/kit/telemetry"
 )
 
 // Options configures Bootstrap.

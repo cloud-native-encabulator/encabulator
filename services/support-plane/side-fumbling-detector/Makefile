@@ -1,6 +1,6 @@
 # side-fumbling-detector: inspection.
 SERVICE  := side-fumbling-detector
-REGISTRY ?= ghcr.io/jlbutler/cloud-native-encabulator
+REGISTRY ?= ghcr.io/cloud-native-encabulator/encabulator
 VERSION  ?= $(shell cat ../../../VERSION)
 REPO_ROOT := ../../..
 

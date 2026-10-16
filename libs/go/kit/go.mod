@@ -1,4 +1,4 @@
-module github.com/jlbutler/cloud-native-encabulator/libs/go/kit
+module github.com/cloud-native-encabulator/encabulator/libs/go/kit
 
 go 1.27
 

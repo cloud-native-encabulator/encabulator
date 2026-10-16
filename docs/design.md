@@ -379,7 +379,7 @@ variables from Kubernetes Secrets. Every service's README lists its variables.
 - No `HEALTHCHECK` in Dockerfiles; Kubernetes probes own health.
 - Multi-arch: `linux/amd64` and `linux/arm64`.
 - Image: `${REGISTRY}/<service>:<version>`. Default registry
-  `ghcr.io/jlbutler/cloud-native-encabulator`.
+  `ghcr.io/cloud-native-encabulator/encabulator`.
 
 ### Testing
 

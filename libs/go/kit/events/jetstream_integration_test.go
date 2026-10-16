@@ -14,8 +14,8 @@ import (
 	"go.opentelemetry.io/otel/sdk/trace/tracetest"
 	"go.opentelemetry.io/otel/trace"
 
-	"github.com/jlbutler/cloud-native-encabulator/libs/go/kit/events"
-	"github.com/jlbutler/cloud-native-encabulator/libs/go/kit/testsupport"
+	"github.com/cloud-native-encabulator/encabulator/libs/go/kit/events"
+	"github.com/cloud-native-encabulator/encabulator/libs/go/kit/testsupport"
 )
 
 // startNATS brings up a real nats:2.12 server with JetStream enabled and

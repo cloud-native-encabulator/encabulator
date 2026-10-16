@@ -629,7 +629,7 @@ spec:
     kind: Encabulator
     spec:
       imageTag: string | default="1.0.3"
-      registry: string | default="ghcr.io/jlbutler/cloud-native-encabulator"
+      registry: string | default="ghcr.io/cloud-native-encabulator/encabulator"
       dbInstanceClass: string | default="db.t4g.medium"
       subnetIDs: "[]string"
       securityGroupID: string | required=true
@@ -1123,7 +1123,7 @@ kubectl --context use2 get encabulator,dbinstances.rds,serverlesscaches -n encab
  <h2>Take it home</h2>
  <div class="cols c64">
   <div style="font-size:32px;line-height:2">
-   <div><span style="color:var(--muted)">Repo</span> · <span class="mono">github.com/jlbutler/cloud-native-encabulator</span></div>
+   <div><span style="color:var(--muted)">Repo</span> · <span class="mono">github.com/cloud-native-encabulator/encabulator</span></div>
    <div><span style="color:var(--muted)">kro</span> · <span class="mono">kro.run</span></div>
    <div><span style="color:var(--muted)">ACK</span> · <span class="mono">aws-controllers-k8s.github.io</span></div>
    <div><span style="color:var(--muted)">EKS Capabilities</span> · <span class="mono">docs.aws.amazon.com/eks</span></div>

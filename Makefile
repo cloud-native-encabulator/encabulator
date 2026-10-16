@@ -37,7 +37,7 @@ endif
 
 # ----------------------------------------------------------------------------- settings
 VERSION           ?= $(shell tr -d '[:space:]' < VERSION)
-REGISTRY          ?= ghcr.io/jlbutler/cloud-native-encabulator
+REGISTRY          ?= ghcr.io/cloud-native-encabulator/encabulator
 # Finch is Docker-API-compatible; `source ./dev-env.sh` exports the DOCKER_HOST it needs,
 # which is also what the Testcontainers integration tests pick up.
 CONTAINER_RUNTIME ?= finch

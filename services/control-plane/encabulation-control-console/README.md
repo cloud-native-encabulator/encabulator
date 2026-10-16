@@ -133,7 +133,7 @@ docker run --rm --read-only --tmpfs /tmp -u 65532:65532 -p 8080:8080 \
   -e SESSION_SECRET=$(openssl rand -hex 24) \
   -e HYDROCOPTIC_DATASTORE_URL=http://hydrocoptic-datastore:8080 \
   -e PROMETHEUS_URL=http://prometheus.encabulator-observability:9090 \
-  ghcr.io/jlbutler/cloud-native-encabulator/encabulation-control-console:1.0.0
+  ghcr.io/cloud-native-encabulator/encabulator/encabulation-control-console:1.0.0
 ```
 
 Unset upstreams are not an error: the console starts, the affected plates say which variable

@@ -21,11 +21,11 @@ cd "$repo_root" || exit 1
 : "${HUB_REGION:=us-west-2}"
 : "${DOTENV_FILE:=.env}"
 : "${CONTAINER_RUNTIME:=finch}"
-: "${REGISTRY:=ghcr.io/jlbutler/cloud-native-encabulator}"
+: "${REGISTRY:=ghcr.io/cloud-native-encabulator/encabulator}"
 : "${IDC_INSTANCE_ARN:=}"
 : "${IDC_REGION:=}"
 : "${ARGOCD_ADMIN_GROUP_ID:=}"
-default_registry="ghcr.io/jlbutler/cloud-native-encabulator"
+default_registry="ghcr.io/cloud-native-encabulator/encabulator"
 idc_region="${IDC_REGION:-$HUB_REGION}"
 
 # The placeholders .env.example ships.

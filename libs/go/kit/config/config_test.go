@@ -4,7 +4,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/jlbutler/cloud-native-encabulator/libs/go/kit/config"
+	"github.com/cloud-native-encabulator/encabulator/libs/go/kit/config"
 )
 
 func TestStringAndDefaults(t *testing.T) {

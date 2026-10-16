@@ -13,11 +13,11 @@ import (
 
 	"github.com/prometheus/client_golang/prometheus"
 
-	"github.com/jlbutler/cloud-native-encabulator/libs/go/kit/flags"
-	"github.com/jlbutler/cloud-native-encabulator/libs/go/kit/httpx"
-	"github.com/jlbutler/cloud-native-encabulator/libs/go/kit/identity"
+	"github.com/cloud-native-encabulator/encabulator/libs/go/kit/flags"
+	"github.com/cloud-native-encabulator/encabulator/libs/go/kit/httpx"
+	"github.com/cloud-native-encabulator/encabulator/libs/go/kit/identity"
 
-	"github.com/jlbutler/cloud-native-encabulator/services/support-plane/differential-girdlespring/internal/store"
+	"github.com/cloud-native-encabulator/encabulator/services/support-plane/differential-girdlespring/internal/store"
 )
 
 // Store is the persistence the API needs.

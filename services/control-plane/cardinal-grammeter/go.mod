@@ -1,4 +1,4 @@
-module github.com/jlbutler/cloud-native-encabulator/services/control-plane/cardinal-grammeter
+module github.com/cloud-native-encabulator/encabulator/services/control-plane/cardinal-grammeter
 
 go 1.27
 
@@ -33,9 +33,9 @@ require (
 )
 
 require (
-	github.com/jlbutler/cloud-native-encabulator/libs/go/kit v0.0.0
+	github.com/cloud-native-encabulator/encabulator/libs/go/kit v0.0.0
 	github.com/prometheus/client_golang v1.24.1
 	go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp v0.71.0
 )
 
-replace github.com/jlbutler/cloud-native-encabulator/libs/go/kit => ../../../libs/go/kit
+replace github.com/cloud-native-encabulator/encabulator/libs/go/kit => ../../../libs/go/kit

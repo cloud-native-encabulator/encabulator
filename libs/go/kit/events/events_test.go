@@ -8,7 +8,7 @@ import (
 
 	"github.com/nats-io/nats.go"
 
-	"github.com/jlbutler/cloud-native-encabulator/libs/go/kit/events"
+	"github.com/cloud-native-encabulator/encabulator/libs/go/kit/events"
 )
 
 func TestNewEnvelope(t *testing.T) {

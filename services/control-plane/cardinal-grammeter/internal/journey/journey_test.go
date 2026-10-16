@@ -4,7 +4,7 @@ import (
 	"math"
 	"testing"
 
-	"github.com/jlbutler/cloud-native-encabulator/services/control-plane/cardinal-grammeter/internal/rng"
+	"github.com/cloud-native-encabulator/encabulator/services/control-plane/cardinal-grammeter/internal/rng"
 )
 
 func TestDefaultMixMatchesTheDesign(t *testing.T) {

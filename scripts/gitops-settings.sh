@@ -10,10 +10,10 @@
 # repo_url_set, revision_set and registry hold only what was set to something other than the
 # default, which is what register-hub.sh records on the hub. Invalid values stop the script.
 
-default_repo_url="https://github.com/jlbutler/cloud-native-encabulator"
+default_repo_url="https://github.com/cloud-native-encabulator/encabulator"
 default_revision="main"
 # The Makefile's own REGISTRY default. The same value set by hand means "no mirror".
-default_registry="ghcr.io/jlbutler/cloud-native-encabulator"
+default_registry="ghcr.io/cloud-native-encabulator/encabulator"
 
 settings_die() { printf 'gitops: %s\n' "$*" >&2; exit 2; }
 
