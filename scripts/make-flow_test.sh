@@ -260,6 +260,14 @@ expect_status "IDC_REGION finds it" 0 "$status" "$out"
 write_env "ARGOCD_ADMIN_GROUP_ID=a1b2c3d4e5-99999999-2222-3333-4444-555555555555"
 mk -- make prereqs
 expect_in "an unknown group is named" "$out" "not found in that Identity Center"
+expect_in "and a user id is ruled out" "$out" "must be a group id, not a user id"
+write_env "ARGOCD_ADMIN_GROUP_ID=00000000-0000-0000-0000-000000000000"
+mk STUB_GROUP_COUNT=0 -- make prereqs
+expect_in "an Identity Center with no group says to create one" "$out" "that Identity Center has no groups yet"
+expect_in "and where the commands are" "$out" "the ARGOCD_ADMIN_GROUP_ID comment in .env.example has the commands"
+mk -- make prereqs
+expect_in "with a group to copy, the placeholder is named" "$out" "ARGOCD_ADMIN_GROUP_ID is still the placeholder"
+expect_not_in "and no missing group is claimed" "$out" "no groups yet"
 write_env "CONTAINER_RUNTIME=no-such-runtime"
 mk STUB_GHCR_HAVE=none -- make prereqs
 expect_status "a missing runtime is only a warning" 0 "$status" "$out"

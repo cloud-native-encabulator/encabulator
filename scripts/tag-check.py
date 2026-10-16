@@ -35,7 +35,10 @@ EKS Auto Mode nodes are EC2 managed instances, hidden from DescribeInstances by 
 instance, volume, network interface and launch template calls pass --include-managed-resources.
 
 Exit status: 0 every resource carries auto-delete=no, 1 at least one does not (or a stack is
-missing), 2 an AWS CLI call failed.
+only partly there: a VPC without its cluster, or a cluster without its VPC), 2 an AWS CLI call
+failed, 3 nothing was found to check. A stack with neither its VPC nor its cluster (a hub with no
+cell yet, or a stack already removed) is reported as absent and is not a failure; whatever is
+still found by its name (volumes, launch templates, roles, ECR repositories) is checked.
 """
 from __future__ import annotations
 
@@ -142,6 +145,7 @@ class Report:
         self.bad = 0
         self.count = 0
         self.seen = set()
+        self.absent_stacks = []
 
     def resource(self, region, kind, rid, tags, detail=""):
         tags = tags_of(tags)
@@ -159,6 +163,13 @@ class Report:
     def problem(self, region, what):
         self.bad += 1
         self.lines.append(f"MISSING  {region:<10} {'stack':<32} {what}")
+
+    def absent(self, region, name):
+        """A stack with neither its VPC nor its EKS cluster: not built (a hub without a cell)
+        or already removed. Nothing of it to check, which is not a tag failure."""
+        self.absent_stacks.append(f"{region}:{name}")
+        self.lines.append(f"absent   {region:<10} {'stack':<32} {name}: no VPC tagged Name={name} and no EKS cluster, "
+                          "nothing to check")
 
 
 def check_vpc(call, report, region, vpc):
@@ -219,8 +230,18 @@ def check_stack(src, report, region, name):
         return src.call(service, op, region, *args)
 
     vpcs = call("ec2", "describe-vpcs", "--filters", f"Name=tag:Name,Values={name}")["Vpcs"]
-    if not vpcs:
+    try:
+        cluster = call("eks", "describe-cluster", "--name", name)["cluster"]
+    except CallError:
+        cluster = None
+    if not vpcs and not cluster:
+        # Not built, or removed. What is found by name alone (volumes, launch templates, roles,
+        # ECR repositories) is still checked below: a leftover must carry its tags too.
+        report.absent(region, name)
+    elif not vpcs:
         report.problem(region, f"no VPC tagged Name={name}")
+    elif not cluster:
+        report.problem(region, f"no EKS cluster {name}")
     vpc_ids = [v["VpcId"] for v in vpcs]
     subnet_ids = []
     for v in vpcs:
@@ -236,11 +257,6 @@ def check_stack(src, report, region, name):
         report.resource(region, "ec2 launch-template", lt["LaunchTemplateId"], lt.get("Tags"), lt.get("LaunchTemplateName", ""))
 
     # EKS
-    try:
-        cluster = call("eks", "describe-cluster", "--name", name)["cluster"]
-    except CallError:
-        report.problem(region, f"no EKS cluster {name}")
-        cluster = None
     if cluster:
         report.resource(region, "eks cluster", name, cluster.get("tags"))
         for cap in call("eks", "list-capabilities", "--cluster-name", name).get("capabilities", []):
@@ -329,11 +345,19 @@ def main():
             check_stack(src, report, region, name)
     finally:
         src.save()
-    print("\n".join(report.lines))
+    # Flushed first, so the summary on stderr comes after the lines when both go to one pipe.
+    print("\n".join(report.lines), flush=True)
+    absent = f" ({', '.join(report.absent_stacks)} not found: nothing to check there)" if report.absent_stacks else ""
     if report.bad:
-        print(f"{report.bad} of {report.count} resources (or stacks) MISSING auto-delete=no", file=sys.stderr)
+        print(f"{report.bad} of {report.count} resources (or stacks) MISSING auto-delete=no{absent}", file=sys.stderr)
         return 1
-    print(f"all {report.count} resources carry auto-delete=no", file=sys.stderr)
+    if report.count == 0:
+        # Nothing at all: no stack is built in this account and region, or the credentials
+        # point at another account. Not a pass and not a tag failure.
+        print(f"no stack found ({', '.join(report.absent_stacks)}): nothing was checked. "
+              "Check the AWS account and region if you expected one.", file=sys.stderr)
+        return 3
+    print(f"all {report.count} resources carry auto-delete=no{absent}", file=sys.stderr)
     return 0
 
 

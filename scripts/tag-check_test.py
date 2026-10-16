@@ -15,6 +15,7 @@ from __future__ import annotations
 
 import copy
 import importlib.util
+import json
 import os
 import re
 import shutil
@@ -195,13 +196,70 @@ class TagCheckTest(unittest.TestCase):
         repos = [line for line in report.lines if " ecr repository " in line]
         self.assertEqual(len(repos), 2, repos)
 
-    def test_missing_stack_fails(self):
-        calls = copy.deepcopy(self.tagged)
-        calls[tc.key("ec2", "describe-vpcs", "us-east-2", ["--filters", "Name=tag:Name,Values=encabulator-use2"])] = {"Vpcs": []}
-        calls[tc.key("eks", "describe-cluster", "us-east-2", ["--name", "encabulator-use2"])] = {"__error__": "ResourceNotFoundException"}
+    def drop_stack(self, calls, region, name, vpc=True, cluster=True):
+        if vpc:
+            calls[tc.key("ec2", "describe-vpcs", region, ["--filters", f"Name=tag:Name,Values={name}"])] = {"Vpcs": []}
+        if cluster:
+            calls[tc.key("eks", "describe-cluster", region, ["--name", name])] = {"__error__": "ResourceNotFoundException"}
+        return calls
+
+    def test_absent_stack_is_reported_and_not_a_failure(self):
+        # A hub with no cell yet: make hub, then make tag-check.
+        calls = self.drop_stack(copy.deepcopy(self.tagged), "us-east-2", "encabulator-use2")
         report = check_in_process(calls)
-        problems = [line for line in report.lines if "stack" in line and line.startswith("MISSING")]
-        self.assertEqual(len(problems), 2, report.lines)
+        self.assertEqual(report.bad, 0, report.lines)
+        absent = [line for line in report.lines if line.startswith("absent")]
+        self.assertEqual(len(absent), 1, report.lines)
+        self.assertIn("encabulator-use2: no VPC tagged Name=encabulator-use2 and no EKS cluster, nothing to check", absent[0])
+        self.assertEqual(report.absent_stacks, ["us-east-2:encabulator-use2"])
+
+    def test_absent_stack_exits_0_and_says_so(self):
+        calls = self.drop_stack(copy.deepcopy(self.tagged), "us-east-2", "encabulator-use2")
+        with tempfile.TemporaryDirectory() as tmp:
+            fixture = Path(tmp) / "hub-only.json"
+            fixture.write_text(json.dumps({"calls": calls}))
+            status, out, err = run(CHECK, "--fixtures", fixture)
+        self.assertEqual(status, 0, out + err)
+        self.assertNotIn("MISSING", out)
+        self.assertIn("(us-east-2:encabulator-use2 not found: nothing to check there)", err)
+
+    def test_partial_stack_fails(self):
+        for vpc, cluster, what in ((True, False, "no VPC tagged Name=encabulator-use2"),
+                                   (False, True, "no EKS cluster encabulator-use2")):
+            calls = self.drop_stack(copy.deepcopy(self.tagged), "us-east-2", "encabulator-use2", vpc=vpc, cluster=cluster)
+            report = check_in_process(calls)
+            problems = [line for line in report.lines if "stack" in line and line.startswith("MISSING")]
+            self.assertEqual(len(problems), 1, report.lines)
+            self.assertIn(what, problems[0])
+            self.assertEqual(report.absent_stacks, [])
+
+    def test_absent_stack_leftovers_are_still_checked(self):
+        # The stack's VPC and cluster are gone, but one of its roles is left without the tag.
+        calls = self.drop_stack(copy.deepcopy(self.tagged), "us-east-2", "encabulator-use2")
+        roles = [r["RoleName"] for r in calls[tc.key("iam", "list-roles", "us-east-2", [])]["Roles"]
+                 if r["RoleName"].startswith("encabulator-use2-")]
+        self.assertTrue(roles)
+        tags_key = tc.key("iam", "list-role-tags", "us-east-2", ["--role-name", roles[0]])
+        calls[tags_key] = {"Tags": [t for t in calls[tags_key]["Tags"] if t["Key"] != "auto-delete"]}
+        report = check_in_process(calls)
+        self.assertEqual(report.bad, 1, report.lines)
+        self.assertTrue(any(line.startswith("MISSING") and roles[0] in line for line in report.lines))
+
+    def test_nothing_found_exits_3(self):
+        calls = {}
+        for region, name in (("us-west-2", "encabulator-usw2"), ("us-east-2", "encabulator-use2")):
+            self.drop_stack(calls, region, name)
+            calls[tc.key("ec2", "describe-volumes", region, [tc.MANAGED, "--filters", f"Name=tag:eks:eks-cluster-name,Values={name}"])] = {"Volumes": []}
+            calls[tc.key("ec2", "describe-launch-templates", region, [tc.MANAGED, "--filters", f"Name=tag:eks:eks-cluster-name,Values={name}"])] = {"LaunchTemplates": []}
+            calls[tc.key("iam", "list-roles", region, [])] = {"Roles": []}
+            calls[tc.key("ecr", "describe-repositories", region, [])] = {"repositories": []}
+        with tempfile.TemporaryDirectory() as tmp:
+            fixture = Path(tmp) / "empty.json"
+            fixture.write_text(json.dumps({"calls": calls}))
+            status, out, err = run(CHECK, "--fixtures", fixture)
+        self.assertEqual(status, 3, out + err)
+        self.assertNotIn("MISSING", out)
+        self.assertIn("no stack found (us-west-2:encabulator-usw2, us-east-2:encabulator-use2): nothing was checked", err)
 
     def test_only_read_only_calls(self):
         ops = re.findall(r'call\("(?:ec2|eks|rds|elasticache|iam|ecr)", "([a-z-]+)"', CHECK.read_text())
