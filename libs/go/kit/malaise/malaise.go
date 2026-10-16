@@ -27,7 +27,7 @@ import (
 
 	"github.com/prometheus/client_golang/prometheus"
 
-	"github.com/jlbutler/cloud-native-encabulator/libs/go/kit/httpx"
+	"github.com/cloud-native-encabulator/encabulator/libs/go/kit/httpx"
 )
 
 // Directive kinds understood by the in-process middleware. The Kubernetes-level

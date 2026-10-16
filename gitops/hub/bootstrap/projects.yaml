@@ -16,7 +16,7 @@ spec:
   sourceNamespaces:
     - argocd
   sourceRepos:
-    - https://github.com/jlbutler/cloud-native-encabulator
+    - https://github.com/cloud-native-encabulator/encabulator
   destinations:
     - name: encabulator-usw2
       namespace: encabulator          # brownfield ACK resources
@@ -46,7 +46,7 @@ spec:
   # This repository, plus the chart repositories of the platform charts that
   # gitops/hub/appset.yaml (ApplicationSet encabulator-platform) installs on every cell.
   sourceRepos:
-    - https://github.com/jlbutler/cloud-native-encabulator
+    - https://github.com/cloud-native-encabulator/encabulator
     - https://prometheus-community.github.io/helm-charts
     - https://jaegertracing.github.io/helm-charts
     - https://open-telemetry.github.io/opentelemetry-helm-charts

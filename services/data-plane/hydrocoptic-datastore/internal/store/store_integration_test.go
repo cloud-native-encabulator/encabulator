@@ -10,10 +10,10 @@ import (
 
 	"github.com/testcontainers/testcontainers-go/wait"
 
-	"github.com/jlbutler/cloud-native-encabulator/libs/go/kit/testsupport"
+	"github.com/cloud-native-encabulator/encabulator/libs/go/kit/testsupport"
 
-	"github.com/jlbutler/cloud-native-encabulator/services/data-plane/hydrocoptic-datastore/internal/ledger"
-	"github.com/jlbutler/cloud-native-encabulator/services/data-plane/hydrocoptic-datastore/internal/store"
+	"github.com/cloud-native-encabulator/encabulator/services/data-plane/hydrocoptic-datastore/internal/ledger"
+	"github.com/cloud-native-encabulator/encabulator/services/data-plane/hydrocoptic-datastore/internal/store"
 )
 
 // newStore brings up a real postgres:18 and returns a migrated ledger.

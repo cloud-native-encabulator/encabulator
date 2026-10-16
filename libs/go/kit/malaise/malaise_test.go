@@ -14,7 +14,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/testutil"
 
-	"github.com/jlbutler/cloud-native-encabulator/libs/go/kit/malaise"
+	"github.com/cloud-native-encabulator/encabulator/libs/go/kit/malaise"
 )
 
 // engine is a stand-in for the malaise injection engine.

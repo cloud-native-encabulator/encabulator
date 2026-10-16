@@ -3,13 +3,13 @@
 > The differential girdlespring is fitted to the "up" end of the grammeters; this package is fitted
 > to the "up" end of every Go service.
 
-`github.com/jlbutler/cloud-native-encabulator/libs/go/kit` implements the cross-cutting conventions
+`github.com/cloud-native-encabulator/encabulator/libs/go/kit` implements the cross-cutting conventions
 of [design section 7](../../../docs/design.md) so that a Go service can be written as domain logic
 plus a handful of route registrations. Go services depend on it through a `replace` directive:
 
 ```
-require github.com/jlbutler/cloud-native-encabulator/libs/go/kit v0.0.0
-replace github.com/jlbutler/cloud-native-encabulator/libs/go/kit => ../../../libs/go/kit
+require github.com/cloud-native-encabulator/encabulator/libs/go/kit v0.0.0
+replace github.com/cloud-native-encabulator/encabulator/libs/go/kit => ../../../libs/go/kit
 ```
 
 ## The short version

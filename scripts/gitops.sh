@@ -152,7 +152,7 @@ check() {
   else
     log "  repository URL 2, revision 2"
   fi
-  if grep -nE '^[[:space:]]*(- )?(repoURL|targetRevision): *"?('"$default_revision"'|https://github\.com/jlbutler/cloud-native-encabulator)' "$appset" >&2; then
+  if grep -nE '^[[:space:]]*(- )?(repoURL|targetRevision): *"?('"$default_revision"'|https://github\.com/cloud-native-encabulator/encabulator)' "$appset" >&2; then
     warn "  appset.yaml sets this repository or revision directly instead of through the defaults"
     failures=$((failures + 1))
   fi

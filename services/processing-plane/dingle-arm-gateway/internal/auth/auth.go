@@ -18,7 +18,7 @@ import (
 
 	"github.com/golang-jwt/jwt/v5"
 
-	"github.com/jlbutler/cloud-native-encabulator/libs/go/kit/identity"
+	"github.com/cloud-native-encabulator/encabulator/libs/go/kit/identity"
 )
 
 // Token expectations fixed by design section 8.1.

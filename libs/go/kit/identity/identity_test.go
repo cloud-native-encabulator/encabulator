@@ -7,7 +7,7 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/jlbutler/cloud-native-encabulator/libs/go/kit/identity"
+	"github.com/cloud-native-encabulator/encabulator/libs/go/kit/identity"
 )
 
 func TestFromRequest(t *testing.T) {

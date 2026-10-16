@@ -5,7 +5,7 @@
 # TypeScript kit can be copied in (design section 7, "Containers"):
 #
 #   docker build -f services/control-plane/encabulation-control-console/Dockerfile \
-#     -t ghcr.io/jlbutler/cloud-native-encabulator/encabulation-control-console:1.0.0 .
+#     -t ghcr.io/cloud-native-encabulator/encabulator/encabulation-control-console:1.0.0 .
 #
 # Four stages: the kit, the installed dependency tree, the two builds, and a
 # runtime that carries compiled JavaScript and production dependencies only.

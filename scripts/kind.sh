@@ -19,7 +19,7 @@ repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 : "${KIND_CLUSTER:=encabulator}"
 : "${KIND_NODE_IMAGE:=kindest/node:v1.34.0}"
 : "${CONTAINER_RUNTIME:=finch}"
-: "${REGISTRY:=ghcr.io/jlbutler/cloud-native-encabulator}"
+: "${REGISTRY:=ghcr.io/cloud-native-encabulator/encabulator}"
 
 log()  { printf '\033[1m==>\033[0m %s\n' "$*"; }
 warn() { printf '\033[33m==> %s\033[0m\n' "$*" >&2; }

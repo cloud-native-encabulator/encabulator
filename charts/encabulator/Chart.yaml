@@ -14,9 +14,9 @@ appVersion: "1.0.4"
 
 kubeVersion: ">=1.27.0-0"
 
-home: https://github.com/jlbutler/cloud-native-encabulator
+home: https://github.com/cloud-native-encabulator/encabulator
 sources:
-  - https://github.com/jlbutler/cloud-native-encabulator
+  - https://github.com/cloud-native-encabulator/encabulator
 keywords:
   - microservices
   - demo

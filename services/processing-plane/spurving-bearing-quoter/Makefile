@@ -5,7 +5,7 @@
 
 SERVICE      := spurving-bearing-quoter
 VERSION      ?= $(shell cat ../../../VERSION 2>/dev/null || echo 0.0.0)
-REGISTRY     ?= ghcr.io/jlbutler/cloud-native-encabulator
+REGISTRY     ?= ghcr.io/cloud-native-encabulator/encabulator
 IMAGE        ?= $(REGISTRY)/$(SERVICE):$(VERSION)
 PLATFORMS    ?= linux/amd64,linux/arm64
 REPO_ROOT    := $(abspath ../../..)

@@ -1,10 +1,10 @@
-module github.com/jlbutler/cloud-native-encabulator/services/data-plane/sinusoidal-recorder
+module github.com/cloud-native-encabulator/encabulator/services/data-plane/sinusoidal-recorder
 
 go 1.27
 
 require (
 	github.com/InfluxCommunity/influxdb3-go/v2 v2.17.0
-	github.com/jlbutler/cloud-native-encabulator/libs/go/kit v0.0.0-00010101000000-000000000000
+	github.com/cloud-native-encabulator/encabulator/libs/go/kit v0.0.0-00010101000000-000000000000
 	github.com/prometheus/client_golang v1.24.1
 	github.com/testcontainers/testcontainers-go v0.44.0
 	go.opentelemetry.io/otel v1.46.0
@@ -86,4 +86,4 @@ require (
 	google.golang.org/protobuf v1.36.12 // indirect
 )
 
-replace github.com/jlbutler/cloud-native-encabulator/libs/go/kit => ../../../libs/go/kit
+replace github.com/cloud-native-encabulator/encabulator/libs/go/kit => ../../../libs/go/kit

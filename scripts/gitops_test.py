@@ -26,7 +26,7 @@ REPO = Path(__file__).resolve().parent.parent
 GITOPS = REPO / "scripts" / "gitops.sh"
 REGISTER = REPO / "gitops" / "hub" / "bootstrap" / "register-hub.sh"
 BOOTSTRAP = REPO / "gitops" / "hub" / "bootstrap"
-DEFAULT_URL = "https://github.com/jlbutler/cloud-native-encabulator"
+DEFAULT_URL = "https://github.com/cloud-native-encabulator/encabulator"
 CUSTOM_URL = "https://git.example.com/example-org/encabulator-fork.git"
 REGISTRY = "111122223333.dkr.ecr.us-west-2.amazonaws.com/encabulator"
 HUB_ENDPOINT = "https://EXAMPLE.gr7.us-west-2.eks.amazonaws.com"
@@ -280,7 +280,7 @@ class RenderCheckTest(unittest.TestCase):
     def test_fails_on_a_new_unrendered_repository_url(self):
         root = self.copy()
         f = root / "gitops/hub/bootstrap/hub-cells.yaml"
-        f.write_text(f.read_text().replace(DEFAULT_URL, "https://github.com/jlbutler/Cloud-Native-Encabulator"))
+        f.write_text(f.read_text().replace(DEFAULT_URL, "https://github.com/Cloud-Native-Encabulator/Encabulator"))
         status, err = self.check(root)
         self.assertEqual(status, 1, err)
         self.assertIn("hub-cells.yaml: repository URL 0 (want 1)", err)
@@ -351,7 +351,7 @@ class RegisterHubTest(unittest.TestCase):
 
     def test_only_settings_that_differ_from_the_default_are_recorded(self):
         status, _, err = self.sb.run(REGISTER, "--dry-run", GIT_REPO_URL=DEFAULT_URL, GIT_REVISION="main",
-                                     REGISTRY="ghcr.io/jlbutler/cloud-native-encabulator")
+                                     REGISTRY="ghcr.io/cloud-native-encabulator/encabulator")
         self.assertEqual(status, 0, err)
         self.assertEqual(len(self.annotations(self.manifest())), 3)
         status, _, err = self.sb.run(REGISTER, "--dry-run", GIT_REVISION="release")
@@ -509,12 +509,12 @@ class RepoAccessTest(unittest.TestCase):
         self.assertNotIn(self.TOKEN, out + err)
         self.assertNotIn(password, out + err)
 
-    def test_default_repository_gets_the_name_used_on_the_hub_today(self):
+    def test_default_repository_secret_is_named_after_the_repository(self):
         self.write_token(self.TOKEN)
         status, _, err = self.sb.run(GITOPS, "repo-access", GIT_TOKEN_FILE=str(self.token))
         self.assertEqual(status, 0, err)
         (apply,) = [c for c in self.sb.calls("kubectl") if "apply" in c["args"]]
-        self.assertIn("name: repo-cloud-native-encabulator\n", apply["stdin"])
+        self.assertIn("name: repo-encabulator\n", apply["stdin"])
         self.assertIn(f"url: {DEFAULT_URL}\n", apply["stdin"])
 
 

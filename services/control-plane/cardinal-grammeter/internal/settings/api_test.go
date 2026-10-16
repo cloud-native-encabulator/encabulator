@@ -10,9 +10,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/jlbutler/cloud-native-encabulator/services/control-plane/cardinal-grammeter/internal/api"
-	"github.com/jlbutler/cloud-native-encabulator/services/control-plane/cardinal-grammeter/internal/engine"
-	"github.com/jlbutler/cloud-native-encabulator/services/control-plane/cardinal-grammeter/internal/settings"
+	"github.com/cloud-native-encabulator/encabulator/services/control-plane/cardinal-grammeter/internal/api"
+	"github.com/cloud-native-encabulator/encabulator/services/control-plane/cardinal-grammeter/internal/engine"
+	"github.com/cloud-native-encabulator/encabulator/services/control-plane/cardinal-grammeter/internal/settings"
 )
 
 type nopRunner struct{}

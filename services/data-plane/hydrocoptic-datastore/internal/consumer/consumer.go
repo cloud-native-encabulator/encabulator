@@ -12,12 +12,12 @@ import (
 	"github.com/nats-io/nats.go/jetstream"
 	"github.com/prometheus/client_golang/prometheus"
 
-	"github.com/jlbutler/cloud-native-encabulator/libs/go/kit/events"
-	"github.com/jlbutler/cloud-native-encabulator/libs/go/kit/httpx"
-	"github.com/jlbutler/cloud-native-encabulator/libs/go/kit/malaise"
+	"github.com/cloud-native-encabulator/encabulator/libs/go/kit/events"
+	"github.com/cloud-native-encabulator/encabulator/libs/go/kit/httpx"
+	"github.com/cloud-native-encabulator/encabulator/libs/go/kit/malaise"
 
-	"github.com/jlbutler/cloud-native-encabulator/services/data-plane/hydrocoptic-datastore/internal/ledger"
-	"github.com/jlbutler/cloud-native-encabulator/services/data-plane/hydrocoptic-datastore/internal/store"
+	"github.com/cloud-native-encabulator/encabulator/services/data-plane/hydrocoptic-datastore/internal/ledger"
+	"github.com/cloud-native-encabulator/encabulator/services/data-plane/hydrocoptic-datastore/internal/store"
 )
 
 // Durable is the consumer name shared by every replica.

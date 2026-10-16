@@ -7,7 +7,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/jlbutler/cloud-native-encabulator/libs/go/kit/logging"
+	"github.com/cloud-native-encabulator/encabulator/libs/go/kit/logging"
 )
 
 func decode(t *testing.T, buf *bytes.Buffer) map[string]any {

@@ -20,7 +20,7 @@ import (
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/trace"
 
-	"github.com/jlbutler/cloud-native-encabulator/libs/go/kit/identity"
+	"github.com/cloud-native-encabulator/encabulator/libs/go/kit/identity"
 )
 
 // Outbound defaults from design section 7.

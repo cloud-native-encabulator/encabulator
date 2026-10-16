@@ -1,10 +1,10 @@
-module github.com/jlbutler/cloud-native-encabulator/services/processing-plane/dingle-arm-gateway
+module github.com/cloud-native-encabulator/encabulator/services/processing-plane/dingle-arm-gateway
 
 go 1.27
 
 require (
+	github.com/cloud-native-encabulator/encabulator/libs/go/kit v0.0.0
 	github.com/golang-jwt/jwt/v5 v5.3.1
-	github.com/jlbutler/cloud-native-encabulator/libs/go/kit v0.0.0
 	github.com/prometheus/client_golang v1.24.1
 	go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp v0.71.0
 	go.opentelemetry.io/otel v1.46.0
@@ -39,4 +39,4 @@ require (
 	google.golang.org/protobuf v1.36.12 // indirect
 )
 
-replace github.com/jlbutler/cloud-native-encabulator/libs/go/kit => ../../../libs/go/kit
+replace github.com/cloud-native-encabulator/encabulator/libs/go/kit => ../../../libs/go/kit

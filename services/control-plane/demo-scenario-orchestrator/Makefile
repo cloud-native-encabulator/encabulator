@@ -1,6 +1,6 @@
 # demo-scenario-orchestrator: rehearses the demo so the presenter does not have to.
 SERVICE  := demo-scenario-orchestrator
-REGISTRY ?= ghcr.io/jlbutler/cloud-native-encabulator
+REGISTRY ?= ghcr.io/cloud-native-encabulator/encabulator
 VERSION  ?= $(shell cat ../../../VERSION)
 REPO_ROOT := ../../..
 

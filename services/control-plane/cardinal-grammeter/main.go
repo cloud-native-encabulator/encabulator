@@ -16,19 +16,19 @@ import (
 
 	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
 
-	"github.com/jlbutler/cloud-native-encabulator/libs/go/kit"
-	"github.com/jlbutler/cloud-native-encabulator/libs/go/kit/config"
+	"github.com/cloud-native-encabulator/encabulator/libs/go/kit"
+	"github.com/cloud-native-encabulator/encabulator/libs/go/kit/config"
 
-	"github.com/jlbutler/cloud-native-encabulator/services/control-plane/cardinal-grammeter/internal/api"
-	"github.com/jlbutler/cloud-native-encabulator/services/control-plane/cardinal-grammeter/internal/customer"
-	"github.com/jlbutler/cloud-native-encabulator/services/control-plane/cardinal-grammeter/internal/engine"
-	"github.com/jlbutler/cloud-native-encabulator/services/control-plane/cardinal-grammeter/internal/gateway"
-	"github.com/jlbutler/cloud-native-encabulator/services/control-plane/cardinal-grammeter/internal/journey"
-	"github.com/jlbutler/cloud-native-encabulator/services/control-plane/cardinal-grammeter/internal/metrics"
-	"github.com/jlbutler/cloud-native-encabulator/services/control-plane/cardinal-grammeter/internal/rng"
-	"github.com/jlbutler/cloud-native-encabulator/services/control-plane/cardinal-grammeter/internal/settings"
-	"github.com/jlbutler/cloud-native-encabulator/services/control-plane/cardinal-grammeter/internal/stats"
-	"github.com/jlbutler/cloud-native-encabulator/services/control-plane/cardinal-grammeter/internal/traffic"
+	"github.com/cloud-native-encabulator/encabulator/services/control-plane/cardinal-grammeter/internal/api"
+	"github.com/cloud-native-encabulator/encabulator/services/control-plane/cardinal-grammeter/internal/customer"
+	"github.com/cloud-native-encabulator/encabulator/services/control-plane/cardinal-grammeter/internal/engine"
+	"github.com/cloud-native-encabulator/encabulator/services/control-plane/cardinal-grammeter/internal/gateway"
+	"github.com/cloud-native-encabulator/encabulator/services/control-plane/cardinal-grammeter/internal/journey"
+	"github.com/cloud-native-encabulator/encabulator/services/control-plane/cardinal-grammeter/internal/metrics"
+	"github.com/cloud-native-encabulator/encabulator/services/control-plane/cardinal-grammeter/internal/rng"
+	"github.com/cloud-native-encabulator/encabulator/services/control-plane/cardinal-grammeter/internal/settings"
+	"github.com/cloud-native-encabulator/encabulator/services/control-plane/cardinal-grammeter/internal/stats"
+	"github.com/cloud-native-encabulator/encabulator/services/control-plane/cardinal-grammeter/internal/traffic"
 )
 
 // serviceName is this service's name in the catalog.

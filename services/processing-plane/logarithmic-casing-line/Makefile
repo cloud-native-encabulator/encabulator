@@ -1,6 +1,6 @@
 # logarithmic-casing-line: fabrication workers.
 SERVICE  := logarithmic-casing-line
-REGISTRY ?= ghcr.io/jlbutler/cloud-native-encabulator
+REGISTRY ?= ghcr.io/cloud-native-encabulator/encabulator
 VERSION  ?= $(shell cat ../../../VERSION)
 REPO_ROOT := ../../..
 

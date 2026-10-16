@@ -8,10 +8,10 @@ metadata:
 spec:
   project: encabulator-hub
   sources:
-    - repoURL: https://github.com/jlbutler/cloud-native-encabulator
+    - repoURL: https://github.com/cloud-native-encabulator/encabulator
       targetRevision: main
       path: gitops/hub/rgds
-    - repoURL: https://github.com/jlbutler/cloud-native-encabulator
+    - repoURL: https://github.com/cloud-native-encabulator/encabulator
       targetRevision: main
       path: gitops/hub/rbac
   destination:

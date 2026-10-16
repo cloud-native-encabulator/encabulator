@@ -1,11 +1,11 @@
-module github.com/jlbutler/cloud-native-encabulator/services/control-plane/malaise-injection-engine
+module github.com/cloud-native-encabulator/encabulator/services/control-plane/malaise-injection-engine
 
 go 1.27
 
 require (
 	github.com/alicebob/miniredis/v2 v2.39.0
+	github.com/cloud-native-encabulator/encabulator/libs/go/kit v0.0.0
 	github.com/google/uuid v1.6.0
-	github.com/jlbutler/cloud-native-encabulator/libs/go/kit v0.0.0
 	github.com/moby/moby/api v1.55.0
 	github.com/prometheus/client_golang v1.24.1
 	github.com/redis/go-redis/v9 v9.22.0
@@ -119,4 +119,4 @@ require (
 	sigs.k8s.io/yaml v1.6.0 // indirect
 )
 
-replace github.com/jlbutler/cloud-native-encabulator/libs/go/kit => ../../../libs/go/kit
+replace github.com/cloud-native-encabulator/encabulator/libs/go/kit => ../../../libs/go/kit

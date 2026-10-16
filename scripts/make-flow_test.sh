@@ -29,7 +29,7 @@ work="$(mktemp -d)"
 trap 'rm -rf "$work"' EXIT
 
 ecr="111122223333.dkr.ecr.us-west-2.amazonaws.com/encabulator"
-ghcr="ghcr.io/jlbutler/cloud-native-encabulator"
+ghcr="ghcr.io/cloud-native-encabulator/encabulator"
 arn="arn:aws:sso:::instance/ssoins-1111111111111111"
 group="a1b2c3d4e5-11111111-2222-3333-4444-555555555555"
 services=()
@@ -320,7 +320,7 @@ markers=(
   "terraform -chdir=terraform/brownfield output -raw kubeconfig_command"
   "aws eks update-kubeconfig --region us-west-2 --name encabulator-usw2 --alias encabulator-usw2"
   "aws eks describe-capability --region us-west-2 --cluster-name encabulator-usw2 --capability-name kro"
-  "curl https://ghcr.io/v2/jlbutler/cloud-native-encabulator/"
+  "curl https://ghcr.io/v2/cloud-native-encabulator/encabulator/"
   "aws ecr create-repository --region us-west-2 --repository-name encabulator/"
   "docker build"
   "target platform"

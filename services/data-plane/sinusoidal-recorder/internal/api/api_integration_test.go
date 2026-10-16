@@ -13,11 +13,11 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/testcontainers/testcontainers-go/wait"
 
-	"github.com/jlbutler/cloud-native-encabulator/libs/go/kit/httpx"
-	"github.com/jlbutler/cloud-native-encabulator/libs/go/kit/testsupport"
+	"github.com/cloud-native-encabulator/encabulator/libs/go/kit/httpx"
+	"github.com/cloud-native-encabulator/encabulator/libs/go/kit/testsupport"
 
-	"github.com/jlbutler/cloud-native-encabulator/services/data-plane/sinusoidal-recorder/internal/api"
-	"github.com/jlbutler/cloud-native-encabulator/services/data-plane/sinusoidal-recorder/internal/influx"
+	"github.com/cloud-native-encabulator/encabulator/services/data-plane/sinusoidal-recorder/internal/api"
+	"github.com/cloud-native-encabulator/encabulator/services/data-plane/sinusoidal-recorder/internal/influx"
 )
 
 // TestRecorderEndToEnd drives the real HTTP API against a real InfluxDB 3 Core:

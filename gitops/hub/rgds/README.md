@@ -88,7 +88,7 @@ hub's argocd cluster Secret (external reference, read only): the repository, rev
   | `encabulator.io/subnet-ids` | private subnet ids, comma-separated | `Encabulator.spec.subnetIDs`, NodeClass subnets |
   | `encabulator.io/security-group-id` | `encabulator-db` group id | `Encabulator.spec.securityGroupID` |
   | `encabulator.io/cluster-security-group-id` | EKS cluster security group | NodeClass security group |
-  | `encabulator.io/registry` (optional) | an image mirror, for example `<account>.dkr.ecr.<region>.amazonaws.com/encabulator` | `Encabulator.spec.registry`; absent means the RGD default `ghcr.io/jlbutler/cloud-native-encabulator` |
+  | `encabulator.io/registry` (optional) | an image mirror, for example `<account>.dkr.ecr.<region>.amazonaws.com/encabulator` | `Encabulator.spec.registry`; absent means the RGD default `ghcr.io/cloud-native-encabulator/encabulator` |
   | `encabulator.io/repo-url`, `encabulator.io/revision` (optional) | the repository and revision of the cell's Applications | `source.repoURL` and `targetRevision` of every Application the two ApplicationSets render; absent means this repository at `main` |
   | `encabulator.io/ack-capability`, `kro-capability`, `argocd-access-entry` | ARNs | ordering: the Secret waits for them |
 

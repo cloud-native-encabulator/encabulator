@@ -15,9 +15,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/jlbutler/cloud-native-encabulator/services/control-plane/cardinal-grammeter/internal/engine"
-	"github.com/jlbutler/cloud-native-encabulator/services/control-plane/cardinal-grammeter/internal/journey"
-	"github.com/jlbutler/cloud-native-encabulator/services/control-plane/cardinal-grammeter/internal/traffic"
+	"github.com/cloud-native-encabulator/encabulator/services/control-plane/cardinal-grammeter/internal/engine"
+	"github.com/cloud-native-encabulator/encabulator/services/control-plane/cardinal-grammeter/internal/journey"
+	"github.com/cloud-native-encabulator/encabulator/services/control-plane/cardinal-grammeter/internal/traffic"
 )
 
 func quiet() *slog.Logger { return slog.New(slog.NewTextHandler(io.Discard, nil)) }

@@ -1,6 +1,6 @@
 # unilateral-phase-detractor: identity for the Encabulator Works.
 SERVICE  := unilateral-phase-detractor
-REGISTRY ?= ghcr.io/jlbutler/cloud-native-encabulator
+REGISTRY ?= ghcr.io/cloud-native-encabulator/encabulator
 VERSION  ?= $(shell cat ../../../VERSION)
 REPO_ROOT := ../../..
 

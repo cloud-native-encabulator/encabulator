@@ -17,7 +17,7 @@ import (
 	"k8s.io/client-go/kubernetes/fake"
 	k8stesting "k8s.io/client-go/testing"
 
-	"github.com/jlbutler/cloud-native-encabulator/services/control-plane/malaise-injection-engine/internal/malaise"
+	"github.com/cloud-native-encabulator/encabulator/services/control-plane/malaise-injection-engine/internal/malaise"
 )
 
 const (

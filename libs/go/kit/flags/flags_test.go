@@ -11,7 +11,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/jlbutler/cloud-native-encabulator/libs/go/kit/flags"
+	"github.com/cloud-native-encabulator/encabulator/libs/go/kit/flags"
 )
 
 // girdlespring is a stand-in for differential-girdlespring.

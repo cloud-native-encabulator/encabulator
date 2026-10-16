@@ -104,7 +104,7 @@ Every Dockerfile takes the **repository root** as its build context, because the
 their language's kit. Build them as `-f services/<plane>-plane/<name>/Dockerfile .`, never from
 inside the service directory.
 
-Images default to `ghcr.io/jlbutler/cloud-native-encabulator/<service>:<VERSION>`. Override with
+Images default to `ghcr.io/cloud-native-encabulator/encabulator/<service>:<VERSION>`. Override with
 `REGISTRY=` and `VERSION=`. In normal use you do not build images at all: the `images.yml` workflow
 builds multi-architecture images on every push to `main` and on tags.
 

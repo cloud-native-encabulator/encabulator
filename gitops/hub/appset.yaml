@@ -41,7 +41,7 @@ spec:
     spec:
       project: encabulator-cells
       source:
-        repoURL: '{{ index .metadata.annotations "encabulator.io/repo-url" | default "https://github.com/jlbutler/cloud-native-encabulator" }}'
+        repoURL: '{{ index .metadata.annotations "encabulator.io/repo-url" | default "https://github.com/cloud-native-encabulator/encabulator" }}'
         targetRevision: '{{ index .metadata.annotations "encabulator.io/revision" | default "main" }}'
         path: gitops/app
         kustomize:
@@ -215,7 +215,7 @@ spec:
   # must not delete it, or everything that uses it, on its own. This repository's URL and
   # revision come from the cell Secret, as in the encabulator ApplicationSet above.
   templatePatch: |
-    {{- $repoURL := index .metadata.annotations "encabulator.io/repo-url" | default "https://github.com/jlbutler/cloud-native-encabulator" }}
+    {{- $repoURL := index .metadata.annotations "encabulator.io/repo-url" | default "https://github.com/cloud-native-encabulator/encabulator" }}
     {{- $revision := index .metadata.annotations "encabulator.io/revision" | default "main" }}
     spec:
       sources:

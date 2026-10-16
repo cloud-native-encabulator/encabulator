@@ -7,11 +7,11 @@ import (
 	"log/slog"
 	"os"
 
-	"github.com/jlbutler/cloud-native-encabulator/libs/go/kit"
-	"github.com/jlbutler/cloud-native-encabulator/libs/go/kit/config"
+	"github.com/cloud-native-encabulator/encabulator/libs/go/kit"
+	"github.com/cloud-native-encabulator/encabulator/libs/go/kit/config"
 
-	"github.com/jlbutler/cloud-native-encabulator/services/support-plane/differential-girdlespring/internal/api"
-	"github.com/jlbutler/cloud-native-encabulator/services/support-plane/differential-girdlespring/internal/store"
+	"github.com/cloud-native-encabulator/encabulator/services/support-plane/differential-girdlespring/internal/api"
+	"github.com/cloud-native-encabulator/encabulator/services/support-plane/differential-girdlespring/internal/store"
 )
 
 const serviceName = "differential-girdlespring"

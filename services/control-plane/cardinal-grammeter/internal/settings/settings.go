@@ -16,7 +16,7 @@ import (
 	"log/slog"
 	"time"
 
-	"github.com/jlbutler/cloud-native-encabulator/services/control-plane/cardinal-grammeter/internal/engine"
+	"github.com/cloud-native-encabulator/encabulator/services/control-plane/cardinal-grammeter/internal/engine"
 )
 
 // Key is the ConfigMap data key that holds the saved configuration.

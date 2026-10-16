@@ -7,7 +7,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/jlbutler/cloud-native-encabulator/services/processing-plane/dingle-arm-gateway/internal/ratelimit"
+	"github.com/cloud-native-encabulator/encabulator/services/processing-plane/dingle-arm-gateway/internal/ratelimit"
 )
 
 // clock is a manual clock so the bucket maths is exact rather than flaky.

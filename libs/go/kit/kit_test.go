@@ -7,8 +7,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/jlbutler/cloud-native-encabulator/libs/go/kit"
-	"github.com/jlbutler/cloud-native-encabulator/libs/go/kit/flags"
+	"github.com/cloud-native-encabulator/encabulator/libs/go/kit"
+	"github.com/cloud-native-encabulator/encabulator/libs/go/kit/flags"
 )
 
 func TestBootstrapRequiresAServiceName(t *testing.T) {

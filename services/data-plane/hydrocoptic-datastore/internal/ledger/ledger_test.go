@@ -8,7 +8,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/jlbutler/cloud-native-encabulator/services/data-plane/hydrocoptic-datastore/internal/ledger"
+	"github.com/cloud-native-encabulator/encabulator/services/data-plane/hydrocoptic-datastore/internal/ledger"
 )
 
 func TestAllowTransitionFollowsTheLifecycle(t *testing.T) {

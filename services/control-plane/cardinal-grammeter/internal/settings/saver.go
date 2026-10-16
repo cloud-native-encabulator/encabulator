@@ -6,7 +6,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/jlbutler/cloud-native-encabulator/services/control-plane/cardinal-grammeter/internal/engine"
+	"github.com/cloud-native-encabulator/encabulator/services/control-plane/cardinal-grammeter/internal/engine"
 )
 
 // Saver writes configurations to a Store from one background goroutine, so a

@@ -9,7 +9,7 @@ import (
 	"github.com/alicebob/miniredis/v2"
 	"github.com/redis/go-redis/v9"
 
-	"github.com/jlbutler/cloud-native-encabulator/services/control-plane/malaise-injection-engine/internal/malaise"
+	"github.com/cloud-native-encabulator/encabulator/services/control-plane/malaise-injection-engine/internal/malaise"
 )
 
 var epoch = time.Date(2026, 9, 30, 12, 0, 0, 0, time.UTC)

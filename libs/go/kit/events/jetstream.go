@@ -17,7 +17,7 @@ import (
 	"go.opentelemetry.io/otel/trace"
 )
 
-const tracerName = "github.com/jlbutler/cloud-native-encabulator/libs/go/kit/events"
+const tracerName = "github.com/cloud-native-encabulator/encabulator/libs/go/kit/events"
 
 // Connect dials NATS with the conventions the design expects: named connection,
 // infinite reconnect, and a modest reconnect wait.

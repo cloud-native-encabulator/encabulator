@@ -11,9 +11,9 @@ import (
 
 	"github.com/prometheus/client_golang/prometheus"
 
-	"github.com/jlbutler/cloud-native-encabulator/services/control-plane/malaise-injection-engine/internal/catalog"
-	"github.com/jlbutler/cloud-native-encabulator/services/control-plane/malaise-injection-engine/internal/malaise"
-	"github.com/jlbutler/cloud-native-encabulator/services/control-plane/malaise-injection-engine/internal/store"
+	"github.com/cloud-native-encabulator/encabulator/services/control-plane/malaise-injection-engine/internal/catalog"
+	"github.com/cloud-native-encabulator/encabulator/services/control-plane/malaise-injection-engine/internal/malaise"
+	"github.com/cloud-native-encabulator/encabulator/services/control-plane/malaise-injection-engine/internal/store"
 )
 
 // ReconcileInterval is the loop period fixed by the design.

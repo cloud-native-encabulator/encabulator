@@ -21,7 +21,7 @@ set -euo pipefail
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$repo_root"
 
-default_registry="ghcr.io/jlbutler/cloud-native-encabulator"
+default_registry="ghcr.io/cloud-native-encabulator/encabulator"
 ghcr_repository="${default_registry#ghcr.io/}"
 : "${VERSION:=$(tr -d '[:space:]' <VERSION)}"
 : "${REGISTRY:=$default_registry}"

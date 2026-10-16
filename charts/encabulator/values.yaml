@@ -9,7 +9,7 @@
 # -----------------------------------------------------------------------------
 global:
   # Images are ${registry}/<service>:<tag>. tag defaults to .Chart.AppVersion.
-  registry: ghcr.io/jlbutler/cloud-native-encabulator
+  registry: ghcr.io/cloud-native-encabulator/encabulator
   imageTag: ""
   imagePullPolicy: IfNotPresent
   imagePullSecrets: []

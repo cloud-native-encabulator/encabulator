@@ -8,13 +8,13 @@ import (
 	"log/slog"
 	"os"
 
-	"github.com/jlbutler/cloud-native-encabulator/libs/go/kit"
-	"github.com/jlbutler/cloud-native-encabulator/libs/go/kit/config"
-	"github.com/jlbutler/cloud-native-encabulator/libs/go/kit/flags"
+	"github.com/cloud-native-encabulator/encabulator/libs/go/kit"
+	"github.com/cloud-native-encabulator/encabulator/libs/go/kit/config"
+	"github.com/cloud-native-encabulator/encabulator/libs/go/kit/flags"
 
-	"github.com/jlbutler/cloud-native-encabulator/services/processing-plane/dingle-arm-gateway/internal/auth"
-	"github.com/jlbutler/cloud-native-encabulator/services/processing-plane/dingle-arm-gateway/internal/gateway"
-	"github.com/jlbutler/cloud-native-encabulator/services/processing-plane/dingle-arm-gateway/internal/ratelimit"
+	"github.com/cloud-native-encabulator/encabulator/services/processing-plane/dingle-arm-gateway/internal/auth"
+	"github.com/cloud-native-encabulator/encabulator/services/processing-plane/dingle-arm-gateway/internal/gateway"
+	"github.com/cloud-native-encabulator/encabulator/services/processing-plane/dingle-arm-gateway/internal/ratelimit"
 )
 
 const serviceName = "dingle-arm-gateway"

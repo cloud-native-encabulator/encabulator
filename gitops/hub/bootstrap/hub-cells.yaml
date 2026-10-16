@@ -8,7 +8,7 @@ metadata:
 spec:
   project: encabulator-hub
   source:
-    repoURL: https://github.com/jlbutler/cloud-native-encabulator
+    repoURL: https://github.com/cloud-native-encabulator/encabulator
     targetRevision: main
     path: gitops/hub/cells
   destination:

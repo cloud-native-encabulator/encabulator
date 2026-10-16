@@ -16,11 +16,11 @@ import (
 
 	"github.com/prometheus/client_golang/prometheus"
 
-	"github.com/jlbutler/cloud-native-encabulator/libs/go/kit/httpx"
-	"github.com/jlbutler/cloud-native-encabulator/libs/go/kit/identity"
+	"github.com/cloud-native-encabulator/encabulator/libs/go/kit/httpx"
+	"github.com/cloud-native-encabulator/encabulator/libs/go/kit/identity"
 
-	"github.com/jlbutler/cloud-native-encabulator/services/processing-plane/dingle-arm-gateway/internal/auth"
-	"github.com/jlbutler/cloud-native-encabulator/services/processing-plane/dingle-arm-gateway/internal/gateway"
+	"github.com/cloud-native-encabulator/encabulator/services/processing-plane/dingle-arm-gateway/internal/auth"
+	"github.com/cloud-native-encabulator/encabulator/services/processing-plane/dingle-arm-gateway/internal/gateway"
 )
 
 // upstream records what the gateway forwarded.
