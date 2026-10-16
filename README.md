@@ -239,14 +239,17 @@ all again ([`docs/TAGGING.md`](docs/TAGGING.md)).
 You need an AWS account with [IAM Identity Center](https://docs.aws.amazon.com/singlesignon/latest/userguide/get-set-up-for-idc.html)
 enabled and a group in it whose members will be Argo CD admins (Argo CD signs users in through
 Identity Center), and AWS credentials in your shell (a profile, `aws sso login`, or environment
-variables). The few values specific to your account go in one gitignored file:
+variables). It has to be a group, not a user: if Identity Center has no group yet, create one and
+add yourself to it (in the Identity Center console under Groups, or with the commands in
+`.env.example`), and `make prereqs` tells you when there is none. The few values specific to your
+account go in one gitignored file:
 
 ```bash
-cp .env.example .env     # fill in IDC_INSTANCE_ARN and ARGOCD_ADMIN_GROUP_ID; the file says how to find them
+cp .env.example .env     # fill in IDC_INSTANCE_ARN and ARGOCD_ADMIN_GROUP_ID; the file says how to find (or create) them
 make prereqs             # read-only: checks the tools, your credentials and those values, and names every fix
 make hub                 # asks first, then builds the hub in us-west-2 (billable, about 25 minutes)
 make add-cell CELL=use2  # optional: the hub builds a second region, a cell (billable)
-make tag-check           # read-only: no AWS resource without its tags
+make tag-check           # read-only, 10 minutes after the last step: no AWS resource without its tags
 ```
 
 `make hub` runs these steps in order, and each one is also a target of its own:
@@ -263,10 +266,30 @@ make tag-check           # read-only: no AWS resource without its tags
 
 It stops at the first step that fails, names it, and is safe to run again. `CONFIRM=yes` answers
 its question for you. A value on the make command line or in your shell wins over `.env`, so
-`make hub REGISTRY=...` works too. To deploy from your own fork or branch, set `GIT_REPO_URL` and
-`GIT_REVISION` in `.env` (and `GIT_TOKEN_FILE` for a private repository). The one-command path is
-new and has not been run end to end in a fresh account yet; every step it runs is the one described
-in the READMEs linked here.
+`make hub REGISTRY=...` works too. `TERRAFORM` is the one setting that is not read from `.env`: if
+your Terraform comes from a version manager, pass it on the command line, for example
+`make hub TERRAFORM="mise exec terraform@1.14.9 -- terraform"`. To deploy from your own fork or
+branch, set `GIT_REPO_URL` and `GIT_REVISION` in `.env` (and `GIT_TOKEN_FILE` for a private
+repository).
+
+This path has been run end to end in a fresh account, with only the commands above. What it
+measured:
+
+| Step | Time |
+|---|---|
+| `make hub`, from the confirmation to "The hub is up" | 24 minutes (Terraform 19, of which the EKS cluster 12; the platform and the app 4) |
+| every hub Application `Synced` and `Healthy` | 1 minute after that |
+| `make add-cell CELL=use2` to the cell `ACTIVE` | 23 minutes |
+| to the cell's five Applications `Synced` and `Healthy` | 31 minutes |
+| to the first order placed through the cell's gateway and delivered | 33 minutes (the order itself took under a minute) |
+
+`make tag-check` then passed for both stacks. Before a cell is added, it reports the cell's stack
+as `absent`, which is not a failure.
+
+To open the cell's console, run `make cell-access CELL=use2` and the `aws eks update-kubeconfig`
+command it prints. That command also switches kubectl to the cell, so `make console` and
+`make credentials` now act on the cell; `kubectl config use-context encabulator-usw2` switches back
+to the hub.
 
 The hand-off from Terraform to Git (the `removed` blocks), the optional look-first step that adopts
 the database by hand before Git owns it, and the exact order of the live steps are in
