@@ -13,9 +13,10 @@
 #
 # Settings (make passes them): HUB_REGION, HUB_CLUSTER, KUBECTL, TERRAFORM, TF_DIR, NAMESPACE,
 # MAKE, CELL, CONFIRM (the name you would type, to answer without a terminal),
-# TEARDOWN_STORES (ack, the default: through the hub's ACK; or cli: with the AWS CLI) and the
-# TF_VAR_ values. Waits check every TEARDOWN_POLL seconds (20) and give up after
-# TEARDOWN_TIMEOUT_<what> seconds (below), with a message that says to run the command again.
+# TEARDOWN_STORES (ack, the default: through the hub's ACK; or cli: with the AWS CLI; the
+# caches' automatic snapshots always go with the AWS CLI) and the TF_VAR_ values. Waits check
+# every TEARDOWN_POLL seconds (20) and give up after TEARDOWN_TIMEOUT_<what> seconds (below),
+# with a message that says to run the command again.
 set -Eeuo pipefail
 
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -217,8 +218,9 @@ tagged_project() { [[ "$1" == "encabulator" ]] || die "$2 does not carry the tag
 # stores_delete REGION STACK NAMESPACE: the RDS instance encabulator-pg, the Valkey cache
 # encabulator-valkey, the DB subnet group encabulator and the cache's automatic snapshots of one
 # stack (the hub or a cell). Each must be in the VPC tagged Name=STACK and carry the project
-# tag; anything else stops the run. ACK on the hub deletes them (adopt, then delete the
-# object), or the AWS CLI with TEARDOWN_STORES=cli. No final snapshot is kept.
+# tag; anything else stops the run. ACK on the hub deletes the instance, the cache and the
+# subnet group (adopt, then delete the object), or the AWS CLI with TEARDOWN_STORES=cli; the
+# snapshots always go with the AWS CLI (snapshots_delete says why). No final snapshot is kept.
 stores_delete() {
   local r="$1" stack="$2" ns="$3" vpc info arn status dvpc protect subnets sgs svpc
   [[ "$TEARDOWN_STORES" == ack || "$TEARDOWN_STORES" == cli ]] || die "TEARDOWN_STORES must be ack or cli, not $TEARDOWN_STORES."
@@ -291,27 +293,32 @@ stores_delete() {
     say "DB subnet group encabulator ($r): deleted"
   else say "DB subnet group encabulator ($r): none"; fi
 
-  snapshots_delete "$r" "$stack" "$ns"
+  snapshots_delete "$r"
 }
 
-# snapshots_delete REGION STACK NAMESPACE: the automatic snapshots of encabulator-valkey, which
-# stay after the cache is deleted until they expire (one day).
+# snapshots_delete REGION: the automatic snapshots of encabulator-valkey, which stay after the
+# cache is deleted until they expire (one day). The AWS CLI deletes them with either
+# TEARDOWN_STORES: ACK cannot. Its ServerlessCacheSnapshot needs spec.serverlessCacheName to
+# resolve, and it reads the snapshot with DescribeServerlessCacheSnapshots filtered by that
+# cache, which answers ServerlessCacheNotFoundFault once the cache is deleted, so the object
+# never syncs. A snapshot that expired in the meantime is already gone; any other error stops.
 snapshots_delete() {
-  local r="$1" stack="$2" ns="$3" names n=0 snap sarn
-  names="$(aws elasticache describe-serverless-cache-snapshots --region "$r" \
-    --query 'ServerlessCacheSnapshots[?ServerlessCacheConfiguration.ServerlessCacheName==`encabulator-valkey`].[ServerlessCacheSnapshotName,ARN]' --output text)"
-  while read -r snap sarn; do
+  local r="$1" rows n=0 snap sarn status out
+  rows="$(aws elasticache describe-serverless-cache-snapshots --region "$r" \
+    --query 'ServerlessCacheSnapshots[?ServerlessCacheConfiguration.ServerlessCacheName==`encabulator-valkey`].[ServerlessCacheSnapshotName,ARN,Status]' --output text)"
+  while read -r snap sarn status; do
     [[ -n "$snap" && "$snap" != None ]] || continue
     n=$((n + 1))
     tagged_project "$(aws elasticache list-tags-for-resource --region "$r" --resource-name "$sarn" --query 'TagList[?Key==`project`].Value' --output text)" "Valkey snapshot $snap in $r"
-    if [[ "$TEARDOWN_STORES" == ack ]]; then
-      adopt_delete "$ns" serverlesscachesnapshots.elasticache.services.k8s.aws "$stack-teardown-snapshot-$n" adopt-cache-snapshot.yaml \
-        ServerlessCacheSnapshot region="$r" id="$snap"
+    if [[ "$status" == deleting ]]; then say "Valkey snapshot $snap ($r) is already being deleted"; continue; fi
+    if out="$(aws elasticache delete-serverless-cache-snapshot --region "$r" --serverless-cache-snapshot-name "$snap" 2>&1)"; then
+      say "Valkey snapshot $snap ($r): deleted, with the AWS CLI"
+    elif [[ "$out" == *ServerlessCacheSnapshotNotFoundFault* ]]; then
+      say "Valkey snapshot $snap ($r): already gone"
     else
-      aws elasticache delete-serverless-cache-snapshot --region "$r" --serverless-cache-snapshot-name "$snap" >/dev/null
+      die "aws elasticache delete-serverless-cache-snapshot failed for $snap in $r: $(tail -n 1 <<<"$out")"
     fi
-    say "Valkey snapshot $snap ($r): deleted"
-  done <<<"$names"
+  done <<<"$rows"
   [[ $n -gt 0 ]] || say "Valkey snapshots of encabulator-valkey ($r): none"
 }
 
@@ -661,14 +668,16 @@ hub_stores() {
   if grep -qx 'aws_db_instance.pg' <<<"$list"; then
     say "Terraform still owns the hub's stores (before the hand-off): terraform destroy deletes them in step 7."
     say "Their automatic snapshots outlive Terraform, so they go now:"
-    if $hub_up || [[ "$TEARDOWN_STORES" == cli ]]; then snapshots_delete "$HUB_REGION" "$HUB_CLUSTER" "$NAMESPACE"; fi
+    snapshots_delete "$HUB_REGION"
     return 0
   fi
   if ! $hub_up && [[ "$TEARDOWN_STORES" == ack ]]; then
     left="$(aws_or_none DBInstanceNotFound rds describe-db-instances --region "$HUB_REGION" --db-instance-identifier encabulator-pg --query 'DBInstances[0].DBInstanceStatus' --output text)"
     left+="$(aws_or_none ServerlessCacheNotFound elasticache describe-serverless-caches --region "$HUB_REGION" --serverless-cache-name encabulator-valkey --query 'ServerlessCaches[0].Status' --output text)"
     [[ -z "$left" ]] || die "The hub's stores are still in $HUB_REGION and the hub's ACK is gone with the hub: run make teardown TEARDOWN_STORES=cli."
-    say "no store left in $HUB_REGION"; return 0
+    say "no store left in $HUB_REGION; the automatic snapshots of the cache need no hub:"
+    snapshots_delete "$HUB_REGION"
+    return 0
   fi
   stores_delete "$HUB_REGION" "$HUB_CLUSTER" "$NAMESPACE"
 }
