@@ -31,7 +31,7 @@ from `scripts/services.txt` and nowhere else.
 |---|---|
 | Go, Node, Python, Rust services and kits | `make lint` and `make test` (or `make -C services/<plane>-plane/<service> test`) |
 | charts | `make lint-charts` (helm lint, helm template over value combinations, kubeconform) |
-| shell | `shellcheck --severity=warning scripts/*.sh`, `scripts/make-flow_test.sh`, `scripts/teardown_test.sh` |
+| shell | `shellcheck --severity=warning scripts/*.sh`, `scripts/make-flow_test.sh`, `scripts/teardown_test.sh`, `scripts/images-workflow_test.sh` |
 | agent skills | `make skills-check` (the skill links, static checks, the health check tests) |
 | gitops | `make gitops-render-check` and `make gitops-test` |
 
@@ -45,14 +45,21 @@ context, for linux/amd64 and linux/arm64, and pushes to
 `ghcr.io/cloud-native-encabulator/encabulator/<service>`:
 
 - on a push to `main`: tags `VERSION` (from the `VERSION` file), `sha-<short commit>` and `latest`;
-- on a `v*` tag: the tag's version and `major.minor`;
+  a push that changes only docs (`docs/`, the skill trees, markdown no image copies; the
+  `paths-ignore` list in the workflow) builds nothing;
+- on a `v*` tag: the tag's version and `major.minor`, whatever the tag changes;
 - by hand (`workflow_dispatch`), optionally for some services only.
 
-Every merge to main rewrites the version tag and `latest`, so anyone who needs a fixed image pins
-`sha-<commit>` or a digest. Attestations are recorded because the repository is public:
+Every merge to main that changes more than docs rewrites the version tag and `latest`, so anyone
+who needs a fixed image pins `sha-<commit>` or a digest; a docs-only merge leaves both where they
+are. Attestations are recorded because the repository is public:
 `gh attestation verify oci://ghcr.io/cloud-native-encabulator/encabulator/<service>:<tag> --repo cloud-native-encabulator/encabulator`.
 A new GHCR package starts private, and the cluster pulls anonymously, so a new service's package
-has to be made public once. `scripts/mirror-images.sh --check` checks all 15 anonymously.
+has to be made public once. The workflow's last job, `every image pulls anonymously`, runs
+`scripts/mirror-images.sh --check` with no credential for the version the run built, and fails
+the run while any package is private. The fix is in the package's settings on GitHub (change its
+visibility to Public; there is no API for it), then re-run the job.
+`scripts/images-workflow_test.sh` tests the triggers and that job offline.
 
 ## Propose a fix live
 

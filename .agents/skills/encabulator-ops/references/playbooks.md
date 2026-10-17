@@ -169,7 +169,7 @@ What it means:
   cold deploy of the public repository all 15 failed anonymous pulls until they were made public.
 - `not found`, `manifest unknown`: the tag is not there. Images are tagged with `VERSION`, the
   short commit (`sha-<commit>`) and `latest`; `latest` and the version tag are pushed again on
-  every merge to main, so they move.
+  every merge to main that changes more than docs, so they move.
 - The image is not under `ghcr.io/cloud-native-encabulator/encabulator/` or an ECR mirror:
   `REGISTRY` in `.env` (hub) or the `encabulator.io/registry` annotation on the cell's Argo CD
   cluster Secret (cell) points elsewhere.
@@ -405,11 +405,13 @@ scripts/mirror-images.sh --check
 ```
 
 What it means: `ci.yml` runs on every pull request and push to main; its last job, `ci`, is the
-one required check and fails if any job failed. `images.yml` runs on every push to main and on
-`v*` tags: it builds all 15 services for amd64 and arm64 and pushes `VERSION`, `sha-<commit>` and
-on main `latest`, with provenance and an SBOM. So the version tag moves on every merge to main,
-docs-only merges included; pin `sha-<commit>` or a digest when it must not move. Packages it
-creates start private on GHCR. [project.md](project.md) says how to run each check locally.
+one required check and fails if any job failed. `images.yml` runs on every push to main that
+changes more than docs, and on `v*` tags: it builds all 15 services for amd64 and arm64 and
+pushes `VERSION`, `sha-<commit>` and on main `latest`, with provenance and an SBOM. So the
+version tag moves on every merge to main except a docs-only one; pin `sha-<commit>` or a digest
+when it must not move. Packages it creates start private on GHCR, and its last job, `every image
+pulls anonymously`, fails the run until each is made public in the package's settings on GitHub
+(there is no API for it). [project.md](project.md) says how to run each check locally.
 
 Fix: CHANGES THINGS: push a fix to the pull request's branch; re-run a flaky job with
 `gh run rerun <run id> --failed`.

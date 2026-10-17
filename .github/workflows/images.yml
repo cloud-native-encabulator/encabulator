@@ -4,6 +4,24 @@ on:
   push:
     branches: [main]
     tags: ["v*"]
+    # A push to main that changes only these paths builds nothing, so the version tag and
+    # `latest` stay where they are. None of them is in any image: every Dockerfile copies from
+    # libs/ and its own service directory only (scripts/images-workflow_test.sh checks that).
+    # GitHub does not apply path filters to tag pushes, and workflow_dispatch has none, so a
+    # v* tag and a build by hand always build.
+    paths-ignore:
+      - "docs/**"
+      - ".agents/**"
+      - ".claude/**"
+      - ".kiro/**"
+      - "AGENTS.md"
+      - "CLAUDE.md"
+      - "README.md"
+      - "CONTRIBUTING.md"
+      - "charts/**/*.md"
+      - "gitops/**/*.md"
+      - "platform/**/*.md"
+      - "terraform/**/*.md"
   workflow_dispatch:
     inputs:
       services:
@@ -58,6 +76,9 @@ jobs:
             filtered='[]'
             for name in $selected; do
               row="$(./scripts/services.sh matrix | jq -c --arg n "$name" '[.[] | select(.name == $n)]')"
+              if [ "$row" = '[]' ]; then
+                echo "::warning title=services::no service named $name in scripts/services.txt, nothing to build for it"
+              fi
               filtered="$(jq -c -n --argjson a "$filtered" --argjson b "$row" '$a + $b')"
             done
             echo "services=$filtered" >> "$GITHUB_OUTPUT"
@@ -66,6 +87,9 @@ jobs:
   build:
     name: ${{ matrix.service.name }}
     needs: discover
+    # An empty matrix is an error in GitHub Actions, so a selection that names no service
+    # skips the job instead (the same guard as the language jobs in ci.yml).
+    if: needs.discover.outputs.services != '[]'
     runs-on: ubuntu-24.04
     strategy:
       fail-fast: false
@@ -168,3 +192,46 @@ jobs:
               *) echo "a required job reported '$r'"; exit 1 ;;
             esac
           done
+
+  # A new GHCR package starts private, and GitHub has no API to change that. A cluster pulls
+  # without a credential, so it cannot use a private image, and make hub then falls back to
+  # building the images into Amazon ECR. Once every build has succeeded (or a run by hand
+  # selected none), this job asks GHCR for all fifteen images at the version this run built,
+  # with an anonymous pull token as a cluster does, and fails the run while any of them cannot
+  # be pulled. It holds no GHCR credential: no login, no secret, a job token that can only read
+  # the repository, and none left in the checkout.
+  public:
+    name: every image pulls anonymously
+    needs: [discover, build]
+    if: ${{ !cancelled() && needs.discover.result == 'success' && (needs.build.result == 'success' || needs.build.result == 'skipped') }}
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - name: ask GHCR for every image at this version, anonymously
+        env:
+          # discover's version: the VERSION file, or 1.2.3 for the tag v1.2.3.
+          VERSION: ${{ needs.discover.outputs.version }}
+        run: |
+          status=0
+          out="$(./scripts/mirror-images.sh --check)" || status=$?
+          echo "$out"
+          if [ "$status" -eq 0 ]; then
+            exit 0
+          fi
+          case "$out" in
+            "not on GHCR at $VERSION"*": "*) missing="${out##*: }" ;;
+            *) echo "::error title=GHCR check::scripts/mirror-images.sh --check failed (exit $status)"; exit 1 ;;
+          esac
+          for svc in $missing; do
+            echo "::error title=$svc cannot be pulled anonymously::$IMAGE_PREFIX/$svc:$VERSION. Open https://github.com/orgs/$GITHUB_REPOSITORY_OWNER/packages/container/${GITHUB_REPOSITORY#*/}%2F$svc/settings and change the package's visibility to Public."
+          done
+          echo
+          echo "These packages cannot be pulled without a credential: $missing"
+          echo "Open each package's settings on GitHub (the links above) and change its visibility"
+          echo "to Public; there is no API for it. Then re-run this job."
+          exit 1
