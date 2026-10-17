@@ -1,0 +1,24 @@
+# Fire drill world: the cell is built in AWS but stays IN_PROGRESS, because the hub was never
+# registered with its own Argo CD (no hub cluster Secret, so kro cannot read the settings).
+# As gitops/hub/bootstrap/README.md describes it: "waiting for external reference hub", and
+# Argo CD deploys nothing to the cell. `|` stands for a tab.
+## base healthy
+## applications
+hub-brownfield|Synced|Healthy|Succeeded|successfully synced (all tasks run)
+hub-cell-apps|Synced|Healthy|Succeeded|successfully synced (all tasks run)
+hub-cells|Synced|Healthy|Succeeded|successfully synced (all tasks run)
+hub-rgds|Synced|Healthy|Succeeded|successfully synced (all tasks run)
+## kro
+EncabulatorCell|encabulator-cells|encabulator-use2|IN_PROGRESS|ACTIVE|waiting for external reference hub
+## secrets
+encabulator|encabulator-app|Opaque
+encabulator|encabulator-db|Opaque
+## describe encabulator-use2
+Name:         encabulator-use2
+Namespace:    encabulator-cells
+Kind:         EncabulatorCell
+Status:
+  Cluster Status:  ACTIVE
+  State:           IN_PROGRESS
+  Conditions:
+    Type:     ResourcesReady   Status: False   Message: waiting for external reference hub

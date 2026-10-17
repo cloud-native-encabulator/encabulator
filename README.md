@@ -396,6 +396,36 @@ Before the hand-off, Terraform still owns the stores: skip step 4, and `terrafor
 deletes them with the rest. `make teardown` sees this in the state and deletes only the cache's
 snapshots in step 4.
 
+## Work with the project using an AI agent
+
+The repository ships instructions and a skill for AI coding agents, so Claude Code, Codex and
+Kiro can help you build it, run it and fix it.
+
+- [`AGENTS.md`](AGENTS.md) gives any agent the project map, the make targets and the rules
+  (read first, ask before changing a cluster or an AWS account, never print a secret).
+  `CLAUDE.md` imports it for Claude Code.
+- The `encabulator-ops` skill helps you operate, explain and troubleshoot a running hub or cell,
+  and work with this GitHub project. It is written for a live demo: it checks read-only first,
+  answers in a few lines an audience can follow, and asks before every change. It lives in
+  [`.agents/skills/encabulator-ops`](.agents/skills/encabulator-ops/SKILL.md), which Codex reads;
+  `.claude/skills` and `.kiro/skills` are symbolic links to `.agents/skills`, so Claude Code and
+  Kiro read the same files.
+
+Open the repository in your agent and ask, for example, "Is the demo healthy?" or "Why is the
+gateway on the cell not starting?". The agent starts with the skill's health check, which you
+can run yourself:
+
+```bash
+make ops-health                            # read-only, one screen: hub or cell, whichever kubectl points at
+make ops-health OPS_HEALTH_ARGS=--explain  # plus what each finding means
+```
+
+The skill also ships canned incidents for rehearsing:
+[`fixtures/fire-drill`](.agents/skills/encabulator-ops/fixtures/fire-drill/README.md) gives an
+agent a stand-in cluster in one broken state and an answer key to grade it against.
+`make skills-check` runs the skill's offline tests and checks the two links. On Windows, clone
+with `git config core.symlinks true` so the links check out as links.
+
 ## The console
 
 A 1940s instrument panel for a 2020s distributed system.
@@ -458,6 +488,8 @@ match it. If they disagree, that is a bug.
 - [The OPN315 talk](docs/opn315/RUN-OF-SHOW.md): the re:Invent Code Talk that walks phases 2 to 5 live
   (`make talk` serves the slides)
 - [Contributing](CONTRIBUTING.md): including the DCO sign-off requirement
+- [AGENTS.md](AGENTS.md) and the [encabulator-ops skill](.agents/skills/encabulator-ops/SKILL.md):
+  working with the project and the deployment through an AI agent
 
 ## A note on the jargon
 

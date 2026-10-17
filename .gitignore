@@ -56,6 +56,8 @@ tmp/
 *.swp
 .DS_Store
 
-# Agent tooling
-.kiro/
+# Agent tooling: local agent settings stay out of Git. .kiro/skills is tracked: it is a
+# symbolic link to ../.agents/skills (no trailing slash below, a link is not a directory to Git).
+.kiro/*
+!.kiro/skills
 .scramble/

@@ -1,0 +1,71 @@
+# Fire drill world: a cell whose gateway image cannot be pulled anonymously from GHCR.
+# From the cold deploy of the public repository: every GHCR package was private at the start,
+# so each anonymous pull got 401 until the packages were made public. Here only the
+# dingle-arm-gateway package is still private (the same thing the run of show warns about for
+# 1.0.3). Pull wording is reconstructed. `|` stands for a tab.
+## base healthy
+## context
+use2
+## cluster
+arn:aws:eks:us-east-2:111122223333:cluster/encabulator-use2
+## api-resources
+pods
+nodes
+events
+deployments.apps
+statefulsets.apps
+resourcegraphdefinitions.kro.run
+encabulators.kro.run
+encabulatorservices.kro.run
+dbinstances.rds.services.k8s.aws
+dbsubnetgroups.rds.services.k8s.aws
+serverlesscaches.elasticache.services.k8s.aws
+nodepools.karpenter.sh
+nodeclasses.eks.amazonaws.com
+## rgds
+encabulator|Active|
+encabulatorservice|Active|
+## kro
+Encabulator|encabulator|encabulator|ACTIVE||
+EncabulatorService|encabulator|dingle-arm-gateway|ACTIVE||
+EncabulatorService|encabulator|panametric-fam-processor|ACTIVE||
+EncabulatorService|encabulator|spurving-bearing-quoter|ACTIVE||
+## ack
+DBInstance|encabulator|encabulator-pg|True|||Resource synced successfully
+DBSubnetGroup|encabulator|encabulator|True|||Resource synced successfully
+ServerlessCache|encabulator|encabulator-valkey|True|||Resource synced successfully
+## workloads
+Deployment|cardinal-grammeter|1|1
+Deployment|dingle-arm-gateway|2|
+Deployment|panametric-fam-processor|2|2
+Deployment|spurving-bearing-quoter|2|2
+Deployment|nofer-trunnion-dispatch|2|2
+StatefulSet|influxdb|1|1
+StatefulSet|nats|1|1
+## pods
+P|encabulator|dingle-arm-gateway-7f6d5c4b3-h8j9k|Pending|
+C|gateway|false|ImagePullBackOff|0|ghcr.io/cloud-native-encabulator/encabulator/dingle-arm-gateway:1.0.4||Back-off pulling image "ghcr.io/cloud-native-encabulator/encabulator/dingle-arm-gateway:1.0.4": failed to authorize: failed to fetch anonymous token: 401 Unauthorized
+P|encabulator|dingle-arm-gateway-7f6d5c4b3-l1m2n|Pending|
+C|gateway|false|ErrImagePull|0|ghcr.io/cloud-native-encabulator/encabulator/dingle-arm-gateway:1.0.4||failed to pull and unpack image: failed to authorize: failed to fetch anonymous token: 401 Unauthorized
+P|encabulator|panametric-fam-processor-7b6c5d4f9-q8w2e|Running|
+C|processor|true||0|ghcr.io/cloud-native-encabulator/encabulator/panametric-fam-processor:1.0.4||
+P|encabulator|spurving-bearing-quoter-5f8d9c7b6-m3n4b|Running|
+C|quoter|true||0|ghcr.io/cloud-native-encabulator/encabulator/spurving-bearing-quoter:1.0.4||
+P|encabulator|nats-0|Running|
+C|nats|true||0|docker.io/library/nats:2.12.1-alpine||
+## events
+2026-10-16T23:21:40Z||encabulator|Pod/dingle-arm-gateway-7f6d5c4b3-h8j9k|Failed|Failed to pull image "ghcr.io/cloud-native-encabulator/encabulator/dingle-arm-gateway:1.0.4": failed to authorize: 401 Unauthorized
+2026-10-16T23:21:55Z||encabulator|Pod/dingle-arm-gateway-7f6d5c4b3-h8j9k|BackOff|Back-off pulling image "ghcr.io/cloud-native-encabulator/encabulator/dingle-arm-gateway:1.0.4"
+## describe dingle-arm-gateway-7f6d5c4b3-h8j9k
+Name:         dingle-arm-gateway-7f6d5c4b3-h8j9k
+Namespace:    encabulator
+Status:       Pending
+Containers:
+  gateway:
+    Image:    ghcr.io/cloud-native-encabulator/encabulator/dingle-arm-gateway:1.0.4
+    State:    Waiting (Reason: ImagePullBackOff)
+Events:
+  Warning  Failed   kubelet  Failed to pull image "ghcr.io/cloud-native-encabulator/encabulator/dingle-arm-gateway:1.0.4": failed to authorize: failed to fetch anonymous token: unexpected status from GET request to https://ghcr.io/token: 401 Unauthorized
+  Warning  BackOff  kubelet  Back-off pulling image "ghcr.io/cloud-native-encabulator/encabulator/dingle-arm-gateway:1.0.4"
+## aws capabilities
+ack|kro

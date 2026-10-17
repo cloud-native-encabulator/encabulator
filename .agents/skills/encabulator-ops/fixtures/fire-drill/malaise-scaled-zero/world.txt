@@ -1,0 +1,28 @@
+# Fire drill world: orders stop at "fabricating" because a Malaise fault scaled the telemetry
+# recorder to zero. The console's Malaise page can scale a deployment to zero on purpose, and
+# every fault expires and reverts by itself (README, The console). Log wording is reconstructed.
+# `|` stands for a tab.
+## base healthy
+## workloads
+Deployment|cardinal-grammeter|1|1
+Deployment|dingle-arm-gateway|2|2
+Deployment|hydrocoptic-datastore|2|2
+Deployment|logarithmic-casing-line|2|2
+Deployment|malaise-injection-engine|1|1
+Deployment|nofer-trunnion-dispatch|2|2
+Deployment|panametric-fam-processor|2|2
+Deployment|side-fumbling-detector|1|1
+Deployment|sinusoidal-recorder|0|
+Deployment|spurving-bearing-quoter|2|2
+StatefulSet|influxdb|1|1
+StatefulSet|nats|1|1
+## logs logarithmic-casing-line-6c7d8e9f0-a1s2d
+{"level":"warning","msg":"recording readings failed, retrying","stage":"surmounting","error":"connection refused: sinusoidal-recorder:8080"}
+## describe sinusoidal-recorder
+Name:         sinusoidal-recorder
+Namespace:    encabulator
+Labels:       encabulator.io/malaise-id=mal_01a14f2c
+              encabulator.io/malaise-target=true
+Annotations:  encabulator.io/original-replicas: 1
+              encabulator.io/expires-at: 2026-10-16T23:52:00Z
+Replicas:     0 desired | 0 updated | 0 total | 0 available

@@ -1,0 +1,121 @@
+# Fire drill world: the hub with one cell, everything Synced, Healthy and ACTIVE.
+# Shapes follow a captured run of make hub and make add-cell CELL=use2. `|` stands for a tab.
+## context
+encabulator-usw2
+## cluster
+arn:aws:eks:us-west-2:111122223333:cluster/encabulator-usw2
+## readyz
+ok
+## api-resources
+pods
+nodes
+events
+deployments.apps
+statefulsets.apps
+applications.argoproj.io
+applicationsets.argoproj.io
+resourcegraphdefinitions.kro.run
+encabulatorcells.kro.run
+dbinstances.rds.services.k8s.aws
+dbsubnetgroups.rds.services.k8s.aws
+serverlesscaches.elasticache.services.k8s.aws
+serverlesscachesnapshots.elasticache.services.k8s.aws
+roles.iam.services.k8s.aws
+vpcs.ec2.services.k8s.aws
+subnets.ec2.services.k8s.aws
+routetables.ec2.services.k8s.aws
+natgateways.ec2.services.k8s.aws
+internetgateways.ec2.services.k8s.aws
+elasticipaddresses.ec2.services.k8s.aws
+securitygroups.ec2.services.k8s.aws
+clusters.eks.services.k8s.aws
+capabilities.eks.services.k8s.aws
+accessentries.eks.services.k8s.aws
+nodepools.karpenter.sh
+nodeclasses.eks.amazonaws.com
+## applications
+encabulator-use2|Synced|Healthy|Succeeded|successfully synced (all tasks run)
+encabulator-use2-jaeger|Synced|Healthy|Succeeded|successfully synced (all tasks run)
+encabulator-use2-observability-config|Synced|Healthy|Succeeded|successfully synced (all tasks run)
+encabulator-use2-opentelemetry-collector|Synced|Healthy|Succeeded|successfully synced (all tasks run)
+encabulator-use2-prometheus-stack|Synced|Healthy|Succeeded|successfully synced (all tasks run)
+hub-brownfield|Synced|Healthy|Succeeded|successfully synced (all tasks run)
+hub-cell-apps|Synced|Healthy|Succeeded|successfully synced (all tasks run)
+hub-cells|Synced|Healthy|Succeeded|successfully synced (all tasks run)
+hub-rgds|Synced|Healthy|Succeeded|successfully synced (all tasks run)
+## rgds
+encabulatorcell|Active|
+## kro
+EncabulatorCell|encabulator-cells|encabulator-use2|ACTIVE|ACTIVE|
+## ack
+DBInstance|encabulator|encabulator-pg|True|||Resource synced successfully
+DBSubnetGroup|encabulator|encabulator|True|||Resource synced successfully
+ServerlessCache|encabulator|encabulator-valkey|True|||Resource synced successfully
+VPC|encabulator-cells|encabulator-use2|True|||Resource synced successfully
+NATGateway|encabulator-cells|encabulator-use2|True|||Resource synced successfully
+RouteTable|encabulator-cells|encabulator-use2-private|True|||Resource synced successfully
+Cluster|encabulator-cells|encabulator-use2|True|||Resource synced successfully
+Capability|encabulator-cells|encabulator-use2-ack|True|||Resource synced successfully
+Capability|encabulator-cells|encabulator-use2-kro|True|||Resource synced successfully
+Role|encabulator-cells|encabulator-use2-node|True|||Resource synced successfully
+AccessEntry|encabulator-cells|encabulator-use2-argocd|True|||Resource synced successfully
+## ready
+NodePool||encabulator|True|
+NodeClass||encabulator|True|
+## nodes
+i-0a1b2c3d4e5f60001|True
+i-0a1b2c3d4e5f60002|True
+i-0a1b2c3d4e5f60003|True
+## workloads
+Deployment|cardinal-grammeter|1|1
+Deployment|demo-scenario-orchestrator|1|1
+Deployment|differential-girdlespring|2|2
+Deployment|dingle-arm-gateway|2|2
+Deployment|encabulation-control-console|1|1
+Deployment|hydrocoptic-datastore|2|2
+Deployment|logarithmic-casing-line|2|2
+Deployment|malaise-injection-engine|1|1
+Deployment|nofer-trunnion-dispatch|2|2
+Deployment|panametric-fam-processor|2|2
+Deployment|prefabulated-amulite-depot|2|2
+Deployment|side-fumbling-detector|1|1
+Deployment|sinusoidal-recorder|1|1
+Deployment|spurving-bearing-quoter|2|2
+Deployment|unilateral-phase-detractor|1|1
+StatefulSet|influxdb|1|1
+StatefulSet|nats|1|1
+## pods
+P|encabulator|dingle-arm-gateway-6d9f7c8b5-x2k4p|Running|
+C|gateway|true||0|ghcr.io/cloud-native-encabulator/encabulator/dingle-arm-gateway:1.0.4||
+P|encabulator|panametric-fam-processor-7b6c5d4f9-q8w2e|Running|
+C|processor|true||0|ghcr.io/cloud-native-encabulator/encabulator/panametric-fam-processor:1.0.4||
+P|encabulator|spurving-bearing-quoter-5f8d9c7b6-m3n4b|Running|
+C|quoter|true||0|ghcr.io/cloud-native-encabulator/encabulator/spurving-bearing-quoter:1.0.4||
+P|encabulator|logarithmic-casing-line-6c7d8e9f0-a1s2d|Running|
+C|casing-line|true||0|ghcr.io/cloud-native-encabulator/encabulator/logarithmic-casing-line:1.0.4||
+P|encabulator|nofer-trunnion-dispatch-58c9d7f6b-z9x8c|Running|
+C|dispatch|true||0|ghcr.io/cloud-native-encabulator/encabulator/nofer-trunnion-dispatch:1.0.4||
+P|encabulator|nats-0|Running|
+C|nats|true||0|docker.io/library/nats:2.12.1-alpine||
+P|encabulator|influxdb-0|Running|
+C|influxdb|true||0|docker.io/library/influxdb:3.6.0-core||
+P|encabulator|encabulator-db-init-k7l8m|Succeeded|
+C|db-init|false||0|docker.io/library/postgres:18.6-alpine3.24||
+P|encabulator-observability|prometheus-stack-grafana-7d8c9b6f5-p0o9i|Running|
+C|grafana|true||0|docker.io/grafana/grafana:12.2.0||
+## events
+## secrets
+argocd|encabulator-usw2|Opaque
+argocd|encabulator-use2|Opaque
+encabulator|encabulator-app|Opaque
+encabulator|encabulator-db|Opaque
+## aws cluster
+ACTIVE
+## aws capabilities
+argocd|ack|kro
+## aws capability argocd
+ACTIVE
+## aws capability ack
+ACTIVE
+## aws capability kro
+ACTIVE

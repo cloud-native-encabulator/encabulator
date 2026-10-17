@@ -1,0 +1,26 @@
+# Fire drill world: a new cell's first sync retries while its NodePool validates.
+# From the captured cell runs: the NodePool reads Degraded for about 10 seconds, Argo CD's first
+# sync of encabulator-use2 fails that wave and retries (backoff 30 s, factor 2), and it heals on
+# its own in 3 to 5 minutes. Controller wording is reconstructed. `|` stands for a tab.
+## base healthy
+## applications
+encabulator-use2|OutOfSync|Degraded|Running|Retrying attempt #1 at 7:21PM. one or more synchronization tasks completed unsuccessfully (NodePool encabulator is Degraded)
+encabulator-use2-jaeger|Synced|Healthy|Succeeded|successfully synced (all tasks run)
+encabulator-use2-observability-config|Synced|Healthy|Succeeded|successfully synced (all tasks run)
+encabulator-use2-opentelemetry-collector|Synced|Progressing|Succeeded|successfully synced (all tasks run)
+encabulator-use2-prometheus-stack|Synced|Healthy|Succeeded|successfully synced (all tasks run)
+hub-brownfield|Synced|Healthy|Succeeded|successfully synced (all tasks run)
+hub-cell-apps|Synced|Healthy|Succeeded|successfully synced (all tasks run)
+hub-cells|Synced|Healthy|Succeeded|successfully synced (all tasks run)
+hub-rgds|Synced|Healthy|Succeeded|successfully synced (all tasks run)
+## describe encabulator-use2
+Name:         encabulator-use2
+Namespace:    argocd
+Status:
+  Health:     Degraded
+  Sync:       OutOfSync
+  Operation:  Running, Retrying attempt #1 at 7:21PM
+  Resources:
+    karpenter.sh/NodePool encabulator          Degraded   NodeClass encabulator is not ready yet
+    eks.amazonaws.com/NodeClass encabulator    Progressing
+    kro.run/Encabulator encabulator            Synced
