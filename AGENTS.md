@@ -41,8 +41,9 @@ on EKS Auto Mode that builds whole regions (cells) with Argo CD, ACK and kro.
   state in what you show. Write account ids as 111122223333.
 - Every AWS resource carries `auto-delete=no`, `project=encabulator` and `talk=opn315`
   (`docs/TAGGING.md`); `make tag-check` proves it.
-- Commits are signed off (`git commit -s`); work on a branch and open a pull request; merges are
-  merge commits. No em dashes in prose.
+- Commits are signed off (`git commit -s`); work on a branch and open a pull request. The
+  repository allows rebase and squash merges only: once `ci` is green, merge with
+  `gh pr merge <number> --rebase`. No em dashes in prose.
 - Skills live once, in `.agents/skills`. Keep `.claude/skills` and `.kiro/skills` as symbolic
   links to it (`make skills-check` and CI check them); never copy a skill into them.
 

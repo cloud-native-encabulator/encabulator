@@ -19,7 +19,8 @@ from `scripts/services.txt` and nowhere else.
 - Prose: no em dashes; use a comma, a colon, a semicolon or two sentences.
 - Open the pull request with `gh pr create --title "..." --body-file <file>`, and say what changed
   and how it was tested.
-- Merge with a merge commit once `ci` is green: `gh pr merge <number> --merge`.
+- The repository allows rebase and squash merges only. Once `ci` is green, merge with
+  `gh pr merge <number> --rebase`, which keeps each signed-off commit as it is.
 - After the merge the branch can go: `git push origin --delete <branch>` or the button on the PR.
 
 ## CI, and how to run it locally
