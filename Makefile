@@ -369,6 +369,22 @@ kind-down: ## Delete the local kind cluster
 kind-load: ## Load locally built images into the kind cluster
 	@./scripts/kind.sh load
 
+## AI agents (AGENTS.md; the skills live in .agents/skills; .claude/skills and .kiro/skills link to it)
+.PHONY: ops-health skills-check
+# For example OPS_HEALTH_ARGS=--explain, or OPS_HEALTH_ARGS="--context use2".
+OPS_HEALTH_ARGS   ?=
+# Its VERDICT line says what failed, so a FAIL (exit 1) is not also a make error on the screen;
+# an unreachable cluster (2) or bad usage (64) still is. The script itself keeps exit 1.
+ops-health: ## Read-only: one-screen health of the cluster kubectl points at (OPS_HEALTH_ARGS=--explain says what each line means)
+	@KUBECTL='$(KUBECTL)' .agents/skills/encabulator-ops/scripts/ops-health.sh $(OPS_HEALTH_ARGS); \
+	  status=$$?; [ $$status -le 1 ] || exit $$status
+
+skills-check: ## Offline: the skill links resolve, the skill's static checks and its health check tests pass
+	@./scripts/check-agent-skills.sh
+	@python3 .agents/skills/encabulator-ops/tests/static_test.py
+	@.agents/skills/encabulator-ops/scripts/ops-health_test.sh
+	@.agents/skills/encabulator-ops/tests/jsonpath_test.sh
+
 ## Meta
 .PHONY: services version
 services: ## List the fifteen services with their directories, languages and planes

@@ -1,0 +1,17 @@
+{
+  "apiVersion": "elasticache.services.k8s.aws/v1alpha1",
+  "kind": "ServerlessCacheSnapshot",
+  "metadata": {
+    "name": "automatic.encabulator-valkey-2026-10-15-09-02",
+    "namespace": "encabulator",
+    "annotations": { "services.k8s.aws/adoption-policy": "adopt", "services.k8s.aws/deletion-policy": "delete" }
+  },
+  "spec": { "serverlessCacheSnapshotName": "automatic.encabulator-valkey-2026-10-15-09-02" },
+  "status": {
+    "ackResourceMetadata": { "region": "us-east-2", "ownerAccountID": "111122223333" },
+    "conditions": [
+      { "type": "ACK.ResourceSynced", "status": "False", "message": "Resource not synced" },
+      { "type": "ACK.Recoverable", "status": "True", "message": "ServerlessCacheNotFoundFault: Serverless cache encabulator-valkey not found" }
+    ]
+  }
+}

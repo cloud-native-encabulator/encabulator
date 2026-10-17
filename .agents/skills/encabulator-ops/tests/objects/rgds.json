@@ -1,0 +1,14 @@
+{
+  "apiVersion": "kro.run/v1alpha1",
+  "kind": "ResourceGraphDefinition",
+  "metadata": { "name": "encabulatorcell" },
+  "spec": { "schema": { "apiVersion": "v1alpha1", "kind": "EncabulatorCell" } },
+  "status": {
+    "state": "Inactive",
+    "conditions": [
+      { "type": "ResourceGraphAccepted", "status": "False", "reason": "InvalidResourceGraph", "message": "failed to build resourcegraphdefinition: unknown field spec.adminRole" },
+      { "type": "KindReady", "status": "True", "reason": "Ready", "message": "" }
+    ],
+    "topologicalOrder": ["vpc", "internetGateway", "cluster"]
+  }
+}

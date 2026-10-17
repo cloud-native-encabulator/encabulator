@@ -1,0 +1,22 @@
+# Fire drill world: an adopted ElastiCache snapshot that ACK cannot read because its cache is gone.
+# From the teardown of the first cold run: adopting the automatic snapshot with
+# serverlessCacheName in the adoption fields failed with ServerlessCacheNotFoundFault once the
+# cache was deleted; adopting it by serverlessCacheSnapshotName alone worked.
+# Controller wording is reconstructed. `|` stands for a tab.
+## base healthy
+## ack
+DBInstance|encabulator|encabulator-pg|True|||Resource synced successfully
+DBSubnetGroup|encabulator|encabulator|True|||Resource synced successfully
+ServerlessCacheSnapshot|encabulator|automatic.encabulator-valkey-2026-10-15-09-02|False||ServerlessCacheNotFoundFault: Serverless cache encabulator-valkey not found|
+VPC|encabulator-cells|encabulator-use2|True|||Resource synced successfully
+Cluster|encabulator-cells|encabulator-use2|True|||Resource synced successfully
+## describe automatic.encabulator-valkey-2026-10-15-09-02
+Name:         automatic.encabulator-valkey-2026-10-15-09-02
+Namespace:    encabulator
+Annotations:  services.k8s.aws/adoption-policy: adopt
+              services.k8s.aws/adoption-fields: {"serverlessCacheName": "encabulator-valkey", "serverlessCacheSnapshotName": "automatic.encabulator-valkey-2026-10-15-09-02"}
+              services.k8s.aws/deletion-policy: delete
+Status:
+  Conditions:
+    Type:     ACK.ResourceSynced   Status: False
+    Type:     ACK.Recoverable      Status: True   Message: ServerlessCacheNotFoundFault: Serverless cache encabulator-valkey not found

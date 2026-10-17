@@ -1,0 +1,30 @@
+{
+  "apiVersion": "v1",
+  "kind": "Pod",
+  "metadata": { "name": "panametric-fam-processor-7b6c5d4f9-q8w2e", "namespace": "encabulator" },
+  "spec": {
+    "initContainers": [ { "name": "wait-for-nats", "image": "docker.io/library/busybox:1.37" } ],
+    "containers": [ { "name": "processor", "image": "ghcr.io/cloud-native-encabulator/encabulator/panametric-fam-processor:1.0.4" } ]
+  },
+  "status": {
+    "phase": "Running",
+    "conditions": [
+      { "type": "PodScheduled", "status": "True" },
+      { "type": "Ready", "status": "False", "reason": "ContainersNotReady", "message": "containers with unready status: [processor]" }
+    ],
+    "initContainerStatuses": [
+      {
+        "name": "wait-for-nats", "ready": true, "restartCount": 0, "image": "docker.io/library/busybox:1.37",
+        "state": { "terminated": { "exitCode": 0, "reason": "Completed" } }
+      }
+    ],
+    "containerStatuses": [
+      {
+        "name": "processor", "ready": false, "restartCount": 6,
+        "image": "ghcr.io/cloud-native-encabulator/encabulator/panametric-fam-processor:1.0.4",
+        "state": { "waiting": { "reason": "CrashLoopBackOff", "message": "back-off 2m40s restarting failed container=processor" } },
+        "lastState": { "terminated": { "exitCode": 1, "reason": "Error" } }
+      }
+    ]
+  }
+}

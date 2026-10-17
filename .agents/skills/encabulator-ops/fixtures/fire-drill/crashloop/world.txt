@@ -1,0 +1,48 @@
+# Fire drill world: the order processor crash loops because NATS is not answering yet.
+# From the image checks: panametric-fam-processor exits on `getaddrinfo EAI_AGAIN nats` when NATS
+# cannot be resolved, and readiness reflects a service's own dependencies only
+# (docs/DEVELOPMENT.md). Here nats-0 was restarted and is still recovering its JetStream store.
+# Log wording is reconstructed. `|` stands for a tab.
+## base healthy
+## workloads
+Deployment|dingle-arm-gateway|2|2
+Deployment|panametric-fam-processor|2|
+Deployment|spurving-bearing-quoter|2|2
+Deployment|logarithmic-casing-line|2|2
+Deployment|nofer-trunnion-dispatch|2|2
+StatefulSet|influxdb|1|1
+StatefulSet|nats|1|
+## pods
+P|encabulator|dingle-arm-gateway-6d9f7c8b5-x2k4p|Running|
+C|gateway|true||0|ghcr.io/cloud-native-encabulator/encabulator/dingle-arm-gateway:1.0.4||
+P|encabulator|panametric-fam-processor-7b6c5d4f9-q8w2e|Running|
+C|processor|false|CrashLoopBackOff|6|ghcr.io/cloud-native-encabulator/encabulator/panametric-fam-processor:1.0.4|Error|back-off 2m40s restarting failed container=processor
+P|encabulator|panametric-fam-processor-7b6c5d4f9-r5t6y|Running|
+C|processor|false|CrashLoopBackOff|5|ghcr.io/cloud-native-encabulator/encabulator/panametric-fam-processor:1.0.4|Error|back-off 2m40s restarting failed container=processor
+P|encabulator|nats-0|Running|
+C|nats|false||1|docker.io/library/nats:2.12.1-alpine|Completed|
+P|encabulator|logarithmic-casing-line-6c7d8e9f0-a1s2d|Running|
+C|casing-line|true||0|ghcr.io/cloud-native-encabulator/encabulator/logarithmic-casing-line:1.0.4||
+## events
+2026-10-16T23:40:12Z||encabulator|Pod/panametric-fam-processor-7b6c5d4f9-q8w2e|BackOff|Back-off restarting failed container processor in pod panametric-fam-processor-7b6c5d4f9-q8w2e
+2026-10-16T23:39:58Z||encabulator|Pod/nats-0|Unhealthy|Readiness probe failed: HTTP probe failed with statuscode: 503
+## logs panametric-fam-processor-7b6c5d4f9-q8w2e
+{"level":"info","msg":"connecting to NATS","url":"nats://nats:4222"}
+Error: getaddrinfo EAI_AGAIN nats
+    at GetAddrInfoReqWrap.onlookupall [as oncomplete] (node:dns:120:26)
+## logs nats-0
+[1] [INF] Starting nats-server
+[1] [INF]   Starting JetStream
+[1] [INF]   Recovering JetStream state for account "$G"
+[1] [INF]   Restored 4 streams, recovering messages
+## describe nats-0
+Name:         nats-0
+Namespace:    encabulator
+Status:       Running
+Containers:
+  nats:
+    Ready:          False
+    Restart Count:  1
+    Last State:     Terminated (Reason: Completed)
+Events:
+  Warning  Unhealthy  kubelet  Readiness probe failed: HTTP probe failed with statuscode: 503

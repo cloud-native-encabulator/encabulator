@@ -1,0 +1,21 @@
+# Fire drill world: ten minutes after the cell was triggered, the cell is not ACTIVE yet.
+# From the run of show's Act 3 timings: the cluster is ACTIVE about 13 minutes after the trigger,
+# the cell about 20 minutes, the app Healthy about 32. Nothing is wrong; the clock is.
+# Controller wording is reconstructed. `|` stands for a tab.
+## base healthy
+## applications
+hub-brownfield|Synced|Healthy|Succeeded|successfully synced (all tasks run)
+hub-cell-apps|Synced|Healthy|Succeeded|successfully synced (all tasks run)
+hub-cells|Synced|Healthy|Succeeded|successfully synced (all tasks run)
+hub-rgds|Synced|Healthy|Succeeded|successfully synced (all tasks run)
+## kro
+EncabulatorCell|encabulator-cells|encabulator-use2|IN_PROGRESS|CREATING|resource cluster is not ready yet
+## ack
+DBInstance|encabulator|encabulator-pg|True|||Resource synced successfully
+DBSubnetGroup|encabulator|encabulator|True|||Resource synced successfully
+ServerlessCache|encabulator|encabulator-valkey|True|||Resource synced successfully
+VPC|encabulator-cells|encabulator-use2|True|||Resource synced successfully
+NATGateway|encabulator-cells|encabulator-use2|True|||Resource synced successfully
+RouteTable|encabulator-cells|encabulator-use2-private|True|||Resource synced successfully
+Role|encabulator-cells|encabulator-use2-cluster|True|||Resource synced successfully
+Cluster|encabulator-cells|encabulator-use2|False|||cluster encabulator-use2 is CREATING

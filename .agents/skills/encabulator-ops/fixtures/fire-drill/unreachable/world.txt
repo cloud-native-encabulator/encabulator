@@ -1,0 +1,9 @@
+# Fire drill world: kubectl cannot reach the hub, and the AWS credentials have expired.
+# From the teardown runs: vended credentials lasted one hour and the next call failed with
+# ExpiredToken. On stage this is the moment to switch to the captured runs.
+# `|` stands for a tab.
+## base healthy
+## readyz (error)
+error: You must be logged in to the server (the server has asked for the client to provide credentials)
+## aws (error)
+An error occurred (ExpiredToken) when calling the DescribeCluster operation: The security token included in the request is expired

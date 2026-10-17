@@ -1,0 +1,12 @@
+{
+  "apiVersion": "karpenter.sh/v1",
+  "kind": "NodePool",
+  "metadata": { "name": "encabulator" },
+  "spec": { "template": { "spec": { "nodeClassRef": { "group": "eks.amazonaws.com", "kind": "NodeClass", "name": "encabulator" } } } },
+  "status": {
+    "conditions": [
+      { "type": "NodeClassReady", "status": "False", "reason": "NodeClassNotReady", "message": "NodeClass is not ready" },
+      { "type": "Ready", "status": "False", "reason": "UnhealthyDependents", "message": "NodeClassReady=False" }
+    ]
+  }
+}

@@ -1,0 +1,15 @@
+{
+  "apiVersion": "kro.run/v1alpha1",
+  "kind": "EncabulatorCell",
+  "metadata": { "name": "encabulator-use2", "namespace": "encabulator-cells" },
+  "spec": { "region": "us-east-2", "vpcCIDR": "10.41.0.0/16", "argoCDRoleName": "encabulator-usw2-argocd" },
+  "status": {
+    "clusterStatus": "ACTIVE",
+    "state": "IN_PROGRESS",
+    "conditions": [
+      { "type": "InstanceManaged", "status": "True", "reason": "Managed", "message": "instance is properly managed with finalizers and labels" },
+      { "type": "GraphResolved", "status": "True", "reason": "Resolved", "message": "runtime graph created and all resources resolved" },
+      { "type": "ResourcesReady", "status": "False", "reason": "NotReady", "message": "waiting for external reference hub" }
+    ]
+  }
+}

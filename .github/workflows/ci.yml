@@ -299,6 +299,33 @@ jobs:
         # order, the guards, a stop and a re-run, an empty Terraform state, the destroy-plan guard.
         run: ./scripts/teardown_test.sh
 
+  # -------------------------------------------------------------------- agent skills
+  skills:
+    name: agent skills
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v7
+      - name: one copy, two links
+        # The skills live in .agents/skills; .claude/skills and .kiro/skills are links to it.
+        run: ./scripts/check-agent-skills.sh
+      - name: shellcheck the skill's scripts
+        run: |
+          sudo apt-get update -qq && sudo apt-get install -y --no-install-recommends shellcheck
+          shellcheck --severity=warning .agents/skills/*/scripts/*.sh .agents/skills/*/tests/*.sh .agents/skills/*/fixtures/fire-drill/*.sh
+      - name: static checks
+        # Frontmatter, every make target, path and kind the skill names exists, no account id,
+        # secret or dash as punctuation, and the health check calls nothing that changes anything.
+        run: python3 .agents/skills/encabulator-ops/tests/static_test.py
+      - name: the health check against every canned incident, with mutations
+        # kubectl and aws stubbed by fixtures/fire-drill/stub.sh; each rule weakened in a copy
+        # of the script must make a case fail.
+        run: .agents/skills/encabulator-ops/scripts/ops-health_test.sh --mutations
+      - name: the jsonpath templates, rendered by kubectl itself
+        # kubectl label --local never contacts an API server.
+        run: .agents/skills/encabulator-ops/tests/jsonpath_test.sh
+        env:
+          REQUIRE_KUBECTL: "1"
+
   # -------------------------------------------------------------------------- gitops
   gitops:
     name: gitops render check and script tests
@@ -331,6 +358,7 @@ jobs:
         rust,
         charts,
         shell,
+        skills,
         gitops,
       ]
     runs-on: ubuntu-24.04

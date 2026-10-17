@@ -1,0 +1,9 @@
+# Fire drill world: EKS Auto Mode keeps failing to replace a node for lack of EC2 capacity.
+# From a live hub check: Auto Mode tried every 5 minutes to replace a node with a c6a.large in
+# one zone, each try failed with InsufficientInstanceCapacity, and nothing moved when it failed.
+# Every workload kept running. Event wording is reconstructed. `|` stands for a tab.
+## base healthy
+## events
+2026-10-14T18:05:11Z||default|NodeClaim/encabulator-x7k2p|InsufficientCapacityError|NodeClaim encabulator-x7k2p event: Failed to launch node: InsufficientInstanceCapacity: We currently do not have sufficient c6a.large capacity in the Availability Zone you requested (us-west-2b). You can currently get c6a.large capacity by choosing us-west-2a, us-west-2c.
+2026-10-14T18:00:09Z||default|NodeClaim/encabulator-q3w4e|InsufficientCapacityError|NodeClaim encabulator-q3w4e event: Failed to launch node: InsufficientInstanceCapacity: We currently do not have sufficient c6a.large capacity in the Availability Zone you requested (us-west-2b). You can currently get c6a.large capacity by choosing us-west-2a, us-west-2c.
+2026-10-14T18:05:02Z||default|Node/i-0a1b2c3d4e5f60002|DisruptionBlocked|Cannot disrupt Node: replacement NodeClaim could not be launched

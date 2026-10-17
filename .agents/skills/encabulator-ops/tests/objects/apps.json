@@ -1,0 +1,20 @@
+{
+  "apiVersion": "argoproj.io/v1alpha1",
+  "kind": "Application",
+  "metadata": { "name": "encabulator-use2", "namespace": "argocd", "labels": { "encabulator.io/cell": "true" } },
+  "spec": {
+    "project": "encabulator-cells",
+    "source": { "repoURL": "https://github.com/cloud-native-encabulator/encabulator", "path": "gitops/app", "targetRevision": "main" },
+    "destination": { "name": "encabulator-use2", "namespace": "encabulator" }
+  },
+  "status": {
+    "sync": { "status": "OutOfSync", "revision": "a6d57d2" },
+    "health": { "status": "Degraded" },
+    "operationState": {
+      "phase": "Running",
+      "message": "Retrying attempt #1 at 7:21PM. one or more synchronization tasks completed unsuccessfully",
+      "retryCount": 1
+    },
+    "resources": [ { "group": "karpenter.sh", "kind": "NodePool", "name": "encabulator", "status": "Synced", "health": { "status": "Degraded" } } ]
+  }
+}
