@@ -371,7 +371,7 @@ the files in [`docs/teardown/`](docs/teardown/), filled in from what AWS reports
    `--skip-final-snapshot --delete-automated-backups`), `encabulator-valkey`, then the DB subnet
    group `encabulator`, through the hub's ACK (the default) or with the AWS CLI
    (`make teardown TEARDOWN_STORES=cli`). Each cache's automatic snapshot outlives it by up to a
-   day, so it goes too.
+   day, so it goes too, always with the AWS CLI: ACK cannot read a snapshot whose cache is gone.
    ([The hub's stores](terraform/brownfield/README.md#the-hubs-stores))
 5. **ECR repositories**, if `make mirror-images` created them (`make mirror-images-delete`):
    `aws ecr delete-repository --force` for each `encabulator/*` repository in us-west-2 that

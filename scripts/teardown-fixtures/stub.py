@@ -16,7 +16,11 @@ depends on, in the order the real ones need:
     re-applied after its store is deleted makes ACK create a new, empty one;
   - an adopt object syncs only when its AWS resource exists in a region the hub's ACK may use;
     deleting it (deletion-policy delete) deletes the resource; RDS refuses a subnet group delete
-    while an instance uses it.
+    while an instance uses it;
+  - a ServerlessCacheSnapshot adopt object never syncs without spec.serverlessCacheName, nor
+    once that cache is deleted (ACK reads the snapshot filtered by its cache), as on AWS;
+  - a cache snapshot is available or deleting; "expiring" makes it expire between the list and
+    the delete, and the delete answers ServerlessCacheSnapshotNotFoundFault.
 
 Every call is appended to $STUB_LOG as "<tool> <args>". A call it does not know fails with
 exit 99 and an UNEXPECTED line. STUB_FAIL_ONCE=<regex> fails the first matching call (for the
@@ -48,6 +52,11 @@ def obj(labels=None, annotations=None, spec=None, status=None):
     return {"labels": labels or {}, "annotations": annotations or {}, "spec": spec or {}, "status": status or {}, "deleting": False}
 
 
+def snapshot(expires):
+    """An automatic snapshot of encabulator-valkey, tagged by the hub's tagger."""
+    return {"cache": "encabulator-valkey", "tags": dict(TAGS), "status": "available", "expires": expires}
+
+
 def init(opts):
     cells = [c for c in opts.get("cells", "use2").split(",") if c]
     w = {
@@ -62,7 +71,7 @@ def init(opts):
                               "other-db": {"vpc": "vpc-other", "status": "available", "tags": {}, "protect": False}}},
         "subnet_groups": {"us-west-2": {"encabulator": {"vpc": "vpc-hub", "subnets": ["subnet-h1", "subnet-h2", "subnet-h3"], "tags": dict(TAGS)}}},
         "caches": {"us-west-2": {"encabulator-valkey": {"subnets": ["subnet-h1", "subnet-h2", "subnet-h3"], "sgs": ["sg-hubdb"], "status": "available", "tags": dict(TAGS)}}},
-        "snapshots": {"us-west-2": {"automatic.encabulator-valkey-2026-10-15-09-48": {"cache": "encabulator-valkey", "tags": dict(TAGS)}}},
+        "snapshots": {"us-west-2": {"automatic.encabulator-valkey-2026-10-15-09-48": snapshot("2026-10-16T09:48:00+00:00")}},
         "roles": {f"{HUB}-{r}": dict(TAGS) for r in ("cluster", "node", "argocd", "ack", "kro", "tagger")},
         "ecr": {"us-west-2": {}},
         "helm": {"encabulator/encabulator": True, "encabulator-observability/prometheus-stack": True},
@@ -149,7 +158,7 @@ def add_cell(w, name, region, i, opts):
     w["rds"].setdefault(region, {})["encabulator-pg"] = {"vpc": vpc, "status": "available", "tags": dict(TAGS), "protect": opts.get("protect") == "yes"}
     w["subnet_groups"].setdefault(region, {})["encabulator"] = {"vpc": vpc, "subnets": list(subs), "tags": dict(TAGS)}
     w["caches"].setdefault(region, {})["encabulator-valkey"] = {"subnets": list(subs), "sgs": [f"sg-{name[12:]}db"], "status": "available", "tags": dict(TAGS)}
-    w["snapshots"].setdefault(region, {})["automatic.encabulator-valkey-2026-10-15-09-02"] = {"cache": "encabulator-valkey", "tags": dict(TAGS)}
+    w["snapshots"].setdefault(region, {})["automatic.encabulator-valkey-2026-10-15-09-02"] = snapshot("2026-10-16T09:02:00+00:00")
     for r in ("cluster", "node", "ack", "kro"):
         w["roles"][f"{name}-{r}"] = dict(TAGS)
     hub = lambda ns, kind, n, **kw: w["k8s"].__setitem__(k(HUB, ns, kind, n), obj(**kw))
@@ -623,6 +632,12 @@ def k_wait(w, ctx, ns, kind, name):
     store, ident, region = ack_resource(w, kind, o)
     if o["annotations"].get("services.k8s.aws/adoption-policy") != "adopt" or region not in ACK_REGIONS or ident not in store:
         fail("error: timed out waiting for the condition")
+    if kind == "serverlesscachesnapshots.elasticache.services.k8s.aws":
+        # ACK.ReferencesResolved stays Unknown without spec.serverlessCacheName, and with it
+        # DescribeServerlessCacheSnapshots answers ServerlessCacheNotFoundFault once the cache is gone.
+        cache = o["spec"].get("serverlessCacheName")
+        if not cache or cache not in w["caches"].get(region, {}):
+            fail("error: timed out waiting for the condition")
     return out(f"{kind}/{name} condition met")
 
 
@@ -754,13 +769,28 @@ def aws(w, args):
         if "--serverless-cache-snapshot-name" in a:
             return out("1" if opt(a, "--serverless-cache-snapshot-name") in snaps else "0")
         if "ServerlessCacheConfiguration" in q:
+            # The columns the query asks for: [Name,ARN] or [Name,ARN,Status].
             return out(text_rows((n, f"arn:aws:elasticache:{region}:{w['account']}:serverlesscachesnapshot:{n}")
+                                 + ((s["status"],) if q.endswith(",Status]") else ())
                                  for n, s in snaps.items() if s["cache"] == "encabulator-valkey"))
+        if q.endswith(".[ServerlessCacheSnapshotName,ExpiryTime]"):
+            return out(text_rows((n, s["expires"]) for n, s in snaps.items() if "encabulator" in n))
         return out("\t".join(n for n in snaps if "encabulator" in n))
     if call == "elasticache delete-serverless-cache":
         return cli_delete(w, "caches", region, opt(a, "--serverless-cache-name"))
     if call == "elasticache delete-serverless-cache-snapshot":
-        return cli_delete(w, "snapshots", region, opt(a, "--serverless-cache-snapshot-name"))
+        name = opt(a, "--serverless-cache-snapshot-name")
+        s = w["snapshots"].get(region, {}).get(name)
+        if s and s.get("expiring"):
+            del w["snapshots"][region][name]
+            event(w, f"snapshot {region} {name} expired")
+            s = None
+        if not s:
+            not_found("ServerlessCacheSnapshotNotFoundFault", "DeleteServerlessCacheSnapshot")
+        if s["status"] == "deleting":
+            fail("An error occurred (InvalidServerlessCacheSnapshotStateFault) when calling the DeleteServerlessCacheSnapshot "
+                 "operation: the snapshot is being deleted", 254)
+        return cli_delete(w, "snapshots", region, name)
     if call == "iam get-role":
         name = opt(a, "--role-name")
         if name not in w["roles"]:

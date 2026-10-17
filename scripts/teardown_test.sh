@@ -21,9 +21,13 @@
 #   - teardown, Terraform: the destroy shows a line a minute while a resource takes longer than
 #     a minute (both ways Terraform prints the time so far) and a failing apply stops it; a
 #     Terraform that does not run (a version manager's shim) stops it at step 1 with its error
+#   - the caches' automatic snapshots: the AWS CLI deletes them with TEARDOWN_STORES=ack too
+#     (the stub's ACK, like the real one, never reads a snapshot whose cache is gone), also with
+#     the hub gone; the project tag; one that expired or is being deleted; an AWS error
 #   - mirror-images-delete: refuses when one repository lacks the tag or is in another account
 #   - gone-check: --include-managed-resources, an AWS error is a FAIL, stale tagging-index
-#     entries confirmed in their own service, instant fleets as WARN
+#     entries confirmed in their own service, instant fleets as WARN, cache snapshots as FAIL
+#     with the time each expires
 #   - mutations: each guard or order rule weakened in a copy of the scripts makes a case fail
 set -uo pipefail
 
@@ -111,7 +115,7 @@ cell_markers=(
   "wait --for=condition=ACK.ResourceSynced dbinstances.rds.services.k8s.aws/encabulator-use2-teardown-pg"
   "wait --for=condition=ACK.ResourceSynced serverlesscaches.elasticache.services.k8s.aws/encabulator-use2-teardown-valkey"
   "wait --for=condition=ACK.ResourceSynced dbsubnetgroups.rds.services.k8s.aws/encabulator-use2-teardown-subnet-group"
-  "wait --for=condition=ACK.ResourceSynced serverlesscachesnapshots.elasticache.services.k8s.aws/encabulator-use2-teardown-snapshot-1"
+  "aws elasticache delete-serverless-cache-snapshot --region us-east-2 --serverless-cache-snapshot-name automatic.encabulator-valkey-2026-10-15-09-02"
   "wait --for=condition=ACK.ResourceSynced roles.iam.services.k8s.aws/encabulator-use2-teardown-node"
   "aws iam get-role --role-name encabulator-use2-node --query Role.RoleName"
 )
@@ -152,13 +156,14 @@ case_remove_cell() {
   expect_eq "no cell volume was left in EC2" "$(world '[e for e in w["events"] if "left in EC2" in e or "re-created" in e or "cannot" in e]')" "[]"
   expect_eq "the hub's stores are untouched" "$(world 'sorted(w["rds"]["us-west-2"])')" "['encabulator-pg', 'other-db']"
   expect_eq "the hub keeps running" "$(world 'list(w["eks"]["us-west-2"])')" "['encabulator-usw2']"
-  expect_eq "no AWS delete verb is used: ACK deletes" "$(aws_deletes)" ""
+  expect_eq "ACK deletes the stores; the only AWS delete verb is the cache snapshot's" "$(aws_deletes)" \
+    "aws elasticache delete-serverless-cache-snapshot --region us-east-2 --serverless-cache-snapshot-name automatic.encabulator-valkey-2026-10-15-09-02"
   expect_not_in "the hub's Argo CD keeps the other Applications" "$log" "delete applications.argoproj.io hub-brownfield"
   expect_eq "every adopt object is an encabulator* name" \
     "$(grep -oE 'ACK.ResourceSynced [a-z.0-9]+/[^ ]+' "$log" | grep -vcE '/encabulator-' || true)" "0"
   expect_eq "every adopted AWS resource is the cell's own" \
     "$(world 'sorted(e for e in w["events"] if e.startswith("ACK deleted"))')" \
-    "['ACK deleted dbinstances us-east-2 encabulator-pg', 'ACK deleted dbsubnetgroups us-east-2 encabulator', 'ACK deleted roles us-west-2 encabulator-use2-node', 'ACK deleted routetables us-east-2 rtb-use2-leak0', 'ACK deleted routetables us-east-2 rtb-use2-leak1', 'ACK deleted serverlesscaches us-east-2 encabulator-valkey', 'ACK deleted serverlesscachesnapshots us-east-2 automatic.encabulator-valkey-2026-10-15-09-02']"
+    "['ACK deleted dbinstances us-east-2 encabulator-pg', 'ACK deleted dbsubnetgroups us-east-2 encabulator', 'ACK deleted roles us-west-2 encabulator-use2-node', 'ACK deleted routetables us-east-2 rtb-use2-leak0', 'ACK deleted routetables us-east-2 rtb-use2-leak1', 'ACK deleted serverlesscaches us-east-2 encabulator-valkey']"
 
   : >"$log"
   run CONFIRM=encabulator-use2 -- make remove-cell CELL=use2
@@ -265,7 +270,7 @@ case_teardown() {
     "--context encabulator-usw2 get pv -o name" \
     "wait --for=condition=ACK.ResourceSynced dbinstances.rds.services.k8s.aws/encabulator-usw2-teardown-pg" \
     "wait --for=condition=ACK.ResourceSynced dbsubnetgroups.rds.services.k8s.aws/encabulator-usw2-teardown-subnet-group" \
-    "wait --for=condition=ACK.ResourceSynced serverlesscachesnapshots.elasticache.services.k8s.aws/encabulator-usw2-teardown-snapshot-1" \
+    "aws elasticache delete-serverless-cache-snapshot --region us-west-2 --serverless-cache-snapshot-name automatic.encabulator-valkey-2026-10-15-09-48" \
     "aws ecr delete-repository --region us-west-2 --repository-name encabulator/" \
     "terraform -chdir=terraform/brownfield plan -destroy -refresh=false" \
     "terraform -chdir=terraform/brownfield apply" \
@@ -278,9 +283,11 @@ case_teardown() {
   expect_in "the gone-check passed" "$out" "Nothing of the project is left"
   expect_in "ends by saying what is left" "$out" "Left for you: nothing."
   expect_eq "no new store was created behind the teardown" "$(world '[e for e in w["events"] if "new, empty" in e or "re-created the ApplicationSet" in e]')" "[]"
-  expect_eq "the only AWS deletes are the ECR repositories" "$(aws_deletes | grep -vc '^aws ecr delete-repository --region us-west-2 --repository-name encabulator/' || true)" "0"
+  expect_eq "the only AWS deletes are the ECR repositories and the two cache snapshots" \
+    "$(aws_deletes | grep -vcE '^aws ecr delete-repository --region us-west-2 --repository-name encabulator/|^aws elasticache delete-serverless-cache-snapshot --region us-(west|east)-2 --serverless-cache-snapshot-name automatic\.encabulator-valkey-' || true)" "0"
+  expect_eq "one delete for each cache snapshot" "$(count_in "$log" "aws elasticache delete-serverless-cache-snapshot")" "2"
   expect_eq "every ECR delete is an encabulator/ repository with --force" \
-    "$(aws_deletes | grep -c -- '--repository-name encabulator/[a-z-]* --force$')" "$(aws_deletes | grep -c .)"
+    "$(aws_deletes | grep -c -- '--repository-name encabulator/[a-z-]* --force$')" "$(aws_deletes | grep -c '^aws ecr delete-repository')"
   expect_eq "other/app and other-db stayed" "$(world '"other/app" in w["ecr"]["us-west-2"] and "other-db" in w["rds"]["us-west-2"] and "other-role" in w["roles"]')" "True"
   # shellcheck disable=SC2012 # one known file name
   expect_eq "the state backup is mode 600" "$(ls -l "$repo"/terraform/brownfield/terraform.tfstate.pre-destroy-* | cut -c1-10)" "-rw-------"
@@ -312,7 +319,8 @@ case_teardown_guards() {
   run CONFIRM=encabulator-usw2 -- make teardown
   expect_status "succeeds" 0 "$status" "$out"
   expect_in "skips the store step" "$out" "Terraform still owns the hub's stores (before the hand-off)"
-  expect_in "but deletes the cache snapshots, which outlive Terraform" "$log" "serverlesscachesnapshots.elasticache.services.k8s.aws/encabulator-usw2-teardown-snapshot-1"
+  expect_in "but deletes the cache snapshots, which outlive Terraform" "$log" \
+    "aws elasticache delete-serverless-cache-snapshot --region us-west-2 --serverless-cache-snapshot-name automatic.encabulator-valkey-2026-10-15-09-48"
   expect_not_in "and adopts no store" "$log" "encabulator-usw2-teardown-pg"
 
   new_case "make teardown: a LoadBalancer Service stops it" lb_service=encabulator/web cells=
@@ -427,6 +435,91 @@ case_teardown_no_terraform() {
   expect_eq "the cell is still there" "$(world '"encabulator-use2" in w["eks"]["us-east-2"]')" "True"
 }
 
+# snapshot_set NAME KEY=VALUE...: change one cache snapshot of the cell (us-east-2) in the world.
+snapshot_set() {
+  python3 - "$state/world.json" "$@" <<'PY'
+import json, sys
+w = json.load(open(sys.argv[1])); s = w["snapshots"]["us-east-2"][sys.argv[2]]
+for kv in sys.argv[3:]:
+    k, _, v = kv.partition("=")
+    s[k] = {"true": True, "{}": {}}.get(v, v)
+json.dump(w, open(sys.argv[1], "w"))
+PY
+}
+
+# A cache's automatic snapshot stays up to a day after the cache, and ACK cannot read one whose
+# cache is gone, so the AWS CLI deletes it with either TEARDOWN_STORES.
+case_cache_snapshots() {
+  local snap=automatic.encabulator-valkey-2026-10-15-09-02
+  new_case "make remove-cell TEARDOWN_STORES=ack: a snapshot whose cache is already gone goes with the AWS CLI"
+  python3 - "$state/world.json" <<'PY'
+import json, sys
+w = json.load(open(sys.argv[1])); del w["caches"]["us-east-2"]["encabulator-valkey"]
+json.dump(w, open(sys.argv[1], "w"))
+PY
+  run CONFIRM=encabulator-use2 TEARDOWN_STORES=ack -- make remove-cell CELL=use2
+  expect_status "remove-cell succeeds" 0 "$status" "$out"
+  expect_in "the cache is already gone" "$out" "Valkey cache encabulator-valkey (us-east-2): none"
+  expect_in "the AWS CLI deletes the snapshot" "$log" "aws elasticache delete-serverless-cache-snapshot --region us-east-2 --serverless-cache-snapshot-name $snap"
+  expect_in "and the line says so" "$out" "Valkey snapshot $snap (us-east-2): deleted, with the AWS CLI"
+  expect_not_in "no snapshot object is applied or waited on" "$log" "serverlesscachesnapshots"
+  expect_not_in "nothing waits on ACK for it" "$out" "ACK did not read"
+  expect_eq "the snapshot is gone" "$(world 'list(w["snapshots"]["us-east-2"])')" "[]"
+  expect_in "the other stores still go through ACK" "$log" "wait --for=condition=ACK.ResourceSynced dbinstances.rds.services.k8s.aws/encabulator-use2-teardown-pg"
+
+  new_case "make teardown TEARDOWN_STORES=ack: the hub already gone, its cache's snapshot still goes" state=empty hub=gone cells=
+  python3 - "$state/world.json" <<'PY'
+import json, sys
+w = json.load(open(sys.argv[1]))
+w["snapshots"]["us-west-2"]["automatic.encabulator-valkey-2026-10-17-09-01"] = {
+    "cache": "encabulator-valkey", "tags": {"auto-delete": "no", "project": "encabulator", "talk": "opn315"},
+    "status": "available", "expires": "2026-10-18T09:01:00+00:00"}
+json.dump(w, open(sys.argv[1], "w"))
+PY
+  run CONFIRM=encabulator-usw2 TEARDOWN_STORES=ack -- make teardown
+  expect_status "teardown succeeds" 0 "$status" "$out"
+  expect_in "no store is left" "$out" "no store left in us-west-2"
+  expect_in "the snapshot goes with the AWS CLI" "$out" "Valkey snapshot automatic.encabulator-valkey-2026-10-17-09-01 (us-west-2): deleted, with the AWS CLI"
+  expect_eq "it is gone" "$(world 'list(w["snapshots"]["us-west-2"])')" "[]"
+  expect_in "and the gone-check passes" "$out" "Nothing of the project is left"
+
+  new_case "make remove-cell: a snapshot without the project tag is left alone"
+  snapshot_set "$snap" "tags={}"
+  run CONFIRM=encabulator-use2 -- make remove-cell CELL=use2
+  expect_status "it stops" 2 "$status" "$out"
+  expect_in "with one sentence" "$out" "Valkey snapshot $snap in us-east-2 does not carry the tag project=encabulator, so it is left alone."
+  expect_in "at the store step" "$out" "Stopped at step 8 at"
+  expect_not_in "and never deletes it" "$log" "delete-serverless-cache-snapshot"
+  expect_eq "it is still there" "$(world "'$snap' in w['snapshots']['us-east-2']")" "True"
+
+  new_case "make remove-cell: a snapshot that expires before the delete is already gone"
+  snapshot_set "$snap" expiring=true
+  run CONFIRM=encabulator-use2 -- make remove-cell CELL=use2
+  expect_status "remove-cell succeeds" 0 "$status" "$out"
+  expect_in "and says the snapshot is already gone" "$out" "Valkey snapshot $snap (us-east-2): already gone"
+  expect_eq "it is gone" "$(world 'list(w["snapshots"]["us-east-2"])')" "[]"
+  : >"$log"
+  run CONFIRM=encabulator-use2 -- make remove-cell CELL=use2
+  expect_status "a second run succeeds" 0 "$status" "$out"
+  expect_in "and finds no snapshot" "$out" "Valkey snapshots of encabulator-valkey (us-east-2): none"
+  expect_not_in "and deletes none" "$log" "delete-serverless-cache-snapshot"
+
+  new_case "make remove-cell: a snapshot already being deleted is not deleted again"
+  snapshot_set "$snap" status=deleting
+  run CONFIRM=encabulator-use2 -- make remove-cell CELL=use2
+  expect_status "remove-cell succeeds" 0 "$status" "$out"
+  expect_in "and says so" "$out" "Valkey snapshot $snap (us-east-2) is already being deleted"
+  expect_not_in "with no second delete" "$log" "delete-serverless-cache-snapshot"
+
+  new_case "make remove-cell: an AWS error on the snapshot delete is never read as gone"
+  run CONFIRM=encabulator-use2 STUB_FAIL='elasticache delete-serverless-cache-snapshot' -- make remove-cell CELL=use2
+  expect_status "it stops" 2 "$status" "$out"
+  expect_in "and names the error" "$out" "aws elasticache delete-serverless-cache-snapshot failed for $snap in us-east-2: An error occurred (AccessDenied)"
+  expect_in "at the store step" "$out" "Stopped at step 8 at"
+  expect_not_in "never says it is gone" "$out" "already gone"
+  expect_eq "the snapshot is still there" "$(world "'$snap' in w['snapshots']['us-east-2']")" "True"
+}
+
 # The destroy-plan guard on its own, on the plans the stub's terraform would print.
 case_plan_guard() {
   new_case "teardown-plan-guard.py: every refusal"
@@ -516,7 +609,13 @@ case_gone_check() {
   expect_in "names the cluster" "$out" "FAIL   us-west-2 EKS clusters encabulator*: encabulator-usw2"
   expect_in "looks in the cell's region from gitops/hub/cells" "$out" "FAIL   us-east-2 EKS clusters encabulator*: encabulator-use2"
   expect_in "names the IAM roles" "$out" "FAIL   IAM roles encabulator*"
+  expect_in "names each cache snapshot with the time it expires" "$out" \
+    "FAIL   us-west-2 ElastiCache snapshots: automatic.encabulator-valkey-2026-10-15-09-48 (expires 2026-10-16T09:48:00+00:00)"
+  expect_in "in the cell's region too" "$out" \
+    "FAIL   us-east-2 ElastiCache snapshots: automatic.encabulator-valkey-2026-10-15-09-02 (expires 2026-10-16T09:02:00+00:00)"
   expect_not_in "makes no change" "$log" " delete"
+  run STUB_FAIL='elasticache describe-serverless-cache-snapshots --region us-west-2' -- make gone-check
+  expect_in "an AWS error listing the snapshots is a FAIL" "$out" "FAIL   us-west-2 ElastiCache snapshots: AWS error"
 
   new_case "make gone-check: nothing left" cells= hub=gone
   python3 - "$state/world.json" <<'PY'
@@ -567,7 +666,7 @@ case_unexpected() {
 
 all_cases=(case_plans case_helper case_plan_guard case_remove_cell case_remove_cell_guards case_remove_cell_resume
            case_teardown case_teardown_guards case_teardown_refusals case_teardown_resume case_teardown_progress
-           case_teardown_no_terraform case_ecr case_gone_check)
+           case_teardown_no_terraform case_cache_snapshots case_ecr case_gone_check)
 # scripts/teardown_test.sh case_gone_check ...: only those cases, no mutations, work kept.
 if [[ "${1:-}" == case_* ]]; then all_cases=("$@"); mutations=false; trap - EXIT; echo "work: $work"; fi
 make_version="$(make --version 2>/dev/null)"
@@ -622,6 +721,13 @@ case_teardown_progress|scripts/teardown.sh|s/\[\[ \$min -lt 1 \]\] \|\| printf '
 case_teardown_progress|scripts/teardown.sh|s/\| apply_progress \|\| rc=\$\{PIPESTATUS\[0\]\}/| apply_progress || rc=0/
 case_teardown_no_terraform|scripts/teardown.sh|s/list="\$\(state_list\)"\n  n="\$\(grep -c \. <<<"\$list" \|\| true\)"/n="\$(state_list | grep -c . || true)"/
 case_teardown_no_terraform|scripts/terraform-error.sh|s/NF && hit == "" && tolower/NF && 0 && tolower/
+case_cache_snapshots|scripts/teardown.sh|s/\n  snapshots_delete "\$r"\n\}/\n  [[ "\$TEARDOWN_STORES" == ack ]] || snapshots_delete "\$r"\n}/
+case_cache_snapshots|scripts/teardown.sh|s/the automatic snapshots of the cache need no hub:"\n    snapshots_delete "\$HUB_REGION"/the automatic snapshots of the cache need no hub:"/
+case_cache_snapshots|scripts/teardown.sh|s/tagged_project ("\$\(aws elasticache list-tags-for-resource --region "\$r" --resource-name "\$sarn")/true $1/
+case_cache_snapshots|scripts/teardown.sh|s/elif \[\[ "\$out" == \*ServerlessCacheSnapshotNotFoundFault\* \]\]; then/elif true; then/
+case_cache_snapshots|scripts/teardown.sh|s/if \[\[ "\$status" == deleting \]\]; then say "Valkey snapshot/if false; then say "Valkey snapshot/
+case_gone_check|scripts/gone-check.sh|s/\n  cache_snapshots "\$r"\n/\n/
+case_gone_check|scripts/gone-check.sh|s/: "expires " \$2/: "expires"/
 EOF
 }
 

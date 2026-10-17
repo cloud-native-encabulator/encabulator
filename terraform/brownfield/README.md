@@ -534,7 +534,8 @@ minutes). `--delete-automated-backups` removes the instance's automated backups;
 for a few minutes after the instance is gone.
 
 When your credentials may not delete RDS or ElastiCache resources, the hub's ACK can, while the
-hub runs. [`docs/teardown/adopt-hub-stores.yaml`](../../docs/teardown/adopt-hub-stores.yaml)
+hub runs, all but the cache's automatic snapshots ([Snapshots](#snapshots)).
+[`docs/teardown/adopt-hub-stores.yaml`](../../docs/teardown/adopt-hub-stores.yaml)
 adopts the instance and the cache with `adoption-policy: adopt` (read the existing resource,
 never create one) and `deletion-policy: delete`, plus
 `rds.services.k8s.aws/skip-final-snapshot: "true"` and
@@ -555,21 +556,32 @@ kubectl delete -f docs/teardown/adopt-hub-subnet-group.yaml
 #### Snapshots
 
 Each Valkey cache takes an automatic snapshot every day at 09:00 UTC and keeps it for one day
-(`snapshotRetentionLimit: 1`). The snapshot stays after the cache is deleted, until it expires.
-List them in us-west-2 and in every cell's region:
+(`snapshotRetentionLimit: 1`). The snapshot stays after the cache is deleted, until it expires,
+so a cache that has run through one 09:00 UTC leaves one behind. List them, with the time each
+one expires, in us-west-2 and in every cell's region:
 
 ```bash
 aws elasticache describe-serverless-cache-snapshots --region us-west-2 \
-  --query 'ServerlessCacheSnapshots[?contains(ServerlessCacheSnapshotName, `encabulator`)].ServerlessCacheSnapshotName' \
+  --query 'ServerlessCacheSnapshots[?contains(ServerlessCacheSnapshotName, `encabulator`)].[ServerlessCacheSnapshotName,ExpiryTime]' \
   --output text
 ```
 
-Let each one expire, or delete it through the hub's ACK with
-[`docs/teardown/adopt-cache-snapshot.yaml`](../../docs/teardown/adopt-cache-snapshot.yaml)
-(fill in the region and the snapshot name, apply, wait for `ACK.ResourceSynced`, delete the
-object), or with
-`aws elasticache delete-serverless-cache-snapshot --region <region> --serverless-cache-snapshot-name <name>`
-(not exercised).
+Let each one expire, or delete it with the AWS CLI:
+
+```bash
+aws elasticache delete-serverless-cache-snapshot --region us-west-2 --serverless-cache-snapshot-name <name>
+```
+
+The hub's ACK cannot delete a snapshot whose cache is gone. Its `ServerlessCacheSnapshot` needs
+`spec.serverlessCacheName` (without it `ACK.ReferencesResolved` stays `Unknown`), and ACK reads
+the snapshot with `DescribeServerlessCacheSnapshots` filtered by that cache, which answers
+`ServerlessCacheNotFoundFault` once the cache is deleted, so the object never reaches
+`ACK.ResourceSynced`. `make teardown` and `make remove-cell` therefore delete these snapshots
+with the AWS CLI with either `TEARDOWN_STORES`, after checking that each one belongs to
+`encabulator-valkey` and carries `project=encabulator`; with `TEARDOWN_STORES=ack` your
+credentials still need `elasticache:DeleteServerlessCacheSnapshot`. One that expires before the
+delete counts as gone. `make gone-check` lists a snapshot that is left as a FAIL, with the time
+it expires.
 
 ### ECR repositories
 

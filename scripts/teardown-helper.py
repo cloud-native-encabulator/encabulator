@@ -28,7 +28,6 @@ ID_FIELDS = {
     "DBInstance": "dbInstanceIdentifier",
     "ServerlessCache": "serverlessCacheName",
     "DBSubnetGroup": "name",
-    "ServerlessCacheSnapshot": "serverlessCacheSnapshotName",
     "Role": "name",
 }
 
@@ -104,7 +103,7 @@ def render(path, kind, values):
             line = re.sub(r"'\{.*\}'", "'" + json.dumps(fields, separators=(",", ":")) + "'", line)
         elif section == "spec" and "id" in values and re.match(rf"^  {ID_FIELDS.get(kind, '-')}: ", line):
             line = f"  {ID_FIELDS[kind]}: {values['id']}"
-        for key, placeholder in (("vpc", "<vpc-id>"), ("rtb", "<rtb-id>"), ("region", "<region>"), ("id", "<snapshot-name>")):
+        for key, placeholder in (("vpc", "<vpc-id>"), ("rtb", "<rtb-id>"), ("region", "<region>")):
             if placeholder in line and key in values:
                 line = line.replace(placeholder, values[key])
         out.append(line)

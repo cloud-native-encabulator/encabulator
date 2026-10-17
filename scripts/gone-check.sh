@@ -14,7 +14,9 @@
 #   - an AWS error (expired credentials, access denied, throttling) is a FAIL, never "gone";
 #   - the tagging index lags by hours, so each entry it lists is asked for in its own service,
 #     and one that service no longer knows is counted as stale, not as left;
-#   - the EC2 instant-fleet records EKS Auto Mode leaves are a WARN: no cost, nothing to delete.
+#   - the EC2 instant-fleet records EKS Auto Mode leaves are a WARN: no cost, nothing to delete;
+#   - a Valkey cache's automatic snapshot outlives the cache by up to a day: a FAIL, with the
+#     time it expires.
 # Exit 0 only when no check FAILs. Account ids are printed as <account-id>.
 set -uo pipefail
 
@@ -116,6 +118,18 @@ index() {
   [[ $n_fleet -eq 0 ]] || warn "$r $n_fleet EC2 instant-fleet records from EKS Auto Mode (no cost, nothing to delete)"
 }
 
+# cache_snapshots REGION: a cache's automatic snapshots stay after the cache, until they expire
+# (a day here), and cost money until then: a FAIL that names each one with its expiry time.
+cache_snapshots() {
+  local r="$1" out rc
+  out="$(aws elasticache describe-serverless-cache-snapshots --region "$r" \
+    --query 'ServerlessCacheSnapshots[?contains(ServerlessCacheSnapshotName, `encabulator`)].[ServerlessCacheSnapshotName,ExpiryTime]' --output text 2>&1)"
+  rc=$?
+  [[ $rc -ne 0 ]] || out="$(awk -F'\t' '$1 != "" && $1 != "None" {
+    printf "%s (%s)\n", $1, ($2 == "" || $2 == "None") ? "no expiry time" : "expires " $2 }' <<<"$out")"
+  result "$r ElastiCache snapshots" "$rc" "$out"
+}
+
 region_checks() {
   local r="$1" q='Name=tag:project,Values=encabulator' up='pending,running,stopping,stopped,shutting-down'
   echo "== $r"
@@ -156,8 +170,7 @@ region_checks() {
     --query 'DBInstanceAutomatedBackups[?starts_with(DBInstanceIdentifier, `encabulator`)].DBInstanceIdentifier' --output text
   c "$r ElastiCache serverless caches" aws elasticache describe-serverless-caches --region "$r" \
     --query 'ServerlessCaches[?starts_with(ServerlessCacheName, `encabulator`)].ServerlessCacheName' --output text
-  c "$r ElastiCache snapshots" aws elasticache describe-serverless-cache-snapshots --region "$r" \
-    --query 'ServerlessCacheSnapshots[?contains(ServerlessCacheSnapshotName, `encabulator`)].ServerlessCacheSnapshotName' --output text
+  cache_snapshots "$r"
   c "$r ECR repositories" aws ecr describe-repositories --region "$r" \
     --query 'repositories[?starts_with(repositoryName, `encabulator`)].repositoryName' --output text
   c "$r log groups" aws logs describe-log-groups --region "$r" --query 'logGroups[?contains(logGroupName, `encabulator`)].logGroupName' --output text
