@@ -11,7 +11,7 @@ own.
 | `healthy` | nothing wrong (the control) | healthy; do not invent a problem |
 | `argocd-retrying` | a new cell's app Degraded, "Retrying attempt #1" | the NodePool's first seconds; heals in 3 to 5 minutes; wait |
 | `image-pull` | the gateway on the cell in ImagePullBackOff | the GHCR package is private (401); make it public, or mirror |
-| `ack-snapshot` | an adopted cache snapshot not synced | its cache is gone; adopt by snapshot name only; teardown work, off stage |
+| `ack-snapshot` | an adopted cache snapshot not synced | its cache is gone, so ACK never syncs it; delete the snapshot with the AWS CLI; teardown work, off stage |
 | `kro-waiting-hub` | the cell stays IN_PROGRESS | the hub is not registered; `make gitops-register`, after asking |
 | `crashloop` | the order processor in CrashLoopBackOff | NATS is still recovering; wait for it; the processor recovers |
 | `cell-not-active` | the cell not ACTIVE ten minutes in | normal; the cluster takes about 13 minutes; fallback cell if late |

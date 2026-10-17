@@ -159,7 +159,7 @@ EOF
   run "ACK snapshot whose cache is gone" ack-snapshot --explain
   expect_status 1
   expect_in "FAIL  ack      ServerlessCacheSnapshot encabulator/automatic.encabulator-valkey-2026-10-15-09-02: ServerlessCacheNotFoundFault"
-  expect_in "Adopt it by snapshot name only (docs/teardown/adopt-cache-snapshot.yaml)"
+  expect_in "Delete the snapshot with aws elasticache delete-serverless-cache-snapshot, as make teardown does"
   expect_in "never on stage"
 
   run "kro cell waiting for the hub's registration" kro-waiting-hub --explain

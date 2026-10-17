@@ -113,6 +113,9 @@ NOT_KINDS = {
     "Running", "Pending", "Failed", "Succeeded", "Active", "Inactive", "Modifying", "Unknown",
     "None",
 }
+# Kinds the health check watches that no manifest creates any more: a ServerlessCacheSnapshot
+# is what make teardown left on the hub before it deleted cache snapshots with the AWS CLI.
+WATCHED_ONLY = {("elasticache.services.k8s.aws", "ServerlessCacheSnapshot")}
 # Files that exist only on a machine that ran the stack, never in Git.
 RUNTIME_ONLY = (".tfstate", ".lock.info")
 
@@ -197,7 +200,7 @@ class References(unittest.TestCase):
         self.assertTrue((ROOT / "scripts/check-agent-skills.sh").stat().st_mode & 0o100)
 
     def test_kinds_exist_in_the_manifests(self):
-        pairs = repo_kinds()
+        pairs = repo_kinds() | WATCHED_ONLY
         kinds = {k for _, k in pairs} | CORE_KINDS
         self.assertIn(("rds.services.k8s.aws", "DBInstance"), pairs)
         unknown = []

@@ -11,8 +11,9 @@ synced and the app is healthy, so the demo is not in danger. It is a leftover of
 
 ## Safe fix
 READ ONLY on stage: say it is unrelated to the running app. Off stage, CHANGES THINGS after
-asking: adopt the snapshot by `serverlessCacheSnapshotName` alone
-(`docs/teardown/adopt-cache-snapshot.yaml`), then delete that object to delete the snapshot.
+asking: delete the snapshot itself with `aws elasticache delete-serverless-cache-snapshot`, as
+`make teardown` does, or let it expire within a day. ACK can never read or delete a snapshot
+whose cache is gone, so adopting it again does not help.
 Audience line: ACK keeps a note of why it cannot finish, and this one is about a snapshot of a
 cache we already removed.
 
