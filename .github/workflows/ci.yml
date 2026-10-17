@@ -298,6 +298,14 @@ jobs:
         # aws, kubectl, helm and terraform stubbed by a simulated account and hub: the step
         # order, the guards, a stop and a re-run, an empty Terraform state, the destroy-plan guard.
         run: ./scripts/teardown_test.sh
+      - name: the images workflow, offline
+        # images.yml's triggers (docs-only pushes build nothing, and no ignored path is in an
+        # image), its anonymous GHCR check job and scripts/mirror-images.sh --check, with curl
+        # stubbed. It reads the workflow with PyYAML.
+        run: |
+          python3 -c 'import yaml' 2>/dev/null \
+            || sudo apt-get install -y --no-install-recommends python3-yaml
+          ./scripts/images-workflow_test.sh
 
   # -------------------------------------------------------------------- agent skills
   skills:

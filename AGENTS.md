@@ -26,7 +26,7 @@ on EKS Auto Mode that builds whole regions (cells) with Argo CD, ACK and kro.
 
 - Code: `make build`, `make test`, `make lint`, `make lint-charts`.
 - Offline checks CI runs: `make gitops-render-check`, `make gitops-test`, `make skills-check`,
-  `scripts/make-flow_test.sh`, `scripts/teardown_test.sh`.
+  `scripts/make-flow_test.sh`, `scripts/teardown_test.sh`, `scripts/images-workflow_test.sh`.
 - Read-only on a live deployment: `make ops-health`, `make status`, `make prereqs`,
   `make tag-check`, `make gone-check`.
 - They change or create things (ask first): `make hub`, `make add-cell`, `make deploy`,

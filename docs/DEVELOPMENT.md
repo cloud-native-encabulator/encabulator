@@ -106,7 +106,10 @@ inside the service directory.
 
 Images default to `ghcr.io/cloud-native-encabulator/encabulator/<service>:<VERSION>`. Override with
 `REGISTRY=` and `VERSION=`. In normal use you do not build images at all: the `images.yml` workflow
-builds multi-architecture images on every push to `main` and on tags.
+builds multi-architecture images on every push to `main` that changes more than docs, and on tags.
+Its last job pulls every image of that version with no credential and fails the run while a GHCR
+package is still private (new packages start private; make each public once in its settings on
+GitHub, as there is no API for it).
 
 ### Go image builds and corporate DNS
 
