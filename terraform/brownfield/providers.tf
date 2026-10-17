@@ -7,6 +7,12 @@ provider "aws" {
   default_tags {
     tags = local.tags
   }
+
+  # Once ACK adopts RDS and ElastiCache it adds its own eks: tags to them. Without this, a
+  # second make hub would strip them (and ACK put them back), a change on every run.
+  ignore_tags {
+    key_prefixes = ["eks:"]
+  }
 }
 
 # The Kubernetes and Helm providers talk to the hub cluster this stack creates. They use

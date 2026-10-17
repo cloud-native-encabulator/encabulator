@@ -32,6 +32,8 @@ ecr="111122223333.dkr.ecr.us-west-2.amazonaws.com/encabulator"
 ghcr="ghcr.io/cloud-native-encabulator/encabulator"
 arn="arn:aws:sso:::instance/ssoins-1111111111111111"
 group="a1b2c3d4e5-11111111-2222-3333-4444-555555555555"
+# What brownfield-apply runs before Terraform, so the state it writes is mode 600.
+tf_private="umask 077; chmod -f 600 terraform/brownfield/terraform.tfstate terraform/brownfield/terraform.tfstate.backup 2>/dev/null;"
 services=()
 while IFS= read -r s; do services+=("$s"); done < <("$root/scripts/services.sh" names)
 version="$(tr -d '[:space:]' <"$root/VERSION")"
@@ -123,7 +125,8 @@ expect_in "help shows the default registry" "$out" "$ghcr"
 mk -- make -n brownfield-plan
 expect_eq "brownfield-plan prints what it printed before" "$(cat "$out")" "terraform -chdir=terraform/brownfield plan"
 mk -- make -n brownfield-apply
-expect_eq "brownfield-apply prints what it printed before" "$(cat "$out")" "terraform -chdir=terraform/brownfield apply"
+expect_eq "brownfield-apply prints what it printed before, under a private umask" "$(cat "$out")" \
+  "$tf_private terraform -chdir=terraform/brownfield apply"
 mk -- make -n brownfield-init brownfield-test
 expect_eq "brownfield-init and brownfield-test unchanged" "$(cat "$out")" \
   "terraform -chdir=terraform/brownfield init"$'\n'"terraform -chdir=terraform/brownfield init -backend=false"$'\n'"terraform -chdir=terraform/brownfield test"
@@ -161,7 +164,7 @@ expect_eq ".env values reach the recipes, parsed" "$(cat "$out")" "$(printf '%s\
   "REGISTRY=registry.example.com/team")"
 mk -- make -n brownfield-apply
 expect_eq "Terraform gets the Identity Center values as TF_VAR_ on its command line" "$(cat "$out")" \
-  "TF_VAR_idc_instance_arn='$arn' TF_VAR_argocd_admin_group_id='$group' terraform -chdir=terraform/brownfield apply"
+  "$tf_private TF_VAR_idc_instance_arn='$arn' TF_VAR_argocd_admin_group_id='$group' terraform -chdir=terraform/brownfield apply"
 mk REGISTRY=env.example.com/x GIT_REVISION=from-env -- make print-env
 expect_in "the shell environment wins over .env (REGISTRY)" "$out" "REGISTRY=env.example.com/x"
 expect_in "the shell environment wins over .env (GIT_REVISION)" "$out" "GIT_REVISION=from-env"
@@ -282,6 +285,12 @@ expect_in "it says when mirroring needs one" "$out" "make mirror-images will bui
 mk STUB_GHCR_HAVE=all -- make prereqs
 expect_in "and when it does not" "$out" "no container runtime needed: every image is on GHCR"
 write_env
+mk STUB_GHCR_HAVE=none -- make prereqs
+expect_status "with a runtime, images missing on GHCR are only a warning" 0 "$status" "$out"
+expect_in "that says make hub will build them into ECR" "$out" \
+  "make hub will build them with docker into Amazon ECR in this account (make mirror-images)"
+mk STUB_GHCR_HAVE=all -- make prereqs
+expect_not_in "and with every image on GHCR there is no such warning" "$out" "GHCR does not have every image"
 : >"$repo/terraform/brownfield/encabulator.auto.tfvars"
 mk -- make prereqs
 expect_in "an encabulator.auto.tfvars is pointed out" "$out" "encabulator.auto.tfvars exists"
@@ -331,11 +340,13 @@ markers=(
 )
 last=0 order_ok=true
 for m in "${markers[@]}"; do
-  n="$(grep -nF -- "$m" "$log" | head -n 1 | cut -d: -f1)"
-  if [[ -z "$n" || "$n" -le "$last" ]]; then order_ok=false; bad "step out of order or missing: $m" "$(cat "$log")"; break; fi
+  # The first line with the marker AFTER the previous marker: prereqs also asks GHCR first.
+  n="$(awk -v after="$last" -v m="$m" 'NR > after && index($0, m) { print NR; exit }' "$log")"
+  if [[ -z "$n" ]]; then order_ok=false; bad "step out of order or missing: $m" "$(cat "$log")"; break; fi
   last="$n"
 done
 $order_ok && ok "the steps ran in order: ${#markers[@]} markers"
+expect_in "Terraform applies under umask 077, so its state files are mode 600" "$log" "terraform apply umask 0077"
 expect_in "Helm deploys from the ECR mirror" "$log" "--set global.registry=$ecr"
 expect_in "Helm deploys VERSION" "$log" "--set global.imageTag=$version"
 expect_in "the GitOps steps get the registry, the Git settings and the hub region" "$log" \

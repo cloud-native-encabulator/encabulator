@@ -287,8 +287,11 @@ brownfield-test: ## Offline contract checks for the Terraform stack (no AWS call
 brownfield-plan: ## terraform plan (needs AWS credentials and terraform/brownfield/encabulator.auto.tfvars)
 	$(TF_RUN) -chdir=$(TF_DIR) plan
 
+# The state holds the generated passwords: umask 077 keeps every file Terraform writes at
+# mode 600, and the chmod fixes a state an earlier apply left readable.
+TF_STATE_PRIVATE = umask 077; chmod -f 600 $(TF_DIR)/terraform.tfstate $(TF_DIR)/terraform.tfstate.backup 2>/dev/null;
 brownfield-apply: ## terraform apply: VPC, EKS Auto Mode, RDS, ElastiCache and the Argo CD, ACK and kro capabilities (about 25 minutes, costs money)
-	$(TF_RUN) -chdir=$(TF_DIR) apply$(if $(TF_APPLY_ARGS), $(TF_APPLY_ARGS))
+	$(TF_STATE_PRIVATE) $(TF_RUN) -chdir=$(TF_DIR) apply$(if $(TF_APPLY_ARGS), $(TF_APPLY_ARGS))
 
 brownfield-deploy: ## Deploy the app onto the hub's RDS and ElastiCache (run `make platform` first)
 	@REGISTRY=$(call sh_quote,$(REGISTRY)) ./$(TF_DIR)/deploy-app.sh

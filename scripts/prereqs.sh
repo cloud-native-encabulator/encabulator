@@ -195,6 +195,11 @@ fi
 # ------------------------------------------------------------- container runtime
 if have "$CONTAINER_RUNTIME"; then
   ok "container runtime $CONTAINER_RUNTIME"
+  # With a runtime installed, make hub builds whatever GHCR lacks without asking: say so first.
+  if [[ "$REGISTRY" == "$default_registry" ]] && have curl \
+      && ! "$repo_root/scripts/mirror-images.sh" --check >/dev/null 2>&1; then
+    warn "GHCR does not have every image at $(tr -d '[:space:]' <VERSION)" "make hub will build them with $CONTAINER_RUNTIME into Amazon ECR in this account (make mirror-images); scripts/mirror-images.sh --check names the missing ones, and once it passes make hub uses GHCR"
+  fi
 elif [[ "$REGISTRY" != "$default_registry" ]]; then
   warn "$CONTAINER_RUNTIME not found" "needed only to build images into REGISTRY (make mirror-images); set CONTAINER_RUNTIME=docker or finch"
 elif have curl && "$repo_root/scripts/mirror-images.sh" --check >/dev/null 2>&1; then
