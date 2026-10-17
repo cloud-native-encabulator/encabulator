@@ -64,7 +64,106 @@ with `values-eks-auto-mode.yaml`, `values-brownfield.yaml` and `--set postgres.e
 --set valkey.external.host=...` (`DRY_RUN=1` prints the command).
 
 State is local (`terraform.tfstate`, gitignored) and holds the generated passwords. Use a remote
-backend if more than one person runs the stack.
+backend if more than one person runs the stack. `make brownfield-apply` (and so `make hub`) runs
+Terraform under `umask 077`, so `terraform.tfstate` and `terraform.tfstate.backup` are mode 600.
+
+### If make hub was interrupted
+
+After a failed step, or a single Ctrl-C (Terraform then finishes the calls in flight and saves the
+state), run `make hub` again. If the Terraform process was killed instead (a closed terminal, a
+lost session, `kill -9`), what it was still creating exists in AWS but not in the state. In a run
+killed two minutes into the apply that was the EKS cluster `encabulator-usw2`, the RDS instance
+`encabulator-pg` and the hub's NAT gateway. A plain re-run would then collide with the cluster and
+the instance and create a second NAT gateway, so adopt them first. From the repository root, in
+the shell you ran `make hub` from:
+
+```bash
+tf="${TERRAFORM:-terraform}"   # the Terraform make uses
+
+# 1. Let AWS finish creating them (the cluster takes about 12 minutes).
+aws eks wait cluster-active --region us-west-2 --name encabulator-usw2
+aws rds wait db-instance-available --region us-west-2 --db-instance-identifier encabulator-pg
+
+# 2. A killed apply leaves its lock note behind. When force-unlock answers
+#    "LocalState not locked", the note is all that is left: delete it.
+rm -f terraform/brownfield/.terraform.tfstate.lock.info
+
+# 3. What the state lacks, and the id of the hub VPC's NAT gateway.
+$tf -chdir=terraform/brownfield state list | grep -E 'aws_eks_cluster|aws_db_instance|aws_nat_gateway'
+vpc=$($tf -chdir=terraform/brownfield state show -no-color 'module.vpc.aws_vpc.this[0]' \
+  | awk '$1 == "id" { gsub(/"/, "", $3); print $3 }')
+aws ec2 describe-nat-gateways --region us-west-2 --filter Name=vpc-id,Values="$vpc" \
+  Name=state,Values=pending,available --query 'NatGateways[].NatGatewayId' --output text
+```
+
+`terraform import` cannot adopt them here (`Error: Invalid provider configuration`: the Kubernetes
+and Helm providers need the cluster in the state), so use import blocks. An import also reads the
+cluster's two bootstrap settings as `true`, which the EKS API does not return, and the plan would
+then replace the cluster (`bootstrap_self_managed_addons = true -> false # forces replacement`).
+Two temporary files avoid both; leave out the blocks for anything `state list` already shows, and
+put the NAT gateway id from step 3 in place of `nat-0123456789abcdef0`:
+
+```hcl
+# terraform/brownfield/imports.tf (temporary)
+import {
+  to = module.vpc.aws_nat_gateway.this[0]
+  id = "nat-0123456789abcdef0"
+}
+import {
+  to = aws_eks_cluster.hub
+  id = "encabulator-usw2"
+}
+import {
+  to = aws_db_instance.pg
+  id = "encabulator-pg"
+}
+```
+
+```hcl
+# terraform/brownfield/zz_recover_override.tf (temporary)
+resource "aws_eks_cluster" "hub" {
+  lifecycle {
+    ignore_changes = [bootstrap_self_managed_addons, access_config, tags]
+  }
+}
+resource "aws_db_instance" "pg" {
+  lifecycle {
+    ignore_changes = [engine_version, password, apply_immediately]
+  }
+}
+```
+
+```bash
+# 4. Import only those three. Answer yes only to "Plan: 3 to import, 0 to add, 0 to change,
+#    0 to destroy."
+make brownfield-apply TF_APPLY_ARGS="-target='module.vpc.aws_nat_gateway.this[0]' -target=aws_eks_cluster.hub -target=aws_db_instance.pg"
+
+# 5. Write into the state what the first apply set and an import cannot read back: both
+#    bootstrap settings false, the configured engine version (postgres_engine_version, 18 by
+#    default), the generated password and apply_immediately. Nothing is printed.
+(cd terraform/brownfield && umask 077 && cp -p terraform.tfstate terraform.tfstate.pre-import-fix \
+  && $tf state pull > state.json && python3 - <<'PY' && $tf state push state.json; rm -f state.json)
+import json
+s = json.load(open("state.json"))
+def attrs(typ, name):
+    return next(r for r in s["resources"] if r["type"] == typ and r["name"] == name)["instances"][0]["attributes"]
+c = attrs("aws_eks_cluster", "hub")
+c["bootstrap_self_managed_addons"] = False
+c["access_config"][0]["bootstrap_cluster_creator_admin_permissions"] = False
+d = attrs("aws_db_instance", "pg")
+d.update(engine_version="18", password=attrs("random_password", "postgres")["result"], apply_immediately=True)
+s["serial"] += 1
+json.dump(s, open("state.json", "w"))
+PY
+
+# 6. Remove the two files. The plan must now create only: no change, no destroy, no replacement.
+rm terraform/brownfield/imports.tf terraform/brownfield/zz_recover_override.tf
+make brownfield-plan
+make hub
+```
+
+`make tag-check` afterwards confirms that what the killed apply created carries its tags:
+Terraform sends the tags in each create call, so they are there even on a resource it lost.
 
 ## Act 1 hand-off
 

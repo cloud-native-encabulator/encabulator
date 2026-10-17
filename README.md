@@ -266,8 +266,10 @@ make tag-check           # read-only, 10 minutes after the last step: no AWS res
 | `platform`, `brownfield-deploy` | the observability platform, then the app on RDS and ElastiCache |
 | `gitops-register`, `gitops-repo-access`, `gitops-bootstrap` | Argo CD takes over from Git: it syncs `gitops/hub/brownfield` and ACK adopts RDS and ElastiCache ([`gitops/hub/bootstrap/README.md`](gitops/hub/bootstrap/README.md)) |
 
-It stops at the first step that fails, names it, and is safe to run again. `CONFIRM=yes` answers
-its question for you. A value on the make command line or in your shell wins over `.env`, so
+It stops at the first step that fails, names it, and is safe to run again. If the Terraform
+process itself was killed (a closed terminal rather than one Ctrl-C), adopt what it was still
+creating first: [If make hub was interrupted](terraform/brownfield/README.md#if-make-hub-was-interrupted).
+`CONFIRM=yes` answers its question for you. A value on the make command line or in your shell wins over `.env`, so
 `make hub REGISTRY=...` works too. `TERRAFORM` is the one setting that is not read from `.env`: it
 comes from your shell (the `export` above) or the make command line, for example
 `make hub TERRAFORM="mise exec terraform@1.14.9 -- terraform"`. To deploy from your own fork or

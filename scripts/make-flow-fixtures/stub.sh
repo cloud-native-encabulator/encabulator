@@ -107,7 +107,9 @@ case "$tool" in
     [[ "${1:-}" == -chdir=* ]] || unknown "$@"
     case "${2:-}" in
       init|plan) ;;
-      apply) [[ "${STUB_TF_APPLY_FAIL:-}" == 1 ]] && { echo "Error: stub apply failed" >&2; exit 1; } ;;
+      apply)
+        log "terraform apply umask $(umask)"
+        [[ "${STUB_TF_APPLY_FAIL:-}" == 1 ]] && { echo "Error: stub apply failed" >&2; exit 1; } ;;
       output)
         [[ "${3:-} ${4:-}" == "-raw kubeconfig_command" ]] || unknown "$@"
         # STUB_TF_OUTPUT: none (no outputs in the state: a warning, exit 0), missing (the output
