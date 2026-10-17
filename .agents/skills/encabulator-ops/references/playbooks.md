@@ -64,9 +64,10 @@ What it means:
   a new cell and clear by themselves.
 - `ACK.Terminal`: ACK will not retry; the spec has an invalid value. It changes in Git.
 - An adopted cache snapshot with `ServerlessCacheNotFoundFault`: ACK reads a snapshot by its
-  cache's name, and the cache is gone. Adopting by `serverlessCacheSnapshotName` alone works
-  (`docs/teardown/adopt-cache-snapshot.yaml`); the object then shows `ACK.ReferencesResolved`
-  Unknown, and deleting it still deletes the snapshot. Teardown work, never on stage.
+  cache's name, and the cache is gone; without the name, `ACK.ReferencesResolved` stays Unknown.
+  Either way ACK can never read or delete it. Delete the snapshot with
+  `aws elasticache delete-serverless-cache-snapshot`, as `make teardown` does, or let it expire
+  within a day (`terraform/brownfield/README.md`, Snapshots). Teardown work, never on stage.
 - An adopted store whose spec differs from AWS: ACK modifies AWS toward Git. That is the Act 1
   demo (backup retention 7 to 14 makes RDS show Modifying); unplanned, it means Git and Terraform
   disagree on a value listed in `gitops/hub/brownfield/README.md`.

@@ -111,7 +111,7 @@ explain_rule() {
     kro.in-progress) echo "kro is still creating or waiting for resources of this instance, in graph order. A new cell is IN_PROGRESS for about 20 minutes; the message names what it waits for." ;;
     kro.failed) echo "kro could not reconcile this instance. The message names the resource; read its ACK conditions (the ack lines) for the AWS error." ;;
     ack.pending) echo "ACK is waiting for AWS (a NAT gateway or a cluster still being created). Normal; it clears by itself." ;;
-    ack.snapshot-cache-gone) echo "An adopted cache snapshot is read by its cache name, and the cache is gone. Adopt it by snapshot name only (docs/teardown/adopt-cache-snapshot.yaml). Teardown work, never on stage." ;;
+    ack.snapshot-cache-gone) echo "An adopted cache snapshot is read by its cache name, and the cache is gone, so ACK can never read or delete it. Delete the snapshot with aws elasticache delete-serverless-cache-snapshot, as make teardown does, or let it expire within a day. Teardown work, never on stage." ;;
     ack.terminal) echo "ACK hit an error it will not retry (ACK.Terminal), for example an invalid value. The spec in Git has to change." ;;
     ack.not-synced) echo "ACK has not brought this AWS resource in line with its spec yet. ACK.Recoverable carries the AWS error and ACK retries on its own." ;;
     ready.not-ready) echo "Not Ready yet. A NodePool reads Degraded for about 10 seconds while its NodeClass validates; a ScaledObject that is not Ready means KEDA cannot read its trigger." ;;

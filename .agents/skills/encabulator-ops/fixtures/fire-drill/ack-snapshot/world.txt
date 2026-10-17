@@ -1,7 +1,7 @@
 # Fire drill world: an adopted ElastiCache snapshot that ACK cannot read because its cache is gone.
-# From the teardown of the first cold run: adopting the automatic snapshot with
-# serverlessCacheName in the adoption fields failed with ServerlessCacheNotFoundFault once the
-# cache was deleted; adopting it by serverlessCacheSnapshotName alone worked.
+# From teardown work: an object adopting the automatic snapshot never synced once the cache was
+# deleted (ServerlessCacheNotFoundFault with the cache name, ACK.ReferencesResolved Unknown
+# without it); the AWS CLI deleted the snapshot.
 # Controller wording is reconstructed. `|` stands for a tab.
 ## base healthy
 ## ack
