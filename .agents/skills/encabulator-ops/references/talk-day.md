@@ -61,5 +61,5 @@ check the result before the next:
 - `kubectl get dbinstances` resolves to DocumentDB: type `dbinstances.rds`.
 - `make gitops-bootstrap` never applies `hub-cells`; that is why `use2` does not build on its own.
 - Argo CD's first sync of a new cell shows "Retrying attempt #1" for 3 to 5 minutes; it heals.
-- Git is polled every 3 minutes; refresh the Application right after a live push.
+- Refresh the Application right after every push: `kubectl -n argocd annotate application <app> argocd.argoproj.io/refresh=normal --overwrite`. In a rehearsal on 2026-11-27 the hub had not picked up a merged commit 7 minutes later; the refresh synced it in 15 seconds.
 - Image tag: `VERSION`, the chart and the RGD say `1.0.4`. Some docs still say `1.0.3`; trust the files.
