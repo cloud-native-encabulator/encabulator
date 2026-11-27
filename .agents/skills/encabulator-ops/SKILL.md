@@ -1,6 +1,6 @@
 ---
 name: encabulator-ops
-description: Operate, explain and troubleshoot the Cloud Native Encabulator and its GitHub project, live on stage or at a desk. Use when asked whether the demo is healthy, why the hub or a cell is broken, or how something works. Covers Argo CD OutOfSync or Degraded, an ACK resource not synced (RDS, ElastiCache, IAM, EC2, EKS), a kro ResourceGraphDefinition or instance stuck, a cell not ACTIVE, ImagePullBackOff, CrashLoopBackOff, orders not delivered, KEDA scaling, make hub, make add-cell or another make target failing, a Terraform state lock, Identity Center or Argo CD login, EC2 capacity, a failing CI check or the images workflow. Also use to explain EKS Auto Mode, EKS Capabilities, Argo CD, ACK and kro to an audience. Reads first, answers in a few lines, and asks before any change.
+description: Operate, explain and troubleshoot the Cloud Native Encabulator and its GitHub project, live on stage or at a desk. Use when asked whether the demo is healthy, why the hub or a cell is broken, or how something works. Covers Argo CD OutOfSync or Degraded, an ACK resource not synced (RDS, ElastiCache, IAM, EC2, EKS), a kro ResourceGraphDefinition or instance stuck, a cell not ACTIVE, what to run next on the day of the OPN315 talk or in a rehearsal, ImagePullBackOff, CrashLoopBackOff, orders not delivered, KEDA scaling, make hub, make add-cell or another make target failing, a Terraform state lock, Identity Center or Argo CD login, EC2 capacity, a failing CI check or the images workflow. Also use to explain EKS Auto Mode, EKS Capabilities, Argo CD, ACK and kro to an audience. Reads first, answers in a few lines, and asks before any change.
 ---
 
 # encabulator-ops
@@ -59,6 +59,10 @@ ids. The script exits 0 with no FAIL, 1 with at least one, 2 when the cluster is
 | a red check on a pull request, images missing | GitHub Actions, CI and the images workflow |
 | any other `make` target failing | make target failures |
 | `cluster` unreachable | Cluster unreachable |
+
+On the day of the talk, or in a rehearsal, "what do I run next?" is answered by
+[references/talk-day.md](references/talk-day.md): find the stage with read-only checks, then give
+the next command from [docs/opn315/COMMANDS.md](../../../docs/opn315/COMMANDS.md).
 
 ## Answer shape
 
