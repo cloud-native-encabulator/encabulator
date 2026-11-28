@@ -14,7 +14,7 @@ metadata:
     argocd.argoproj.io/sync-options: SkipDryRunOnMissingResource=true
 spec:
   imageTag: "1.0.4"
-  dbInstanceClass: db.t4g.medium
+  dbInstanceClass: db.t4g.large
   subnetIDs:
     - subnet-00000000000000001
     - subnet-00000000000000002
