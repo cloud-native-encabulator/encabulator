@@ -5,3 +5,4 @@ kind: Kustomization
 resources:
   - subnet-group.yaml
   - valkey.yaml
+  - postgres.yaml
